@@ -141,6 +141,22 @@ body {
   font-size: 14px;
 }
 
+/* Prevent short events from breaking words mid-word in week/day time grid.
+   If the event block is too small (e.g., < 30 minutes), truncate with ellipsis instead. */
+.rbc-day-slot .rbc-event {
+  overflow: hidden;
+}
+
+.rbc-day-slot .rbc-event-content,
+.rbc-day-slot .rbc-event-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
+  overflow-wrap: normal;
+  hyphens: none;
+}
+
 .rbc-day-slot .rbc-events-container {
   margin-right: 0 !important;
 }
