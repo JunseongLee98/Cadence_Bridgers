@@ -106,14 +106,13 @@ export default function Home() {
 
   // Color palette for subscribed ICS calendars (pastels + a few stronger options)
   const ICS_SUBSCRIPTION_COLORS = [
-    '#bfdbfe', '#93c5fd', '#60a5fa', // blues
-    '#bbf7d0', '#86efac', '#4ade80', // greens
-    '#fed7aa', '#fdba74', '#fb923c', // oranges
-    '#fecaca', '#fca5a5', '#f87171', // reds
-    '#e9d5ff', '#d8b4fe', '#c084fc', // purples
-    '#fbcfe8', '#f9a8d4', '#f472b6', // pinks
-    '#e0e7ff', '#c7d2fe', '#a5b4fc', // indigo
-    '#fef3c7', '#fde68a', '#fcd34d', // yellows
+    '#A8C5E6', '#8FB8ED', '#9DB4D6', // blues
+    '#B39DDB', '#C5A3D9', '#9FA8DA', // lavenders
+    '#A8D5BA', '#B7D7A8', '#CBE7B8', // greens
+    '#F2D0A9', '#E8C4A2', '#DDB892', // warm neutrals
+    '#E6A4B4', '#D4A5C8', '#E8BFCF', // pinks
+    '#C7C7E2', '#D6D1F0', '#B8C0E0', // indigo
+    '#EADFA4', '#F0E2A8', '#E8D8A8', // yellows 
   ];
 
   // Load data from localStorage on mount
@@ -1136,7 +1135,7 @@ export default function Home() {
                               {isLoadingICSSubscription ? 'Refreshing…' : 'Refresh all'}
                             </button>
                           </div>
-                          <div className="space-y-1 max-h-32 overflow-y-auto">
+                          <div className={`space-y-1 max-h-32 transition-all`}>
                             {icsSubscriptions.map((sub) => (
                               <div
                                 key={sub.id}
