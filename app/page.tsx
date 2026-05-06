@@ -32,6 +32,7 @@ export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [tasksDropdownOpen, setTasksDropdownOpen] = useState(false);
   const [isAddingTask, setIsAddingTask] = useState(false);
+  const [autoScheduleNewTask, setAutoScheduleNewTask] = useState(true);
   const [taskSidebarTab, setTaskSidebarTab] = useState<'active' | 'completed'>('active');
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [newTask, setNewTask] = useState({
@@ -637,8 +638,10 @@ export default function Home() {
     setShowAddTaskDialog(false);
     setTaskDurationMode('preset');
 
-    // Automatically schedule the newly created task
-    scheduleNewTask(newTask);
+    // Automatically schedule the newly created task if auto schedule is toggled
+    if (autoScheduleNewTask) {
+      scheduleNewTask(newTask);
+    }
   };
 
   // Schedule a single new task immediately
@@ -1592,7 +1595,6 @@ export default function Home() {
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h3 className="text-xl font-bold text-primary">Add Task</h3>
-                <p className="text-sm text-gray-600">This will be scheduled automatically</p>
               </div>
               <button
                 onClick={() => setShowAddTaskDialog(false)}
@@ -1722,6 +1724,29 @@ export default function Home() {
                     </select>
                   </div>
                 </div>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Schedule automatically</p>
+                  <p className="text-xs text-gray-500">
+                    Add this task directly to the calendar
+                  </p>
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => setAutoScheduleNewTask(prev => !prev)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    autoScheduleNewTask ? 'bg-primary-light' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      autoScheduleNewTask ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
               </div>
 
               <div className="flex gap-3 pt-2">
