@@ -1349,12 +1349,12 @@ export default function Home() {
       </header>
 
       {/* Full-Width Calendar with Task Sidebar */}
-      <div className="flex-1 min-h-0 overflow-y-auto xl:overflow-hidden">
+      <div className="flex-1 min-h-0">
         <div className="h-full w-full px-6 py-4 ">
           <div className="h-full w-full grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-4">
 
             {/* Calendar Card */}
-            <div className="h-full bg-background rounded-lg shadow-lg p-6 flex flex-col min-h-0 border border-gray-200">
+            <div className="h-[720px] xl:h-full bg-background rounded-lg shadow-lg p-6 flex flex-col min-h-0 border border-gray-200 overflow-hidden">
               <div className="mb-3 flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-semibold text-gray-800">Calendar</h2>

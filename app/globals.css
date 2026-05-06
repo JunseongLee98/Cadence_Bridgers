@@ -8,6 +8,10 @@
   --background-end-rgb: 255, 255, 255;
 }
 
+html {
+  background: #373147 !important;
+}
+
 body {
   color: rgb(var(--foreground-rgb));
   background: linear-gradient(
@@ -365,6 +369,10 @@ html.dark .hover\:bg-gray-300:hover {
    DARK MODE - CALENDAR
    ============================== */
 
+html.dark {
+  background-color: #121212 !important;
+}
+
 html.dark .header-bar {
   background-color: #121212;
 }
@@ -395,19 +403,19 @@ html.dark .rbc-toolbar-label {
 
 /* Date buttons */
 html.dark .rbc-toolbar .rbc-btn-group button {
-  background: #74708a;
-  color: #f5f5f5;
-  border: 1px solid rgb(141, 139, 167);
+  background: #45425a;
+  color: #e6e6e6;
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 /* Active buttons */
 html.dark .rbc-toolbar .rbc-btn-group button.rbc-active {
-  background-color: #68657c;
+  background-color: #504c66d3;
   box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.4) !important;
 }
 
 html.dark .rbc-toolbar .rbc-btn-group button:hover:not(.rbc-active) {
-  background: #4c455e;
+  background: #54516bf8;
 }
 
 /* Calendar text */
@@ -594,4 +602,29 @@ html.dark .delete-btn {
 
 html.dark .delete-btn:hover {
   background-color: #7a4444;
+}
+
+/* ==============================
+   SCROLLBAR
+   ============================== */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #a29bb4;
+  border-radius: 100px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b4acc7;
+  background-clip: content-box;
 }
