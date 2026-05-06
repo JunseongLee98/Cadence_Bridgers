@@ -22,6 +22,10 @@ main {
   background: #373147 !important;
 }
 
+.header-bar {
+  border: 1px solid transparent;
+}
+
 /* ==================================
    REACT BIG CALENDAR - BASE STYLES
    ================================== */
@@ -360,6 +364,10 @@ html.dark .hover\:bg-gray-300:hover {
 /* ==============================
    DARK MODE - CALENDAR
    ============================== */
+
+html.dark .header-bar {
+  background-color: #121212;
+}
 
 html.dark .rbc-calendar {
   background-color: #1e1e1e;

@@ -37,7 +37,7 @@ export default function NotificationsBell({
     <div className="relative">
       <button
         onClick={onToggle}
-        className="ml-1 p-2.5 rounded-full bg-white/10 text-white border border-white/20 hover:bg-white/20 transition-colors inline-flex items-center justify-center"
+        className="ml-1 p-2 rounded-full bg-white/10 text-white border border-white/20 hover:bg-white/20 transition-colors inline-flex items-center justify-center"
         title="Notifications"
         aria-label="Notifications"
       >
