@@ -1031,7 +1031,7 @@ export default function Home() {
       {/* Header with dropdowns */}
       <header>
         <div className={`header-bar relative bg-primary-dark px-3.5 py-2 mx-6 mt-3 rounded-lg border dark:border-white/5`}>
-          <div className>
+          <div>
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="relative h-12 w-[150px]">
