@@ -8,6 +8,10 @@
   --background-end-rgb: 255, 255, 255;
 }
 
+html {
+  background: #373147 !important;
+}
+
 body {
   color: rgb(var(--foreground-rgb));
   background: linear-gradient(
@@ -18,147 +22,109 @@ body {
     rgb(var(--background-start-rgb));
 }
 
-/* ==================================
-   REACT BIG CALENDAR - BASE STYLES
-   ================================== */
-
-.rbc-calendar {
-  height: 100%;
-  min-height: 0;
+main {
+  background: #373147 !important;
 }
 
-.rbc-toolbar-label {
-  font-size: 32px;
+/* ==============================
+    Header Bar: Calendar Toolbar Layout
+   ============================== */
+
+.header-bar {
+  background: #494262;
+  border-color: rgba(255, 255, 255, 0.08);
+  min-height: 58px;
+  box-shadow: 0 8px 18px rgba(31, 24, 48, 0.18);
+}
+
+/* Header title/date */
+.header-bar h1 {
+  line-height: 1;
+  color: #ffffff;
+}
+
+/* Header buttons */
+.header-bar button {
+  outline: none;
+}
+
+.header-bar button:focus-visible {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.45);
+}
+
+/* Calendar nav and view containers */
+.header-bar .header-control-group {
+  background: rgba(255, 255, 255, 0.13);
+  border-color: rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+}
+
+/* Active view button */
+.header-bar button.bg-white {
+  background: #ffffff !important;
+  color: #4f4668 !important;
   font-weight: 600;
-  background-color: #F7F6FF;
+  box-shadow: 0 2px 7px rgba(31, 24, 48, 0.18);
 }
 
-.rbc-event {
-  border-radius: 4px;
-  padding: 2px 5px;
+.header-bar button.bg-white:hover {
+  background: #ffffff !important;
+  color: #4f4668 !important;
 }
 
-/* Scheduled task blocks: stay readable above external calendars in overlap columns */
-.rbc-event.rbc-event--cadence-task {
-  z-index: 5;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.2);
+/* Subscribe button */
+.header-bar .subscribe-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    transform 150ms ease;
 }
 
-.rbc-today {
-  background-color: #e6e4ec !important;
+/* Settings button */
+.header-bar .settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    transform 150ms ease;
 }
 
-/* Make each hour taller in the time grid (tuned size) */
-.rbc-timeslot-group {
-  min-height: 60px; /* one hour group */
+/* Keep hover subtle */
+.header-bar .import-btn:hover,
+.header-bar .subscribe-btn:hover,
+.header-bar .settings-btn:hover {
+  background-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.36);
+  color: #ffffff;
 }
 
-.rbc-time-slot {
-  min-height: 30px; /* each 30-minute slot within the hour */
+/* Subscription dropdown */
+.header-bar subscription-dropdown {
+  border-radius: 14px;
+  border-color: #e7e2f3;
+  box-shadow:
+    0 18px 40px rgba(31, 24, 48, 0.22),
+    0 4px 12px rgba(31, 24, 48, 0.12);
 }
 
-.rbc-time-view,
-.rbc-month-view,
-.rbc-agenda-view {
-  background-color: white;
-  border-radius: 8px;
+/* Mobile dropdown */
+.mobile-menu-btn {
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
 }
 
-.rbc-toolbar .rbc-btn-group button {
-  background: white;
-  color: #3B3B3B;
-  border: 1px solid rgba(134, 119, 173, 0.25);
-  border-radius: 8px;
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 60ms ease;
-}
-
-.rbc-header {
-  color: #3B3B3B;
-  font-weight: 600;
-}
-
-.rbc-label {
-  color: #3B3B3B;
-  font-weight: 400;
-}
-
-.rbc-button-link.rbc-show-more {
-  color: #625d69;
-  background-color: transparent;
-  font-weight: 500;
-  transition: color 150ms ease;
-}
-
-.rbc-button-link.rbc-show-more:hover {
-  color: #40345a;
-}
-
-/* Agenda view row spacing */
-.rbc-agenda-view table.rbc-agenda-table {
-  border-collapse: separate !important;
-  border-spacing: 0 10px !important;
-}
-
-.rbc-agenda-view table.rbc-agenda-table thead th {
-  padding: 10px 14px !important;
-}
-
-.rbc-agenda-view table.rbc-agenda-table tbody tr td {
-  padding: 12px 14px !important;
-  line-height: 1.35 !important;
-  vertical-align: top !important;
-  border-top: none !important;
-  border-bottom: none !important;
-}
-
-/* Rounded corners on row edges */
-.rbc-agenda-view table.rbc-agenda-table tbody tr td:first-child {
-  border-top-left-radius: 8px;
-  border-bottom-left-radius: 8px;
-}
-
-.rbc-agenda-view table.rbc-agenda-table tbody tr td:last-child {
-  border-top-right-radius: 8px;
-  border-bottom-right-radius: 8px;
-}
-
-
-
-/* Agenda view event gaps */
-.rbc-agenda-view table,
-.rbc-agenda-view table tbody,
-.rbc-agenda-view table tr,
-.rbc-agenda-view table td,
-.rbc-agenda-view table th {
-  border-color: #F7F6FF !important;
-}
-
-/* Calender events */
-.rbc-event-content {
-  font-size: 14px;
-}
-
-/* Prevent short events from breaking words mid-word in week/day time grid.
-   If the event block is too small (e.g., < 30 minutes), truncate with ellipsis instead. */
-.rbc-day-slot .rbc-event {
-  overflow: hidden;
-}
-
-.rbc-day-slot .rbc-event-content,
-.rbc-day-slot .rbc-event-label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  word-break: normal;
-  overflow-wrap: normal;
-  hyphens: none;
-}
-
-.rbc-day-slot .rbc-events-container {
-  margin-right: 0 !important;
+.mobile-menu-btn:hover {
+  background-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 /* ==============================
@@ -188,25 +154,13 @@ body {
   background-color: #eaeaec;
 }
 
-.breakdown-btn,
-.dropdown-add-btn {
+.breakdown-btn {
   background-color: #7969a0;
   transition: background-color 150ms ease;
 }
 
-.breakdown-btn:hover,
-.dropdown-add-btn:hover {
+.breakdown-btn:hover {
   background-color: #5b4985;
-}
-
-.task-dropdown-add-task-btn {
-  background-color: #5f5488d2 !important;
-  border-color: #827a94;
-  transition: background-color 150ms ease;
-}
-
-.task-dropdown-add-task-btn:hover {
-  background-color: #5f5485 !important;
 }
 
 .convert-task-btn {
@@ -334,6 +288,15 @@ html.dark .hover\:bg-gray-300:hover {
    DARK MODE - CALENDAR
    ============================== */
 
+html.dark {
+  background-color: #121212 !important;
+}
+
+html.dark .header-bar {
+  background-color: #302940 !important;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
 html.dark .rbc-calendar {
   background-color: #1e1e1e;
   color: #f5f5f5;
@@ -342,8 +305,6 @@ html.dark .rbc-calendar {
 html.dark .rbc-time-view,
 html.dark .rbc-month-view,
 html.dark .rbc-agenda-view,
-html.dark .rbc-toolbar,
-html.dark .rbc-toolbar-label,
 html.dark .rbc-time-content > * {
   background-color: #1e1e1e;
 }
@@ -352,27 +313,6 @@ html.dark .rbc-time-view,
 html.dark .rbc-month-view,
 html.dark .rbc-agenda-view {
   border-radius: 8px;
-}
-
-html.dark .rbc-toolbar-label {
-  color: #f5f5f5;
-}
-
-/* Date buttons */
-html.dark .rbc-toolbar .rbc-btn-group button {
-  background: #74708a;
-  color: #f5f5f5;
-  border: 1px solid rgb(141, 139, 167);
-}
-
-/* Active buttons */
-html.dark .rbc-toolbar .rbc-btn-group button.rbc-active {
-  background-color: #68657c;
-  box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.4) !important;
-}
-
-html.dark .rbc-toolbar .rbc-btn-group button:hover:not(.rbc-active) {
-  background: #4c455e;
 }
 
 /* Calendar text */
@@ -407,7 +347,7 @@ html.dark .rbc-month-row {
 
 /* Current day highlight */
 html.dark .rbc-today {
-  background-color: #403e4dd0 !important;
+  background-color: #1e1e1e !important;
 }
 
 /* Inactive days */
@@ -443,7 +383,8 @@ html.dark .bg-primary-dark {
 
 html.dark .import-btn,
 html.dark .task-dropdown-import-btn,
-html.dark .subscribe-btn {
+html.dark .subscribe-btn,
+html.dark .settings-btn {
   border-color: rgb(97, 93, 109) !important;
   background-color: #45425a !important;
   color: #f5f5f5;
@@ -513,7 +454,6 @@ html.dark .rbc-date-cell.rbc-now {
    ==================================== */
 
 /* Secondary button styles */
-html.dark .replay-btn,
 html.dark .cancel-btn,
 html.dark .replay-btn,
 html.dark .skip-btn {
@@ -523,7 +463,6 @@ html.dark .skip-btn {
   transition: all 150ms ease;
 }
 
-html.dark .replay-btn:hover,
 html.dark .cancel-btn:hover,
 html.dark .replay-btn:hover,
 html.dark .skip-btn:hover {
@@ -559,4 +498,395 @@ html.dark .delete-btn {
 
 html.dark .delete-btn:hover {
   background-color: #7a4444;
+}
+
+/* ==============================
+   SCROLLBAR
+   ============================== */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #a29bb4;
+  border-radius: 100px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b4acc7;
+  background-clip: content-box;
+}
+
+/* ==============================
+   RBC - CALENDAR STYLING
+   ============================== */
+
+.rbc-calendar {
+  height: 100%;
+  min-height: 0;
+  background: transparent;
+  color: #302940;
+}
+
+/* Main calendar surfaces */
+.rbc-time-view,
+.rbc-month-view,
+.rbc-agenda-view {
+  background-color: #ffffff;
+  border: 1px solid #e6e1ef;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* ==============================
+   WEEK / DAY HEADER
+   ============================== */
+
+/* Full header area */
+.rbc-time-header {
+  min-height: 162px !important;
+  background: #fbfaff;
+  border-color: #e6e1ef !important;
+  border-right: 0 !important;
+}
+
+.rbc-time-header-content {
+  background: #fbfaff;
+  border-color: #e6e1ef !important;
+  border-right: 0 !important;
+}
+
+/* Date header row */
+.rbc-time-header-content > .rbc-row:first-child {
+  height: 90px !important;
+  min-height: 90px !important;
+  flex: 0 0 90px !important;
+}
+
+/* Date header cells */
+.rbc-time-header-content > .rbc-row:first-child .rbc-header {
+  height: 90px !important;
+  min-height: 90px !important;
+  padding: 14px 8px !important;
+  background: #ffffff;
+  border-color: #e6e1ef !important;
+  color: #302940;
+  font-weight: 600;
+  overflow: hidden;
+}
+
+/* Custom date header */
+.calendar-week-header {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.calendar-week-day {
+  font-size: 12px;
+  font-weight: 700;
+  color: #9a94a8;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.calendar-week-number {
+  font-size: 26px;
+  font-weight: 500;
+  color: #302940;
+  line-height: 1;
+}
+
+/* ==============================
+   ALL DAY GUTTER
+   ============================== */
+
+/* Left gutter column */
+.rbc-time-header-gutter {
+  position: relative;
+  width: 80px !important;
+  min-width: 80px !important;
+  max-width: 80px !important;
+  background: #ffffff;
+  border-right: 1px solid #e6e1ef !important;
+  border-bottom: 0 !important;
+}
+
+/* Blank top-left cell */
+.rbc-time-header-gutter::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 90px;
+  background: #ffffff;
+  border-bottom: 1px solid #e6e1ef;
+  pointer-events: none;
+}
+
+/* All Day label */
+.rbc-time-header-gutter::after {
+  content: "All Day";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 90px;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8f889d;
+  font-size: 16px;
+  font-weight: 500;
+  background: #ffffff;
+  border: 0 !important;
+  pointer-events: none;
+}
+
+/* ==============================
+   ALL DAY EVENTS
+   ============================== */
+
+/* All-day row */
+.rbc-time-header-content .rbc-allday-cell {
+  min-height: 72px !important;
+  height: auto !important;
+  background: #ffffff;
+  border-top: 1px solid #e6e1ef !important;
+  border-color: #e6e1ef !important;
+}
+
+/* All-day event container */
+.rbc-time-header-content .rbc-row-content {
+  min-height: 72px !important;
+  height: auto !important;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  overflow: hidden !important;
+}
+
+/* Keep all-day rows compact */
+.rbc-time-header-content .rbc-row-content .rbc-row {
+  min-height: 0 !important;
+  height: auto !important;
+  flex: initial !important;
+}
+
+.rbc-time-header-content .rbc-row-segment {
+  padding: 1px 3px;
+}
+
+/* ==============================
+   TIME GRID
+   ============================== */
+
+/* Main time grid */
+.rbc-time-content {
+  position: relative;
+  z-index: 1;
+  background: #ffffff;
+  border-top: 1px solid #e6e1ef !important;
+  border-color: #e6e1ef !important;
+}
+
+/* Vertical grid lines */
+.rbc-day-slot,
+.rbc-time-content > * + * > * {
+  border-left-color: #e6e1ef !important;
+}
+
+/* Hour rows */
+.rbc-timeslot-group {
+  min-height: 78px !important;
+  border-bottom: 1px solid #f3f0f8 !important;
+}
+
+/* Half-hour rows */
+.rbc-time-slot {
+  min-height: 39px !important;
+  border-top-color: #f3f0f8 !important;
+}
+
+/* Today column */
+.rbc-today {
+  background-color: #ffffff !important;
+}
+
+/* ==============================
+   TIME GUTTER
+   ============================== */
+
+/* Time gutter column */
+.rbc-time-gutter,
+.rbc-time-column.rbc-time-gutter {
+  width: 80px !important;
+  min-width: 80px !important;
+  max-width: 80px !important;
+  background: #ffffff;
+  border-right: 1px solid #e6e1ef !important;
+}
+
+.rbc-time-gutter .rbc-timeslot-group {
+  position: relative;
+}
+
+/* Time labels */
+.rbc-time-gutter .rbc-label {
+  position: absolute;
+  top: 8px;
+  left: 45%;
+  transform: translateX(-50%);
+  width: 54px;
+  padding: 0 !important;
+  margin: 0 !important;
+  color: #6f687c;
+  font-size: 16px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: right;
+}
+
+/* ==============================
+   EVENT SPACING
+   ============================== */
+
+.rbc-day-slot .rbc-events-container {
+  margin-right: 0 !important;
+}
+
+/* ==============================
+   DARK MODE - RBC
+   ============================== */
+
+/* Main calendar surfaces */
+html.dark .rbc-time-view,
+html.dark .rbc-month-view,
+html.dark .rbc-agenda-view {
+  background-color: #1e1e1e;
+  border-color: #2c2c2c;
+}
+
+/* Full header area */
+html.dark .rbc-time-header,
+html.dark .rbc-time-header-content {
+  background: #1e1e1e;
+  border-color: #2c2c2c !important;
+}
+
+/* Date header cells */
+html.dark .rbc-time-header-content > .rbc-row:first-child .rbc-header {
+  background: #1e1e1e;
+  border-color: #2c2c2c !important;
+  color: #f5f5f5;
+}
+
+/* Custom date header */
+html.dark .calendar-week-day {
+  color: #a8a1b8;
+}
+
+html.dark .calendar-week-number {
+  color: #f5f5f5;
+}
+
+/* Left gutter column */
+html.dark .rbc-time-header-gutter {
+  background: #1e1e1e;
+  border-color: #2c2c2c !important;
+}
+
+/* Blank top-left cell */
+html.dark .rbc-time-header-gutter::before {
+  background: #1e1e1e;
+  border-color: #2c2c2c;
+}
+
+/* All Day label */
+html.dark .rbc-time-header-gutter::after {
+  background: #1e1e1e;
+  border-color: #2c2c2c;
+  color: #b8b2c8;
+}
+
+/* All-day row */
+html.dark .rbc-time-header-content .rbc-allday-cell {
+  background: #1e1e1e;
+  border-color: #2c2c2c !important;
+}
+
+/* Main time grid */
+html.dark .rbc-time-content {
+  background: #1e1e1e;
+  border-color: #2c2c2c !important;
+}
+
+/* Vertical grid lines */
+html.dark .rbc-day-slot,
+html.dark .rbc-time-content > * + * > * {
+  border-left-color: #2c2c2c !important;
+}
+
+/* Hour rows */
+html.dark .rbc-timeslot-group {
+  border-bottom-color: #262626 !important;
+}
+
+/* Half-hour rows */
+html.dark .rbc-time-slot {
+  border-top-color: #262626 !important;
+}
+
+/* Time gutter column */
+html.dark .rbc-time-gutter,
+html.dark .rbc-time-column.rbc-time-gutter {
+  background: #1e1e1e;
+  border-color: #2c2c2c !important;
+}
+
+/* Time labels */
+html.dark .rbc-time-gutter .rbc-label {
+  color: #d1d5db;
+}
+
+/* Today's date underline */
+.calendar-week-header-today {
+  position: relative;
+}
+
+.calendar-week-header-today::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -14px;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 2px;
+  border-radius: 100px;
+  background: #8f7ebb;
+}
+
+html.dark .calendar-week-header-today::after {
+  background: #9689b8;
+}
+
+/* Outside working hours */
+.rbc-day-slot .calendar-outside-work-hours {
+  background-color: #f9f8ff !important;
+}
+
+html.dark .rbc-day-slot .calendar-outside-work-hours {
+  background-color: #181818 !important;
 }
