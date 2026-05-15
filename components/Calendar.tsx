@@ -122,6 +122,21 @@ export default function Calendar({ events, date, view, onDateChange, onViewChang
     };
   };
 
+  const WeekHeader = ({ date }: { date: Date }) => {
+    const day = date
+      .toLocaleDateString("en-US", { weekday: "short" })
+      .toUpperCase();
+
+    const number = date.toLocaleDateString("en-US", { day: "2-digit" });
+
+    return (
+      <div className="cadence-week-header">
+        <div className="cadence-week-day">{day}</div>
+        <div className="cadence-week-number">{number}</div>
+      </div>
+    );
+  };
+
   return (
     <div className="h-full w-full flex flex-col">
       <div className="flex-1 min-h-0">
@@ -149,8 +164,16 @@ export default function Calendar({ events, date, view, onDateChange, onViewChang
           min={new Date(1970, 0, 1, 0, 0, 0)}
           max={new Date(1970, 0, 1, 23, 59, 0)}
           scrollToTime={scrollTargetTime}
+          formats={{
+            timeGutterFormat: (date: Date) =>
+              date.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                hour12: true,
+              }),
+          }}
           components={{
             toolbar: () => null,
+            header: WeekHeader,
             timeSlotWrapper: TimeSlotWrapper as unknown as React.ComponentType,
           }}
         />
