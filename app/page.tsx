@@ -1207,7 +1207,7 @@ export default function Home() {
               </div>
               
               {/* Notifications Bell */}
-              <div ref={notificationsRef}>
+              <div ref={notificationsRef} className="relative">
                 <NotificationsBell
                   notifications={notifications}
                   open={notificationsOpen}

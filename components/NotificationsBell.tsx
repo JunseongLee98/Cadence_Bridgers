@@ -34,26 +34,28 @@ export default function NotificationsBell({
   const unread = notifications.filter((n) => !n.readAt).length;
 
   return (
-    <div className="header-control-group flex items-center rounded-lg bg-white/10 border border-white/25 overflow-hidden">
-      <button
-        onClick={onToggle}
-        className="h-9 w-9 flex items-center justify-center text-white hover:bg-white/15 transition-colors"
-        title="Notifications"
-        aria-label="Notifications"
-      >
-        <span className="relative inline-flex">
-          <Bell size={20} />
-          {unread > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-400 text-primary-dark text-[11px] font-extrabold flex items-center justify-center border border-white/30">
-              {unread > 99 ? '99+' : unread}
-            </span>
-          )}
-        </span>
-      </button>
+    <div className="relative">
+      <div className="header-control-group flex items-center rounded-lg bg-white/10 border border-white/25 overflow-hidden">
+        <button
+          onClick={onToggle}
+          className="h-9 w-9 flex items-center justify-center text-white hover:bg-white/15 transition-colors"
+          title="Notifications"
+          aria-label="Notifications"
+        >
+          <span className="relative inline-flex">
+            <Bell size={20} />
+            {unread > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-400 text-primary-dark text-[11px] font-extrabold flex items-center justify-center border border-white/30">
+                {unread > 99 ? '99+' : unread}
+              </span>
+            )}
+          </span>
+        </button>
+      </div>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-[340px] max-w-[calc(100vw-24px)] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-[100]">
-          <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
+        <div className="absolute right-0 top-full z-[200] mt-2 w-[340px] max-w-[calc(100vw-24px)] flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
+          <div className="flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-3 py-2.5">
             <div className="font-semibold text-gray-800">Notifications</div>
             <div className="flex items-center gap-1">
               <button
@@ -75,7 +77,7 @@ export default function NotificationsBell({
             </div>
           </div>
 
-          <div className="max-h-[420px] overflow-auto">
+          <div className="max-h-[min(420px,calc(100vh-8rem))] overflow-y-auto overscroll-contain">
             {notifications.length === 0 ? (
               <div className="p-4 text-sm text-gray-500">No notifications yet.</div>
             ) : (
@@ -119,4 +121,3 @@ export default function NotificationsBell({
     </div>
   );
 }
-
