@@ -1301,118 +1301,119 @@ export default function Home() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       />
                     </div>
+                    
+                    {/* Susbcribed Calendars */}
+                    {icsSubscriptions.length > 0 && (
+                      <div className="pt-3 mt-3 border-t border-gray-200">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <h4 className="text-sm font-semibold text-primary">
+                            Subscribed Calendars
+                          </h4>
 
-{icsSubscriptions.length > 0 && (
-  <div className="pt-3 mt-3 border-t border-gray-200">
-    <div className="flex items-center justify-between gap-2 mb-2">
-      <h4 className="text-sm font-semibold text-primary">
-        Subscribed Calendars
-      </h4>
+                          <button
+                            type="button"
+                            onClick={() => fetchAllICSSubscriptions()}
+                            disabled={isLoadingICSSubscription}
+                            className="text-xs px-2 py-1 text-primary-600 hover:bg-primary-50/10 rounded transition-colors disabled:opacity-50"
+                          >
+                            {isLoadingICSSubscription ? 'Refreshing…' : 'Refresh all'}
+                          </button>
+                        </div>
 
-      <button
-        type="button"
-        onClick={() => fetchAllICSSubscriptions()}
-        disabled={isLoadingICSSubscription}
-        className="text-xs px-2 py-1 text-primary-600 hover:bg-primary-50/10 rounded transition-colors disabled:opacity-50"
-      >
-        {isLoadingICSSubscription ? 'Refreshing…' : 'Refresh all'}
-      </button>
-    </div>
+                        <div className="space-y-2 max-h-48 overflow-y-auto overflow-x-visible">
+                          {icsSubscriptions.map((sub) => (
+                            <div
+                              key={sub.id}
+                              className="relative flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2"
+                            >
+                              <div className="min-w-0 flex items-center gap-2">
+                                <span
+                                  className="h-4 w-4 flex-shrink-0 rounded-full border border-gray-300"
+                                  style={{ backgroundColor: sub.color || '#8b5cf6' }}
+                                />
 
-    <div className="space-y-2 max-h-48 overflow-y-auto overflow-x-visible">
-      {icsSubscriptions.map((sub) => (
-        <div
-          key={sub.id}
-          className="relative flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2"
-        >
-          <div className="min-w-0 flex items-center gap-2">
-            <span
-              className="h-4 w-4 flex-shrink-0 rounded-full border border-gray-300"
-              style={{ backgroundColor: sub.color || '#8b5cf6' }}
-            />
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium text-gray-700">
+                                    {sub.name}
+                                  </p>
+                                  <p className="truncate text-xs text-gray-500">
+                                    {sub.url}
+                                  </p>
+                                </div>
+                              </div>
 
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-gray-700">
-                {sub.name}
-              </p>
-              <p className="truncate text-xs text-gray-500">
-                {sub.url}
-              </p>
-            </div>
-          </div>
+                              <div
+                                ref={openColorMenuId === sub.id ? subscriptionColorMenuRef : undefined}
+                                className="flex items-center gap-1 ml-2 relative flex-shrink-0"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setOpenColorMenuId(openColorMenuId === sub.id ? null : sub.id)
+                                  }
+                                  className="px-2 py-1 text-xs text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+                                  title="Choose calendar color"
+                                >
+                                  <span
+                                    className="w-3.5 h-3.5 rounded border border-gray-300"
+                                    style={{ backgroundColor: sub.color || '#8b5cf6' }}
+                                  />
+                                  Color
+                                </button>
 
-          <div
-            ref={openColorMenuId === sub.id ? subscriptionColorMenuRef : undefined}
-            className="flex items-center gap-1 ml-2 relative flex-shrink-0"
-          >
-            <button
-              type="button"
-              onClick={() =>
-                setOpenColorMenuId(openColorMenuId === sub.id ? null : sub.id)
-              }
-              className="px-2 py-1 text-xs text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
-              title="Choose calendar color"
-            >
-              <span
-                className="w-3.5 h-3.5 rounded border border-gray-300"
-                style={{ backgroundColor: sub.color || '#8b5cf6' }}
-              />
-              Color
-            </button>
+                                {openColorMenuId === sub.id && (
+                                  <div className="absolute right-0 top-full mt-1 z-[999] bg-white border border-gray-200 rounded-lg shadow-lg p-2 min-w-[180px]">
+                                    <p className="text-xs font-medium text-gray-600 mb-2">
+                                      Pick a color
+                                    </p>
 
-            {openColorMenuId === sub.id && (
-              <div className="absolute right-0 top-full mt-1 z-[999] bg-white border border-gray-200 rounded-lg shadow-lg p-2 min-w-[180px]">
-                <p className="text-xs font-medium text-gray-600 mb-2">
-                  Pick a color
-                </p>
+                                    <div className="grid grid-cols-6 gap-1 mb-2">
+                                      {ICS_SUBSCRIPTION_COLORS.map((color) => (
+                                        <button
+                                          key={color}
+                                          type="button"
+                                          onClick={() => handleSetICSSubscriptionColor(sub.id, color)}
+                                          className={`w-6 h-6 rounded border-2 transition-colors ${
+                                            sub.color === color
+                                              ? 'border-primary'
+                                              : 'border-gray-200 hover:border-gray-400'
+                                          }`}
+                                          style={{ backgroundColor: color }}
+                                          title={color}
+                                        />
+                                      ))}
+                                    </div>
 
-                <div className="grid grid-cols-6 gap-1 mb-2">
-                  {ICS_SUBSCRIPTION_COLORS.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => handleSetICSSubscriptionColor(sub.id, color)}
-                      className={`w-6 h-6 rounded border-2 transition-colors ${
-                        sub.color === color
-                          ? 'border-primary'
-                          : 'border-gray-200 hover:border-gray-400'
-                      }`}
-                      style={{ backgroundColor: color }}
-                      title={color}
-                    />
-                  ))}
-                </div>
+                                    <div className="flex items-center gap-2 border-t border-gray-100 pt-2">
+                                      <input
+                                        type="color"
+                                        value={sub.color?.startsWith('#') ? sub.color : '#8b5cf6'}
+                                        onChange={(e) =>
+                                          handleSetICSSubscriptionColor(sub.id, e.target.value)
+                                        }
+                                        className="w-8 h-8 cursor-pointer rounded border border-gray-300"
+                                        title="Custom color"
+                                      />
+                                      <span className="text-xs text-gray-500">Custom</span>
+                                    </div>
+                                  </div>
+                                )}
 
-                <div className="flex items-center gap-2 border-t border-gray-100 pt-2">
-                  <input
-                    type="color"
-                    value={sub.color?.startsWith('#') ? sub.color : '#8b5cf6'}
-                    onChange={(e) =>
-                      handleSetICSSubscriptionColor(sub.id, e.target.value)
-                    }
-                    className="w-8 h-8 cursor-pointer rounded border border-gray-300"
-                    title="Custom color"
-                  />
-                  <span className="text-xs text-gray-500">Custom</span>
-                </div>
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() => handleRemoveICSSubscription(sub.id)}
-              className="p-1 text-red-400 hover:bg-red-50/20 rounded transition-colors"
-              title="Remove subscription"
-              aria-label="Remove subscription"
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveICSSubscription(sub.id)}
+                                  className="p-1 text-red-400 hover:bg-red-50/20 rounded transition-colors"
+                                  title="Remove subscription"
+                                  aria-label="Remove subscription"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex gap-2">
                       <button
