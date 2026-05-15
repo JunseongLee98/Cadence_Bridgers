@@ -34,10 +34,10 @@ export default function NotificationsBell({
   const unread = notifications.filter((n) => !n.readAt).length;
 
   return (
-    <div className="relative">
+    <div className="header-control-group flex items-center rounded-lg bg-white/10 border border-white/25 overflow-hidden">
       <button
         onClick={onToggle}
-        className="ml-1 p-2 rounded-full bg-white/10 text-white border border-white/20 hover:bg-white/20 transition-colors inline-flex items-center justify-center"
+        className="h-9 w-9 flex items-center justify-center text-white hover:bg-white/15 transition-colors"
         title="Notifications"
         aria-label="Notifications"
       >

@@ -10,7 +10,9 @@ import { CalendarEvent } from '@/types';
 interface CalendarProps {
   events: CalendarEvent[];
   date?: Date;
+  view?: View;
   onDateChange?: (date: Date) => void;
+  onViewChange?: (view: View) => void;
   onSelectSlot?: (slot: { start: Date; end: Date }) => void;
   onSelectEvent?: (event: CalendarEvent) => void;
 }
@@ -60,7 +62,7 @@ function TimeSlotWrapper({ children, value }: TimeSlotWrapperProps) {
   );
 }
 
-export default function Calendar({ events, date, onDateChange, onSelectSlot, onSelectEvent }: CalendarProps) {
+export default function Calendar({ events, date, view, onDateChange, onViewChange, onSelectSlot, onSelectEvent }: CalendarProps) {
   const [currentView, setCurrentView] = useState<View>('week');
   const [internalDate, setInternalDate] = useState(new Date());
 
@@ -122,11 +124,6 @@ export default function Calendar({ events, date, onDateChange, onSelectSlot, onS
 
   return (
     <div className="h-full w-full flex flex-col">
-      <div className="mb-4 flex items-center justify-between flex-shrink-0">
-        <h2 className="text-2xl font-bold text-gray-800">
-          {format(currentDate, 'MMMM yyyy')}
-        </h2>
-      </div>
       <div className="flex-1 min-h-0">
         <BigCalendar
           localizer={localizer}
@@ -134,8 +131,8 @@ export default function Calendar({ events, date, onDateChange, onSelectSlot, onS
           startAccessor="start"
           endAccessor="end"
           style={{ height: '100%' }}
-          view={currentView}
-          onView={setCurrentView}
+          view={view ?? currentView}
+          onView={onViewChange ?? setCurrentView}
           date={currentDate}
           messages={{
             previous: "‹",
@@ -153,6 +150,7 @@ export default function Calendar({ events, date, onDateChange, onSelectSlot, onS
           max={new Date(1970, 0, 1, 23, 59, 0)}
           scrollToTime={scrollTargetTime}
           components={{
+            toolbar: () => null,
             timeSlotWrapper: TimeSlotWrapper as unknown as React.ComponentType,
           }}
         />

@@ -10,7 +10,8 @@ import Calendar from '@/components/Calendar';
 import NotificationsBell from '@/components/NotificationsBell';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
-import { Plus, X, Clock, CheckCircle2, ChevronDown, Menu, Calendar as CalendarIcon, Upload, Link2, Trash2, CheckSquare, Settings, Sparkles } from 'lucide-react';
+import { Plus, X, Clock, CheckCircle2, ChevronDown, ChevronRight, ChevronLeft, Menu, Calendar as CalendarIcon, LucideCalendarPlus, Upload, Link2, Trash2, CheckSquare, Settings, Sparkles } from 'lucide-react';
+import { View } from 'react-big-calendar';
 import { parseICSFileFromFile, parseICSFileFromFileAsTasks, fetchICSFromURL } from '@/lib/ics-parser';
 import { formatMinutesToHoursMinutes } from '@/lib/time-utils';
 
@@ -84,6 +85,7 @@ export default function Home() {
   const [conversionDurationCustomHours, setConversionDurationCustomHours] = useState(1);
   const [miniCalendarDate, setMiniCalendarDate] = useState(new Date());
   const [mainCalendarDate, setMainCalendarDate] = useState(new Date());
+  const [calendarView, setCalendarView] = useState<View>('week');
 
   const tasksDropdownRef = useRef<HTMLDivElement>(null);
   const subscriptionColorMenuRef = useRef<HTMLDivElement>(null);
@@ -1026,237 +1028,209 @@ export default function Home() {
     setMiniCalendarDate(new Date(miniCalendarYear, miniCalendarMonth + 1, 1));
   };
 
+  const getCalendarHeaderLabel = (date: Date) => {
+    if (calendarView === 'month') {
+      return {
+        dateText: date.toLocaleDateString('en-US', {
+          month: 'long',
+        }),
+        yearText: String(date.getFullYear()),
+      };
+    }
+
+    if (calendarView === 'day') {
+      return {
+        dateText: date.toLocaleDateString('en-US', {
+          month: 'long',
+          day: '2-digit',
+        }),
+        yearText: String(date.getFullYear()),
+      };
+    }
+
+    const start = new Date(date);
+    start.setDate(date.getDate() - date.getDay());
+
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+
+    const month = start.toLocaleDateString('en-US', { month: 'long' });
+    const startDay = start.toLocaleDateString('en-US', { day: '2-digit' });
+    const endDay = end.toLocaleDateString('en-US', { day: '2-digit' });
+    const year = end.getFullYear();
+
+    return {
+      dateText: `${month} ${startDay} - ${endDay}`,
+      yearText: String(year),
+    };
+  };
+
+  const navigateMainCalendar = (direction: 'previous' | 'next' | 'today') => {
+    let nextDate = new Date(mainCalendarDate);
+
+    if (direction === 'today') {
+      nextDate = new Date();
+    } else {
+      const amount = direction === 'previous' ? -1 : 1;
+
+      if (calendarView === 'month') {
+        nextDate.setMonth(nextDate.getMonth() + amount);
+      } else if (calendarView === 'day') {
+        nextDate.setDate(nextDate.getDate() + amount);
+      } else {
+        nextDate.setDate(nextDate.getDate() + amount * 7);
+      }
+    }
+  
+    setMainCalendarDate(nextDate);
+    setMiniCalendarDate(nextDate);
+  };
+
+  const calendarHeaderLabel = getCalendarHeaderLabel(mainCalendarDate);
+
   return (
     <main className="h-screen flex flex-col bg-white">
       {/* Header with dropdowns */}
       <header>
-        <div className={`header-bar relative bg-primary-dark px-3.5 py-2 mx-6 mt-3 rounded-lg border dark:border-white/5`}>
-          <div>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="relative h-12 w-[150px]">
-                  <Image
-                    src="/cadence-logo-white.png"
-                    alt="Cadence"
-                    fill
-                    priority
-                    className="object-contain"
-                  />
-                </div>
+        <div className="header-bar relative bg-primary-dark px-4 py-2.5 mx-3 sm:mx-4 xl:mx-6 mt-3 rounded-lg border dark:border-white/5">
+          <div className="grid grid-cols-[145px_1fr_auto] lg:grid-cols-[145px_minmax(130px,1fr)_320px_minmax(190px,1fr)_auto] items-center gap-3 xl:gap-4">
+            {/* Logo */}
+            <div className="flex items-center gap-3">
+              <div className="relative h-12 w-[150px]">
+                <Image
+                  src="/cadence-logo-white.png"
+                  alt="Cadence"
+                  fill
+                  priority
+                  className="object-contain"
+                />
+              </div>
+            </div>
+
+            {/* Calendar navigation */}
+            <div className="hidden lg:flex justify-center">
+              <div className="header-control-group flex items-center rounded-lg bg-white/10 border border-white/25 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => navigateMainCalendar('previous')}
+                  className="h-10 px-3.5 flex items-center justify-center text-white text-base font-semibold hover:bg-white/15 transition-colors"
+                  aria-label="Previous"
+                >
+                  <ChevronLeft size={16} strokeWidth={2.5} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigateMainCalendar('today')}
+                  className="h-10 px-4 flex items-center justify-center gap-1.5 text-white text-base font-semibold hover:bg-white/15 transition-colors tracking-normal"
+                >
+                  Today
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigateMainCalendar('next')}
+                  className="h-10 px-3.5 flex items-center justify-center text-white text-base font-semibold hover:bg-white/15 transition-colors"
+                  aria-label="Next"
+                >
+                  <ChevronRight size={16} strokeWidth={2.5} />
+                </button>
+              </div>
+            </div>
+
+            {/* Date range */}
+            <h1 className="flex w-full items-baseline justify-center text-center text-white whitespace-nowrap text-[40px] font-[500] tracking-tight leading-none">
+              <span>{calendarHeaderLabel.dateText}</span>
+              <span className="ml-14 opacity-90">{calendarHeaderLabel.yearText}</span>
+            </h1>
+
+            {/* View switcher */}
+            <div className="hidden lg:flex justify-center">
+              <div className="header-control-group flex items-center rounded-lg bg-white/10 border border-white/25 overflow-hidden">
+                {(['month', 'week', 'day', 'agenda'] as View[]).map((viewName) => (
+                  <button
+                    key={viewName}
+                    type="button"
+                    onClick={() => setCalendarView(viewName)}
+                    className={`h-10 px-4 flex items-center justify-center text-base font-medium transition-colors tracking-normal ${
+                      calendarView === viewName
+                        ? 'bg-[#F2EEFF] text-primary rounded-lg'
+                        : 'text-white hover:bg-white/15 rounded-lg'
+                    }`}
+                  >
+                    {viewName.charAt(0).toUpperCase() + viewName.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Mobile view dropdown hamburger */}
+            <button
+              onClick={() => {
+                setMobileMenuOpen((prev) => !prev);
+                setTasksDropdownOpen(false);
+                setShowSubscriptionDialog(false);
+              }}
+              className="lg:hidden col-start-3 flex items-center justify-center p-2.5 rounded-lg bg-white/10 text-white border border-white/20 hover:bg-white/20 transition-colors"
+              aria-label="Open menu"
+            >
+              <Menu size={20} />
+            </button>
+
+            {/* Right actions */}
+            <div className="hidden lg:flex items-center justify-end gap-4 relative">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".ics,text/calendar"
+                onChange={handleImportICS}
+                className="hidden"
+                disabled={isImportingICS}
+              />
+
+              {/* Subscribe */}
+              <div className="header-control-group flex items-center rounded-lg bg-white/10 border border-white/25 overflow-hidden">
+                <button
+                  onClick={() => setShowSubscriptionDialog(!showSubscriptionDialog)}
+                  className={`h-9 px-3 flex items-center justify-center gap-1.5 text-base font-medium transition-colors ${
+                    showSubscriptionDialog
+                      ? 'bg-white/10 text-white'
+                      : 'text-white hover:bg-white/15'
+                  }`}
+                  title="Subscribe to ICS calendar URL"
+                >
+                  <LucideCalendarPlus size={20} />
+                  Subscribe
+                </button>
+              </div>
+              
+              {/* Notifications Bell */}
+              <div ref={notificationsRef}>
+                <NotificationsBell
+                  notifications={notifications}
+                  open={notificationsOpen}
+                  onToggle={() => setNotificationsOpen((v) => !v)}
+                  onMarkRead={(id) => {
+                    const now = new Date();
+                    setNotifications((prev) =>
+                      prev.map((n) => (n.id === id ? { ...n, readAt: n.readAt ?? now } : n))
+                    );
+                  }}
+                  onMarkAllRead={() => {
+                    const now = new Date();
+                    setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt ?? now })));
+                  }}
+                  onClearAll={() => {
+                    if (!confirm('Clear all notifications?')) return;
+                    storage.clearNotifications();
+                    setNotifications([]);
+                    setNotificationsOpen(false);
+                  }}
+                />
               </div>
 
-              {/* Mobile view dropdown hamburger */}
-              <button
-                onClick={() => {
-                  setMobileMenuOpen((prev) => !prev);
-                  setTasksDropdownOpen(false);
-                  setShowSubscriptionDialog(false);
-                }}
-                className="md:hidden flex items-center justify-center p-2.5 rounded-lg bg-white/10 text-white border border-white/20 hover:bg-white/20 transition-colors"
-                aria-label="Open menu"
-              >
-                <Menu size={20} />
-              </button>
-              
-              <div className="hidden md:flex items-center gap-4 relative">
-                {/* ICS File Import & Subscribe */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".ics,text/calendar"
-                  onChange={handleImportICS}
-                  className="hidden"
-                  disabled={isImportingICS}
-                />
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={triggerFileInput}
-                    disabled={isImportingICS}
-                    className="import-btn flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white/10 text-white text-sm border border-white/25 hover:bg-white/16 hover:bg-white/16 hover:border-white/40 hover:text-white disabled:opacity-50 text-s"
-                    title="Import ICS calendar file"
-                  >
-                    <Upload size={18} />
-                    {isImportingICS ? 'Importing...' : 'Import ICS'}
-                  </button>
-                  <button
-                    onClick={() => setShowSubscriptionDialog(!showSubscriptionDialog)}
-                    className={`subscribe-btn flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white/10 text-white text-sm border border-white/25 hover:bg-white/16 hover:border-white/40 hover:text-white ${showSubscriptionDialog ? "bg-white/20 border-white/50 text-white" : ""} disabled:opacity-50 text-s`}
-                    title="Subscribe to ICS calendar URL"
-                  >
-                    <Link2 size={18} />
-                    Subscribe
-                  </button>
-                </div>
-
-                {/* Subscription Dialog */}
-                {showSubscriptionDialog && (
-                  <div className="absolute right-0 top-12 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 p-4">
-                    <h3 className="text-lg font-bold text-primary mb-3">Subscribe to Calendar</h3>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-primary mb-1">
-                          Calendar URL *
-                        </label>
-                        <input
-                          type="url"
-                          value={newSubscriptionUrl}
-                          onChange={(e) => setNewSubscriptionUrl(e.target.value)}
-                          placeholder="ICS or Google embed URL"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Enter a public ICS calendar feed URL or a Google Calendar embed link
-                        </p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-primary mb-1">
-                          Calendar Name (Optional)
-                        </label>
-                        <input
-                          type="text"
-                          value={newSubscriptionName}
-                          onChange={(e) => setNewSubscriptionName(e.target.value)}
-                          placeholder="My Calendar"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        />
-                      </div>
-                      {icsSubscriptions.length > 0 && (
-                        <div>
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <label className="text-sm font-medium text-gray-700">
-                              Subscribed Calendars
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => fetchAllICSSubscriptions()}
-                              disabled={isLoadingICSSubscription}
-                              className="text-xs px-2 py-1 text-primary-600 hover:bg-primary-50/10 rounded transition-colors disabled:opacity-50"
-                            >
-                              {isLoadingICSSubscription ? 'Refreshing…' : 'Refresh all'}
-                            </button>
-                          </div>
-                          <div className={`space-y-1 max-h-32 transition-all`}>
-                            {icsSubscriptions.map((sub) => (
-                              <div
-                                key={sub.id}
-                                className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                              >
-                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                  <span
-                                    className="w-3 h-3 rounded-full border border-gray-300 flex-shrink-0"
-                                    style={{ backgroundColor: sub.color || '#8b5cf6' }}
-                                  />
-                                  <div className="min-w-0">
-                                    <p className="text-sm font-medium text-gray-800 truncate">
-                                      {sub.name}
-                                    </p>
-                                    <p className="text-xs text-gray-500 truncate">{sub.url}</p>
-                                  </div>
-                                </div>
-                                <div
-                                  ref={openColorMenuId === sub.id ? subscriptionColorMenuRef : undefined}
-                                  className="flex items-center gap-1 ml-2 relative"
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => setOpenColorMenuId(openColorMenuId === sub.id ? null : sub.id)}
-                                    className="px-2 py-1 text-xs text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
-                                    title="Choose calendar color"
-                                  >
-                                    <span
-                                      className="w-3.5 h-3.5 rounded border border-gray-300"
-                                      style={{ backgroundColor: sub.color || '#8b5cf6' }}
-                                    />
-                                    Color
-                                  </button>
-                                  {openColorMenuId === sub.id && (
-                                    <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-2 min-w-[180px]">
-                                      <p className="text-xs font-medium text-gray-600 mb-2">Pick a color</p>
-                                      <div className="grid grid-cols-6 gap-1 mb-2">
-                                        {ICS_SUBSCRIPTION_COLORS.map((c) => (
-                                          <button
-                                            key={c}
-                                            type="button"
-                                            onClick={() => handleSetICSSubscriptionColor(sub.id, c)}
-                                            className="w-6 h-6 rounded border-2 border-gray-200 hover:border-gray-400 transition-colors"
-                                            style={{ backgroundColor: c }}
-                                            title={c}
-                                          />
-                                        ))}
-                                      </div>
-                                      <div className="flex items-center gap-2 border-t border-gray-100 pt-2">
-                                        <input
-                                          type="color"
-                                          value={sub.color?.startsWith('#') ? sub.color : '#8b5cf6'}
-                                          onChange={(e) => handleSetICSSubscriptionColor(sub.id, e.target.value)}
-                                          className="w-8 h-8 cursor-pointer rounded border border-gray-300"
-                                          title="Custom color"
-                                        />
-                                        <span className="text-xs text-gray-500">Custom</span>
-                                      </div>
-                                    </div>
-                                  )}
-                                  <button
-                                    onClick={() => handleRemoveICSSubscription(sub.id)}
-                                    className="p-1 text-red-400 hover:bg-red-50/20 rounded transition-colors"
-                                    title="Remove subscription"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleAddICSSubscription}
-                          disabled={isLoadingICSSubscription || !newSubscriptionUrl.trim()}
-                          className="flex-1 px-4 py-2 bg-secondary text-white rounded-lg font-normal hover:bg-secondary/90 disabled:bg-secondary/85 disabled:cursor-not-allowed transition-colors"
-                        >
-                          {isLoadingICSSubscription ? 'Adding...' : 'Add Subscription'}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowSubscriptionDialog(false);
-                            setNewSubscriptionUrl('');
-                            setNewSubscriptionName('');
-                          }}
-                          className="cancel-btn px-4 py-2 text-primary font-normal rounded-lg border transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div ref={notificationsRef}>
-                  <NotificationsBell
-                    notifications={notifications}
-                    open={notificationsOpen}
-                    onToggle={() => setNotificationsOpen((v) => !v)}
-                    onMarkRead={(id) => {
-                      const now = new Date();
-                      setNotifications((prev) =>
-                        prev.map((n) => (n.id === id ? { ...n, readAt: n.readAt ?? now } : n))
-                      );
-                    }}
-                    onMarkAllRead={() => {
-                      const now = new Date();
-                      setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt ?? now })));
-                    }}
-                    onClearAll={() => {
-                      if (!confirm('Clear all notifications?')) return;
-                      storage.clearNotifications();
-                      setNotifications([]);
-                      setNotificationsOpen(false);
-                    }}
-                  />
-                </div>
-
-                {/* Settings (rightmost icon-only) */}
+              {/* Settings */}
+              <div className="header-control-group flex items-center rounded-lg bg-white/10 border border-white/25 overflow-hidden">
                 <button
                   onClick={() => {
                     setTempWorkHours(workHours);
@@ -1264,13 +1238,93 @@ export default function Home() {
                     setTempFocusMinutes(focusMinutes);
                     setShowSettingsDialog(true);
                   }}
-                  className="settings-btn ml-1 p-2 rounded-full bg-white/10 text-white border border-white/20 hover:bg-white/20 transition-colors"
+                  className="h-9 w-9 flex items-center justify-center text-white hover:bg-white/15 transition-colors"
                   title="Settings"
                   aria-label="Settings"
                 >
                   <Settings size={20} />
                 </button>
               </div>
+
+              {/* Subscription Dialog */}
+              {showSubscriptionDialog && (
+                <div className="subscription-dropdown absolute right-0 top-12 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 p-4">
+                  <h3 className="text-lg font-[700] text-primary mb-3">
+                    Subscribe to Calendar
+                  </h3>
+
+                  <div className="space-y-3">
+                    {/* Import ICS File */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerFileInput();
+                      }}
+                      disabled={isImportingICS}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-primary hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Upload size={16} />
+                      {isImportingICS ? 'Importing...' : 'Import ICS File'}
+                    </button>
+
+                    <div className="flex items-center gap-3">
+                      <div className="h-px flex-1 bg-gray-200" />
+                      <span className="text-xs text-gray-400">or subscribe by URL</span>
+                      <div className="h-px flex-1 bg-gray-200" />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-primary mb-1">
+                        Calendar URL *
+                      </label>
+                      <input
+                        type="url"
+                        value={newSubscriptionUrl}
+                        onChange={(e) => setNewSubscriptionUrl(e.target.value)}
+                        placeholder="ICS or Google embed URL"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Enter a public ICS calendar feed URL or a Google Calendar embed link
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-primary mb-1">
+                        Calendar Name (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={newSubscriptionName}
+                        onChange={(e) => setNewSubscriptionName(e.target.value)}
+                        placeholder="My Calendar"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleAddICSSubscription}
+                        disabled={isLoadingICSSubscription || !newSubscriptionUrl.trim()}
+                        className="flex-1 px-4 py-2 bg-secondary text-white rounded-lg font-normal hover:bg-secondary/90 disabled:bg-secondary/85 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {isLoadingICSSubscription ? 'Adding...' : 'Add Subscription'}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setShowSubscriptionDialog(false);
+                          setNewSubscriptionUrl('');
+                          setNewSubscriptionName('');
+                        }}
+                        className="cancel-btn px-4 py-2 text-primary font-normal rounded-lg border transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1282,9 +1336,7 @@ export default function Home() {
                 : 'opacity-0 -translate-y-2 pointer-events-none'
             }`}
           >
-            {/* Dropdown panel*/}
             <div className="flex flex-col gap-2 bg-primary-dark border border-white/20 border-t-0 rounded-b-lg p-3 shadow-xl">
-              
               <button
                 onClick={() => {
                   triggerFileInput();
@@ -1341,38 +1393,28 @@ export default function Home() {
                 <Settings size={18} />
                 Settings
               </button>
-
             </div>
           </div>
         </div>
       </header>
 
       {/* Full-Width Calendar with Task Sidebar */}
-      <div className="flex-1 min-h-0">
-        <div className="h-full w-full px-6 py-4 ">
-          <div className="h-full w-full grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-4">
-
-            {/* Calendar Card */}
-            <div className="h-[720px] xl:h-full bg-background rounded-lg shadow-lg p-6 flex flex-col min-h-0 border border-gray-200 overflow-hidden">
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <h2 className="text-base font-semibold text-gray-800">Calendar</h2>
-                  <p className="text-sm text-gray-500">Click and drag to create events</p>
-                </div>
-              </div>
-
-              <div className="flex-1 min-h-0">
-                <Calendar
-                  events={allEvents}
-                  date={mainCalendarDate}
-                  onDateChange={(date) => {
-                    setMainCalendarDate(date);
-                    setMiniCalendarDate(date);
-                  }}
-                  onSelectSlot={handleSelectSlot}
-                  onSelectEvent={handleSelectEvent}
-                />
-              </div>
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="h-full w-full px-3 sm:px-4 xl:px-6 py-3 xl:py-4">
+          <div className="h-full w-full grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_clamp(240px,18vw,300px)] gap-3 xl:gap-4 min-w-0">
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <Calendar
+                events={allEvents}
+                date={mainCalendarDate}
+                view={calendarView}
+                onViewChange={setCalendarView}
+                onDateChange={(date) => {
+                  setMainCalendarDate(date);
+                  setMiniCalendarDate(date);
+                }}
+                onSelectSlot={handleSelectSlot}
+                onSelectEvent={handleSelectEvent}
+              />
             </div>
 
             {/* Task Sidebar */}

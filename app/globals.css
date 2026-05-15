@@ -26,8 +26,105 @@ main {
   background: #373147 !important;
 }
 
+/* ==============================
+    Header Bar: Calendar Toolbar Layout
+   ============================== */
+
 .header-bar {
-  border: 1px solid transparent;
+  background: #494262;
+  border-color: rgba(255, 255, 255, 0.08);
+  min-height: 58px;
+  box-shadow: 0 8px 18px rgba(31, 24, 48, 0.18);
+}
+
+/* Header title/date */
+.header-bar h1 {
+  line-height: 1;
+  color: #ffffff;
+}
+
+/* Header buttons */
+.header-bar button {
+  outline: none;
+}
+
+.header-bar button:focus-visible {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.45);
+}
+
+/* Calendar nav and view containers */
+.header-bar .header-control-group {
+  background: rgba(255, 255, 255, 0.13);
+  border-color: rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+}
+
+/* Active view button */
+.header-bar button.bg-white {
+  background: #ffffff !important;
+  color: #4f4668 !important;
+  font-weight: 600;
+  box-shadow: 0 2px 7px rgba(31, 24, 48, 0.18);
+}
+
+.header-bar button.bg-white:hover {
+  background: #ffffff !important;
+  color: #4f4668 !important;
+}
+
+/* Subscribe button */
+.header-bar .subscribe-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    transform 150ms ease;
+}
+
+/* Settings button */
+.header-bar .settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    transform 150ms ease;
+}
+
+/* Keep hover subtle */
+.header-bar .import-btn:hover,
+.header-bar .subscribe-btn:hover,
+.header-bar .settings-btn:hover {
+  background-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.36);
+  color: #ffffff;
+}
+
+/* Subscription dropdown */
+.header-bar subscription-dropdown {
+  border-radius: 14px;
+  border-color: #e7e2f3;
+  box-shadow:
+    0 18px 40px rgba(31, 24, 48, 0.22),
+    0 4px 12px rgba(31, 24, 48, 0.12);
+}
+
+/* Mobile dropdown */
+.mobile-menu-btn {
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+.mobile-menu-btn:hover {
+  background-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 /* ==================================
@@ -37,12 +134,6 @@ main {
 .rbc-calendar {
   height: 100%;
   min-height: 0;
-}
-
-.rbc-toolbar-label {
-  font-size: 32px;
-  font-weight: 600;
-  background-color: #F7F6FF;
 }
 
 .rbc-event {
@@ -74,56 +165,6 @@ main {
 .rbc-agenda-view {
   background-color: white;
   border-radius: 8px;
-}
-
-/* Base button styles */
-.rbc-toolbar .rbc-btn-group button {
-  background: white;
-  color: #3B3B3B;
-  border: 1px solid rgba(134, 119, 173, 0.25);
-  border-radius: 8px;
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 60ms ease;
-}
-
-/* Calendar Nav button group: Back / Today / Next */
-.rbc-toolbar .rbc-btn-group:first-child {
-  display: flex;
-}
-
-/* Reset only nav button group - exludes Month / Week / Day / Agenda */
-.rbc-toolbar .rbc-btn-group:first-child button {
-  border-radius: 0 !important;
-  margin-left: -1px;
-}
-
-/* Back button (<) */
-.rbc-toolbar .rbc-btn-group:first-child button:nth-child(2) {
-  order: 1;
-  width: 36px;
-  min-width: 36px;
-  padding: 0 !important;
-  font-size: 18px !important;
-  border-radius: 8px 0 0 8px !important;
-  margin-left: 0;
-}
-
-/* Today button */
-.rbc-toolbar .rbc-btn-group:first-child button:nth-child(1) {
-  order: 2;
-  min-width: 72px;
-}
-
-/* Next button (>) */
-.rbc-toolbar .rbc-btn-group:first-child button:nth-child(3) {
-  order: 3;
-  width: 36px;
-  min-width: 36px;
-  padding: 0 !important;
-  font-size: 18px !important;
-  border-radius: 0 8px 8px 0 !important;
 }
 
 .rbc-header {
@@ -223,25 +264,13 @@ main {
   background-color: #eaeaec;
 }
 
-.breakdown-btn,
-.dropdown-add-btn {
+.breakdown-btn {
   background-color: #7969a0;
   transition: background-color 150ms ease;
 }
 
-.breakdown-btn:hover,
-.dropdown-add-btn:hover {
+.breakdown-btn:hover {
   background-color: #5b4985;
-}
-
-.task-dropdown-add-task-btn {
-  background-color: #5f5488d2 !important;
-  border-color: #827a94;
-  transition: background-color 150ms ease;
-}
-
-.task-dropdown-add-task-btn:hover {
-  background-color: #5f5485 !important;
 }
 
 .convert-task-btn {
@@ -374,7 +403,8 @@ html.dark {
 }
 
 html.dark .header-bar {
-  background-color: #121212;
+  background-color: #302940 !important;
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 html.dark .rbc-calendar {
@@ -385,8 +415,6 @@ html.dark .rbc-calendar {
 html.dark .rbc-time-view,
 html.dark .rbc-month-view,
 html.dark .rbc-agenda-view,
-html.dark .rbc-toolbar,
-html.dark .rbc-toolbar-label,
 html.dark .rbc-time-content > * {
   background-color: #1e1e1e;
 }
@@ -395,27 +423,6 @@ html.dark .rbc-time-view,
 html.dark .rbc-month-view,
 html.dark .rbc-agenda-view {
   border-radius: 8px;
-}
-
-html.dark .rbc-toolbar-label {
-  color: #f5f5f5;
-}
-
-/* Date buttons */
-html.dark .rbc-toolbar .rbc-btn-group button {
-  background: #45425a;
-  color: #e6e6e6;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-/* Active buttons */
-html.dark .rbc-toolbar .rbc-btn-group button.rbc-active {
-  background-color: #504c66d3;
-  box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.4) !important;
-}
-
-html.dark .rbc-toolbar .rbc-btn-group button:hover:not(.rbc-active) {
-  background: #54516bf8;
 }
 
 /* Calendar text */
@@ -486,7 +493,8 @@ html.dark .bg-primary-dark {
 
 html.dark .import-btn,
 html.dark .task-dropdown-import-btn,
-html.dark .subscribe-btn {
+html.dark .subscribe-btn,
+html.dark .settings-btn {
   border-color: rgb(97, 93, 109) !important;
   background-color: #45425a !important;
   color: #f5f5f5;
@@ -556,7 +564,6 @@ html.dark .rbc-date-cell.rbc-now {
    ==================================== */
 
 /* Secondary button styles */
-html.dark .replay-btn,
 html.dark .cancel-btn,
 html.dark .replay-btn,
 html.dark .skip-btn {
@@ -566,7 +573,6 @@ html.dark .skip-btn {
   transition: all 150ms ease;
 }
 
-html.dark .replay-btn:hover,
 html.dark .cancel-btn:hover,
 html.dark .replay-btn:hover,
 html.dark .skip-btn:hover {
