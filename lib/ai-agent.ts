@@ -11,8 +11,9 @@ import { SCHEDULE_MAX_HORIZON_DAYS } from '@/lib/schedule-constants';
  *   from totalMinutes / weekdayCount (relaxed only when nothing fits).
  * - AI breakdown steps (planStepOrder): scheduled strictly step-by-step in order; later steps
  *   never occur before earlier steps. Placement prefers the calendar week of `startDate` and
- *   spreads load across weekdays before spilling to the next week. If a step cannot be placed
- *   at all, remaining steps are skipped.
+ *   spreads load across weekdays before spilling to the next week. Chunks never start on or after
+ *   the task due date (end of that local calendar day). If a step cannot be placed at all,
+ *   remaining steps are skipped.
  */
 export class CalendarAIAgent {
   /** Heuristic: treat these as non-blocking all-day placeholders (Canvas due dates, holidays, etc). */
@@ -648,11 +649,23 @@ export class CalendarAIAgent {
           break;
         }
 
+        if (dueEnd) {
+          const dueCutoff = dueEnd.getTime();
+          pool = pool.filter((c) => c.start.getTime() < dueCutoff);
+          if (pool.length === 0) {
+            break;
+          }
+        }
+
         if (usesPlanOrder) {
+          let anchorWeekEnd = planAnchorWeekEndEx.getTime();
+          if (dueEnd && dueEnd.getTime() < anchorWeekEnd) {
+            anchorWeekEnd = dueEnd.getTime();
+          }
           const inAnchorWeek = pool.filter(
             (c) =>
               c.start.getTime() >= planAnchorWeekStart.getTime() &&
-              c.start.getTime() < planAnchorWeekEndEx.getTime()
+              c.start.getTime() < anchorWeekEnd
           );
           if (inAnchorWeek.length > 0) {
             pool = inAnchorWeek;

@@ -892,8 +892,9 @@ export default function Home() {
       const ordered = [...subtasks].sort(
         (a: { order: number }, b: { order: number }) => a.order - b.order
       );
-      // Do not set dueDate on breakdown steps: using the assignment due date caps every step to
-      // that single calendar day, so most chunks never get slots and only a few blocks appear.
+      const assignmentDue = event.start
+        ? parseLocalDateInput(formatDateToLocalISO(event.start))
+        : undefined;
       const newTasks: Task[] = ordered.map(
         (st: { title: string; description?: string; estimatedMinutes?: number; order: number }) => ({
           id: uuidv4(),
@@ -902,6 +903,7 @@ export default function Home() {
           estimatedDuration: st.estimatedMinutes ?? 60,
           priority: 'medium',
           category: '',
+          dueDate: assignmentDue,
           planStepOrder: st.order,
           createdAt: new Date(),
           actualDurations: [],

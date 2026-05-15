@@ -431,6 +431,11 @@ describe('CalendarAIAgent.distributeTasks', () => {
     const first1 = Math.min(...events.filter((e) => e.taskId === 'step-1').map((e) => e.start.getTime()));
     const first2 = Math.min(...events.filter((e) => e.taskId === 'step-2').map((e) => e.start.getTime()));
     expect(first1).toBeLessThan(first2);
+
+    const dueEnd = new Date(2026, 3, 17, 23, 59, 59, 999).getTime();
+    for (const e of events) {
+      expect(e.end.getTime()).toBeLessThanOrEqual(dueEnd + 1);
+    }
   });
 
   it('does not interleave plan steps even when chunk sizes differ', () => {
