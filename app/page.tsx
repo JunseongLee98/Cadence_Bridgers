@@ -1154,7 +1154,7 @@ export default function Home() {
                     onClick={() => setCalendarView(viewName)}
                     className={`h-10 px-4 flex items-center justify-center text-base font-medium transition-colors tracking-normal ${
                       calendarView === viewName
-                        ? 'bg-[#F2EEFF] text-primary rounded-lg'
+                        ? 'bg-[#F2EEFF] text-primary rounded-lg dark:bg-[#6C647F] dark:text-white'
                         : 'text-white hover:bg-white/15 rounded-lg'
                     }`}
                   >
@@ -1301,7 +1301,7 @@ export default function Home() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       />
                     </div>
-                    
+
                     {/* Susbcribed Calendars */}
                     {icsSubscriptions.length > 0 && (
                       <div className="pt-3 mt-3 border-t border-gray-200">
@@ -1520,6 +1520,7 @@ export default function Home() {
                 events={allEvents}
                 date={mainCalendarDate}
                 view={calendarView}
+                workHours={workHours}
                 onViewChange={setCalendarView}
                 onDateChange={(date) => {
                   setMainCalendarDate(date);

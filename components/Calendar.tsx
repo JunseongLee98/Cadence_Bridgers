@@ -11,6 +11,12 @@ interface CalendarProps {
   events: CalendarEvent[];
   date?: Date;
   view?: View;
+  workHours?: {
+    segments: {
+      startHour: number;
+      endHour: number;
+    }[];
+  };
   onDateChange?: (date: Date) => void;
   onViewChange?: (view: View) => void;
   onSelectSlot?: (slot: { start: Date; end: Date }) => void;
@@ -62,7 +68,7 @@ function TimeSlotWrapper({ children, value }: TimeSlotWrapperProps) {
   );
 }
 
-export default function Calendar({ events, date, view, onDateChange, onViewChange, onSelectSlot, onSelectEvent }: CalendarProps) {
+export default function Calendar({ events, date, view, workHours, onDateChange, onViewChange, onSelectSlot, onSelectEvent }: CalendarProps) {
   const [currentView, setCurrentView] = useState<View>('week');
   const [internalDate, setInternalDate] = useState(new Date());
 
@@ -128,13 +134,39 @@ export default function Calendar({ events, date, view, onDateChange, onViewChang
       .toUpperCase();
 
     const number = date.toLocaleDateString("en-US", { day: "2-digit" });
+    const today = new Date();
+    const isToday =
+      date.getFullYear() === today.getFullYear() &&
+      date.getMonth() === today.getMonth() &&
+      date.getDate() === today.getDate();
 
     return (
-      <div className="cadence-week-header">
-        <div className="cadence-week-day">{day}</div>
-        <div className="cadence-week-number">{number}</div>
+      <div className={`calendar-week-header ${isToday ? "calendar-week-header-today" : ""}`}>
+        <div className="calendar-week-day">{day}</div>
+        <div className="calendar-week-number">{number}</div>
       </div>
     );
+  };
+
+  const slotPropGetter = (date: Date) => {
+    const segments = workHours?.segments ?? [{ startHour: 9, endHour: 18 }];
+
+    if (segments.length === 0) {
+      return {};
+    }
+
+    const hour = date.getHours() + date.getMinutes() / 60;
+    const insideWorkHours = segments.some((segment) => {
+      return hour >= segment.startHour && hour < segment.endHour;
+    });
+
+    if (insideWorkHours) {
+      return {};
+    }
+
+    return {
+      className: 'calendar-outside-work-hours',
+    };
   };
 
   return (
@@ -159,6 +191,7 @@ export default function Calendar({ events, date, view, onDateChange, onViewChang
           onSelectEvent={onSelectEvent}
           selectable
           eventPropGetter={eventStyleGetter}
+          slotPropGetter={slotPropGetter}
           defaultDate={new Date()}
           // Allow viewing the full day while auto-scrolling near the user's typical start time.
           min={new Date(1970, 0, 1, 0, 0, 0)}

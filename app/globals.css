@@ -347,7 +347,7 @@ html.dark .rbc-month-row {
 
 /* Current day highlight */
 html.dark .rbc-today {
-  background-color: #403e4dd0 !important;
+  background-color: #1e1e1e !important;
 }
 
 /* Inactive days */
@@ -552,7 +552,7 @@ html.dark .delete-btn:hover {
 
 /* Full header area */
 .rbc-time-header {
-  min-height: 162px !important; /* 90px date header + 72px all-day row */
+  min-height: 162px !important;
   background: #fbfaff;
   border-color: #e6e1ef !important;
   border-right: 0 !important;
@@ -576,7 +576,7 @@ html.dark .delete-btn:hover {
   height: 90px !important;
   min-height: 90px !important;
   padding: 14px 8px !important;
-  background: #fbfaff;
+  background: #ffffff;
   border-color: #e6e1ef !important;
   color: #302940;
   font-weight: 600;
@@ -584,7 +584,7 @@ html.dark .delete-btn:hover {
 }
 
 /* Custom date header */
-.cadence-week-header {
+.calendar-week-header {
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -593,7 +593,7 @@ html.dark .delete-btn:hover {
   gap: 8px;
 }
 
-.cadence-week-day {
+.calendar-week-day {
   font-size: 12px;
   font-weight: 700;
   color: #9a94a8;
@@ -601,7 +601,7 @@ html.dark .delete-btn:hover {
   line-height: 1;
 }
 
-.cadence-week-number {
+.calendar-week-number {
   font-size: 26px;
   font-weight: 500;
   color: #302940;
@@ -663,7 +663,7 @@ html.dark .delete-btn:hover {
 .rbc-time-header-content .rbc-allday-cell {
   min-height: 72px !important;
   height: auto !important;
-  background: #fbfaff;
+  background: #ffffff;
   border-top: 1px solid #e6e1ef !important;
   border-color: #e6e1ef !important;
 }
@@ -721,7 +721,7 @@ html.dark .delete-btn:hover {
 
 /* Today column */
 .rbc-today {
-  background-color: #f6f3fc !important;
+  background-color: #ffffff !important;
 }
 
 /* ==============================
@@ -794,11 +794,11 @@ html.dark .rbc-time-header-content > .rbc-row:first-child .rbc-header {
 }
 
 /* Custom date header */
-html.dark .cadence-week-day {
+html.dark .calendar-week-day {
   color: #a8a1b8;
 }
 
-html.dark .cadence-week-number {
+html.dark .calendar-week-number {
   color: #f5f5f5;
 }
 
@@ -849,11 +849,6 @@ html.dark .rbc-time-slot {
   border-top-color: #262626 !important;
 }
 
-/* Today column */
-html.dark .rbc-today {
-  background-color: #403e4d !important;
-}
-
 /* Time gutter column */
 html.dark .rbc-time-gutter,
 html.dark .rbc-time-column.rbc-time-gutter {
@@ -866,3 +861,32 @@ html.dark .rbc-time-gutter .rbc-label {
   color: #d1d5db;
 }
 
+/* Today's date underline */
+.calendar-week-header-today {
+  position: relative;
+}
+
+.calendar-week-header-today::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -14px;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 2px;
+  border-radius: 100px;
+  background: #8f7ebb;
+}
+
+html.dark .calendar-week-header-today::after {
+  background: #9689b8;
+}
+
+/* Outside working hours */
+.rbc-day-slot .calendar-outside-work-hours {
+  background-color: #f9f8ff !important;
+}
+
+html.dark .rbc-day-slot .calendar-outside-work-hours {
+  background-color: #181818 !important;
+}
