@@ -1169,7 +1169,7 @@ export default function Home() {
                     onClick={() => setCalendarView(viewName)}
                     className={`h-10 px-4 flex items-center justify-center text-base font-medium transition-colors tracking-normal ${
                       calendarView === viewName
-                        ? 'bg-[#FFFFFF] text-primary rounded-lg dark:bg-[#6C647F] dark:text-white'
+                        ? 'bg-[#FFFFFF] text-primary rounded-lg dark:bg-primary-light dark:text-white'
                         : 'text-white hover:bg-white/15 rounded-lg'
                     }`}
                   >
@@ -1559,9 +1559,9 @@ export default function Home() {
                       setShowAddTaskDialog(true);
                       setIsAddingTask(false);
                     }}
-                    className="h-8 w-8 rounded-lg bg-primary-light text-white flex items-center justify-center hover:bg-primary-light/90 transition-colors"
+                    className="h-8 w-8 rounded-lg bg-primary-light text-white flex items-center justify-center hover:bg-primary-light/90"
                   >
-                    <Plus size={16} />
+                    <Plus size={18}  />
                   </button>
                 </div>
 
