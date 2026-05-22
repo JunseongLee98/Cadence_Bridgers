@@ -1169,7 +1169,7 @@ export default function Home() {
                     onClick={() => setCalendarView(viewName)}
                     className={`h-10 px-4 flex items-center justify-center text-base font-medium transition-colors tracking-normal ${
                       calendarView === viewName
-                        ? 'bg-[#F2EEFF] text-primary rounded-lg dark:bg-[#6C647F] dark:text-white'
+                        ? 'bg-[#FFFFFF] text-primary rounded-lg dark:bg-[#6C647F] dark:text-white'
                         : 'text-white hover:bg-white/15 rounded-lg'
                     }`}
                   >
@@ -1569,7 +1569,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => setTaskSidebarTab('active')}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
                       taskSidebarTab === 'active'
                         ? 'bg-primary-light text-white shadow-sm dark:bg-primary-light dark:text-white'
                         : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white/80'
@@ -1581,7 +1581,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => setTaskSidebarTab('completed')}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
                       taskSidebarTab === 'completed'
                         ? 'bg-primary-light text-white shadow-sm dark:bg-primary-light dark:text-white'
                         : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white/80'
