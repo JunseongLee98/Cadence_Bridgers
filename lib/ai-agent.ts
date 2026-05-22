@@ -341,7 +341,16 @@ export class CalendarAIAgent {
   }
 
   private static taskColor(task: Task): string {
-    return task.priority === 'high' ? '#E57373' : task.priority === 'medium' ? '#E8A86D' : '#81C7A6';
+    switch (task.priority) {
+      case 'high':
+        return '#fcd2d2'; // red-50
+      case 'medium':
+        return '#fff6d0'; // amber-50
+      case 'low':
+        return '#e0ffe2'; // emerald-50
+      default:
+        return '#f9fafb'; // gray-50
+    }
   }
 
   private static localDayKey(d: Date): string {

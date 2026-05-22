@@ -500,6 +500,16 @@ html.dark .delete-btn:hover {
   background-color: #7a4444;
 }
 
+html.dark .task-card {
+  background-color: #181818 !important;
+  border-color: #333333 !important;
+}
+
+html.dark .task-card:hover {
+  background-color: #1d1d1d !important;
+  border-color: #444444 !important;
+}
+
 /* ==============================
    SCROLLBAR
    ============================== */
@@ -670,10 +680,9 @@ html.dark .delete-btn:hover {
 
 /* All-day event container */
 .rbc-time-header-content .rbc-row-content {
-  min-height: 72px !important;
   height: auto !important;
   padding-top: 6px;
-  padding-bottom: 6px;
+  padding-bottom: 4px;
   overflow: hidden !important;
 }
 
@@ -682,10 +691,6 @@ html.dark .delete-btn:hover {
   min-height: 0 !important;
   height: auto !important;
   flex: initial !important;
-}
-
-.rbc-time-header-content .rbc-row-segment {
-  padding: 1px 3px;
 }
 
 /* ==============================
@@ -715,7 +720,7 @@ html.dark .delete-btn:hover {
 
 /* Half-hour rows */
 .rbc-time-slot {
-  min-height: 39px !important;
+  min-height: 36px !important;
   border-top-color: #f3f0f8 !important;
 }
 
@@ -890,3 +895,73 @@ html.dark .calendar-week-header-today::after {
 html.dark .rbc-day-slot .calendar-outside-work-hours {
   background-color: #181818 !important;
 }
+
+/* ==============================
+   Calendar Event Styling
+   ============================== */
+
+.rbc-event {
+  padding: 6px !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(55, 49, 71, 0.22) !important;
+  color: #373147 !important;
+}
+
+
+.rbc-event-label {
+  display: block !important;
+  margin-bottom: 6px !important;
+  font-weight: 500 !important;
+  line-height: 1.1 !important;
+  white-space: normal !important;
+}
+
+.rbc-event-content {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.18 !important;
+  letter-spacing: -0.01em;
+  color: #2c2c2c;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  word-break: break-word !important;
+}
+
+.rbc-time-view .rbc-event-content {
+  white-space: normal !important;
+}
+
+.rbc-time-view .rbc-allday-cell .rbc-event-content {
+  font-size: 14px !important;
+  line-height: 1.1 !important;
+}
+
+.rbc-day-slot .rbc-event {
+  min-height: 24px;
+}
+
+.rbc-month-view .rbc-event {
+  border-radius: 7px !important;
+}
+
+.rbc-month-view .rbc-event-content {
+  padding: 2px 2px;
+  white-space: nowrap;
+}
+
+.rbc-slot-selection {
+  background-color: rgba(120, 108, 155, 0.18) !important;
+  border: 1px solid rgba(120, 108, 155, 0.55) !important;
+  border-radius: 10px !important;
+  color: #373147 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  padding: 6px 8px !important;
+  overflow: hidden !important;
+}
+
