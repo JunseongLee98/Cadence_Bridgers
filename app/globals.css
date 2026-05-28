@@ -15,7 +15,7 @@ html {
 }
 
 body {
-  font-family: 'Plus-Jakarta-Sans', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   color: rgb(var(--foreground-rgb));
   background: linear-gradient(
       to bottom,
@@ -110,7 +110,7 @@ main {
 }
 
 /* Subscription dropdown */
-.header-bar subscription-dropdown {
+.header-bar .subscription-dropdown {
   border-radius: 14px;
   border-color: #e7e2f3;
   box-shadow:
@@ -174,17 +174,6 @@ main {
 
 .convert-task-btn:hover {
   background-color: #757397 !important;
-}
-
-.task-dropdown-import-btn {
-  border-color: rgb(131, 131, 139) !important;
-  background-color: #8b849e !important;
-  color: #f5f5f5;
-  transition: background-color 150ms ease;
-}
-
-.task-dropdown-import-btn:hover {
-  background-color: rgb(129, 117, 148) !important;
 }
 
 .delete-btn {
@@ -300,10 +289,6 @@ html.dark .header-bar {
   border-color: rgba(255, 255, 255, 0.08);
 }
 
-html.dark .rbc-calendar {
-  background-color: #1e1e1e;
-  color: #f5f5f5;
-}
 
 html.dark .rbc-time-view,
 html.dark .rbc-month-view,
@@ -385,7 +370,6 @@ html.dark .bg-primary-dark {
 }
 
 html.dark .import-btn,
-html.dark .task-dropdown-import-btn,
 html.dark .subscribe-btn,
 html.dark .settings-btn {
   border-color: rgb(97, 93, 109) !important;
@@ -472,26 +456,22 @@ html.dark .skip-btn:hover {
   background-color: #292929;
 }
 
-html.dark .breakdown-btn,
-html.dark .task-dropdown-add-btn {
+html.dark .breakdown-btn {
   background-color: #9384cfa4;
   transition: background-color 150ms ease;
 }
 
-html.dark .breakdown-btn:hover,
-html.dark .task-dropdown-add-btn:hover {
+html.dark .breakdown-btn:hover {
   background-color: #584e80;
 }
 
-html.dark .convert-task-btn,
-html.dark .task-dropdown-add-task-btn {
+html.dark .convert-task-btn {
   background-color: #ad9ec071;
   transition: background-color 150ms ease;
   border-color: #797783;
 }
 
-html.dark .convert-task-btn:hover,
-html.dark .task-dropdown-add-btn:hover {
+html.dark .convert-task-btn:hover {
   background-color: #675f72;
 }
 
@@ -615,7 +595,7 @@ html.dark .task-card:hover {
 }
 
 .calendar-week-number {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 500;
   color: #302940;
   line-height: 1;
@@ -661,7 +641,7 @@ html.dark .task-card:hover {
   align-items: center;
   justify-content: center;
   color: #8f889d;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 500;
   background: #ffffff;
   border: 0 !important;
@@ -924,7 +904,7 @@ html.dark .rbc-day-slot .calendar-outside-work-hours {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   line-height: 1.18 !important;
   letter-spacing: -0.01em;
@@ -967,4 +947,3 @@ html.dark .rbc-day-slot .calendar-outside-work-hours {
   padding: 6px 8px !important;
   overflow: hidden !important;
 }
-

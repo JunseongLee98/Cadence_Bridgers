@@ -1335,7 +1335,7 @@ export default function Home() {
                           </button>
                         </div>
 
-                        <div className="space-y-2 max-h-48 overflow-y-auto overflow-x-visible">
+                        <div className="space-y-2 overflow-visible">
                           {icsSubscriptions.map((sub) => (
                             <div
                               key={sub.id}
@@ -1529,7 +1529,7 @@ export default function Home() {
       {/* Full-Width Calendar with Task Sidebar */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <div className="h-full w-full px-3 sm:px-4 xl:px-6 py-3 xl:py-4">
-          <div className="h-full w-full grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_clamp(240px,18vw,300px)] gap-3 xl:gap-4 min-w-0">
+          <div className="h-full w-full grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_clamp(270px,19vw,320px)] gap-3 xl:gap-4 min-w-0">         
             <div className="flex-1 min-h-0 overflow-hidden">
               <Calendar
                 events={allEvents}
