@@ -1069,14 +1069,28 @@ export default function Home() {
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
 
-    const month = start.toLocaleDateString('en-US', { month: 'long' });
-    const startDay = start.toLocaleDateString('en-US', { day: '2-digit' });
-    const endDay = end.toLocaleDateString('en-US', { day: '2-digit' });
-    const year = end.getFullYear();
+    const startMonth = start.toLocaleDateString('en-US', { month: 'long' });
+    const endMonth = end.toLocaleDateString('en-US', { month: 'long' });
+    const startYear = start.getFullYear();
+    const endYear = end.getFullYear();
+
+    if (startMonth !== endMonth && startYear !== endYear) {
+      return {
+        dateText: `${startMonth} / ${endMonth}`,
+        yearText: `${startYear} / ${endYear}`,
+      };
+    }
+
+    if (startMonth !== endMonth) {
+      return {
+        dateText: `${startMonth} - ${endMonth}`,
+        yearText: String(endYear),
+      };
+    }
 
     return {
-      dateText: `${month} ${startDay} - ${endDay}`,
-      yearText: String(year),
+      dateText: startMonth,
+      yearText: String(startYear),
     };
   };
 
@@ -1156,7 +1170,7 @@ export default function Home() {
             {/* Date range */}
             <h1 className="flex w-full items-baseline justify-center text-center text-white whitespace-nowrap text-[40px] font-[500] tracking-tight leading-none">
               <span>{calendarHeaderLabel.dateText}</span>
-              <span className="ml-8 opacity-90">{calendarHeaderLabel.yearText}</span>
+              <span className="ml-4 opacity-90">{calendarHeaderLabel.yearText}</span>
             </h1>
 
             {/* View switcher */}
