@@ -1218,10 +1218,10 @@ export default function Home() {
               />
 
               {/* Subscribe */}
-              <div className="header-control-group flex items-center rounded-lg bg-white/10 border border-white/25 overflow-hidden">
+              <div className="header-control-group flex items-center rounded-lg bg-white/10 border border-white/25 overflow-hidden shrink-0">
                 <button
                   onClick={() => setShowSubscriptionDialog(!showSubscriptionDialog)}
-                  className={`h-9 px-3 flex items-center justify-center gap-1.5 text-base font-medium transition-colors ${
+                  className={`h-9 px-2.5 xl:px-3 flex items-center justify-center gap-1.5 text-sm xl:text-base font-medium transition-colors ${
                     showSubscriptionDialog
                       ? 'bg-white/10 text-white'
                       : 'text-white hover:bg-white/15'
@@ -1229,7 +1229,7 @@ export default function Home() {
                   title="Subscribe to ICS calendar URL"
                 >
                   <LucideCalendarPlus size={20} />
-                  Subscribe
+                  <span className="hidden xl:inline">Subscribe</span>
                 </button>
               </div>
               
