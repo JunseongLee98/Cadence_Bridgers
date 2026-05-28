@@ -87,7 +87,11 @@ export default function NotificationsBell({
                   return (
                     <li
                       key={n.id}
-                      className={`px-3 py-3 hover:bg-gray-50 cursor-pointer ${unreadRow ? 'bg-amber-50/50' : ''}`}
+                      className={`cursor-pointer rounded-lg px-3 py-3 transition-colors ${
+                        unreadRow
+                          ? 'bg-amber-50/60 hover:bg-amber-50 dark:bg-white/[0.08] dark:hover:bg-white/[0.12]'
+                          : 'hover:bg-gray-50 dark:hover:bg-white/[0.06]'
+                      }`}
                       onClick={() => onMarkRead(n.id)}
                       role="button"
                       tabIndex={0}

@@ -115,11 +115,11 @@ export default function Calendar({ events, date, view, workHours, onDateChange, 
     return {
       className: isTaskBlock ? 'rbc-event--cadence-task' : undefined,
       style: {
-        backgroundColor: event.color || '#3174ad',
+        backgroundColor: event.color || '#dbeafe',
         borderRadius: '4px',
         opacity: 1,
         color: '#111827', // near-black for strong contrast
-        border: '1px solid rgba(15, 23, 42, 0.12)',
+        border: '1px solid rgba(24, 24, 26, 0.16)',
         fontWeight: 500,
         display: 'block',
         // Sit above subscribed / Google layers when overlap layout stacks events.
@@ -127,7 +127,7 @@ export default function Calendar({ events, date, view, workHours, onDateChange, 
       },
     };
   };
-
+  
   const WeekHeader = ({ date }: { date: Date }) => {
     const day = date
       .toLocaleDateString("en-US", { weekday: "short" })

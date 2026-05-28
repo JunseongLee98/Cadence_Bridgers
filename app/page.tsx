@@ -106,15 +106,16 @@ export default function Home() {
     icsSubscribedEventsRef.current = icsSubscribedEvents;
   }, [icsSubscribedEvents]);
 
-  // Color palette for subscribed ICS calendars (pastels + a few stronger options)
+  // Color palette for subscribed ICS calendars
   const ICS_SUBSCRIPTION_COLORS = [
-    '#A8C5E6', '#8FB8ED', '#9DB4D6', // blues
-    '#B39DDB', '#C5A3D9', '#9FA8DA', // lavenders
-    '#A8D5BA', '#B7D7A8', '#CBE7B8', // greens
-    '#F2D0A9', '#E8C4A2', '#DDB892', // warm neutrals
-    '#E6A4B4', '#D4A5C8', '#E8BFCF', // pinks
-    '#C7C7E2', '#D6D1F0', '#B8C0E0', // indigo
-    '#EADFA4', '#F0E2A8', '#E8D8A8', // yellows 
+    '#dbeafe', '#bfdbfe', '#eff6ff', // blues
+    '#dcfce7', '#bbf7d0', '#f0fdf4', // greens
+    '#ffedd5', '#fed7aa', '#fff7ed', // oranges
+    '#fee2e2', '#fecaca', '#fef2f2', // reds
+    '#f3e8ff', '#e9d5ff', '#faf5ff', // purples
+    '#fce7f3', '#fbcfe8', '#fdf2f8', // pinks
+    '#e0e7ff', '#c7d2fe', '#eef2ff', // indigo
+    '#fef3c7', '#fef9c3', '#fefce8', // yellows
   ];
 
   // Load data from localStorage on mount
@@ -791,7 +792,7 @@ export default function Home() {
         start: slot.start,
         end: slot.end,
         isScheduled: false,
-        color: '#6366f1',
+        color: icsSubscriptions[0]?.color || '#e5dfff',
       };
       setEvents([...events, newEvent]);
     }
@@ -969,13 +970,25 @@ export default function Home() {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
-        return 'bg-[#E57373] text-red-800 border-[#D16464]';
+        return {
+          text: 'text-red-700',
+          dot: 'bg-red-500',
+        };
       case 'medium':
-        return 'bg-[#E8A86D] text-yellow-800 border-[#D6965B]';
+        return {
+          text: 'text-amber-700',
+          dot: 'bg-amber-500',
+        };
       case 'low':
-        return 'bg-[#81C7A6] text-green-800 border-[#6FB38F]';
+        return {
+          text: 'text-emerald-700',
+          dot: 'bg-emerald-500',
+        };
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
+        return {
+          text: 'text-gray-700',
+          dot: 'bg-gray-500',
+        };
     }
   };
 
@@ -1143,7 +1156,7 @@ export default function Home() {
             {/* Date range */}
             <h1 className="flex w-full items-baseline justify-center text-center text-white whitespace-nowrap text-[40px] font-[500] tracking-tight leading-none">
               <span>{calendarHeaderLabel.dateText}</span>
-              <span className="ml-14 opacity-90">{calendarHeaderLabel.yearText}</span>
+              <span className="ml-8 opacity-90">{calendarHeaderLabel.yearText}</span>
             </h1>
 
             {/* View switcher */}
@@ -1156,7 +1169,7 @@ export default function Home() {
                     onClick={() => setCalendarView(viewName)}
                     className={`h-10 px-4 flex items-center justify-center text-base font-medium transition-colors tracking-normal ${
                       calendarView === viewName
-                        ? 'bg-[#F2EEFF] text-primary rounded-lg dark:bg-[#6C647F] dark:text-white'
+                        ? 'bg-[#FFFFFF] text-primary rounded-lg dark:bg-primary-light dark:text-white'
                         : 'text-white hover:bg-white/15 rounded-lg'
                     }`}
                   >
@@ -1322,7 +1335,7 @@ export default function Home() {
                           </button>
                         </div>
 
-                        <div className="space-y-2 max-h-48 overflow-y-auto overflow-x-visible">
+                        <div className="space-y-2 overflow-visible">
                           {icsSubscriptions.map((sub) => (
                             <div
                               key={sub.id}
@@ -1516,7 +1529,7 @@ export default function Home() {
       {/* Full-Width Calendar with Task Sidebar */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <div className="h-full w-full px-3 sm:px-4 xl:px-6 py-3 xl:py-4">
-          <div className="h-full w-full grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_clamp(240px,18vw,300px)] gap-3 xl:gap-4 min-w-0">
+          <div className="h-full w-full grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_clamp(270px,19vw,320px)] gap-3 xl:gap-4 min-w-0">         
             <div className="flex-1 min-h-0 overflow-hidden">
               <Calendar
                 events={allEvents}
@@ -1546,20 +1559,20 @@ export default function Home() {
                       setShowAddTaskDialog(true);
                       setIsAddingTask(false);
                     }}
-                    className="h-8 w-8 rounded-lg bg-primary-light text-white flex items-center justify-center hover:bg-primary-light/90 transition-colors"
+                    className="h-8 w-8 rounded-lg bg-primary-light text-white flex items-center justify-center hover:bg-primary-light/90"
                   >
-                    <Plus size={16} />
+                    <Plus size={18}  />
                   </button>
                 </div>
 
-                <div className="flex gap-2 mb-3">
+                <div className="mb-3 grid grid-cols-2 rounded-xl bg-white/70 p-1 shadow-sm ring-1 ring-gray-200 dark:bg-white/5 dark:ring-white/10">
                   <button
                     type="button"
                     onClick={() => setTaskSidebarTab('active')}
-                    className={`flex-1 py-1.5 rounded-lg border text-xs font-medium ${
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
                       taskSidebarTab === 'active'
-                        ? 'bg-white text-gray-700 border-gray-300'
-                        : 'text-gray-500/80 dark:text-white/45 border-gray-300 hover:bg-gray-50'
+                        ? 'bg-primary-light text-white shadow-sm dark:bg-primary-light dark:text-white'
+                        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white/80'
                     }`}
                   >
                     Active ({activeTasks.length})
@@ -1568,10 +1581,10 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => setTaskSidebarTab('completed')}
-                    className={`flex-1 py-1.5 rounded-lg border text-xs font-medium ${
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
                       taskSidebarTab === 'completed'
-                        ? 'bg-white text-gray-700 border-gray-300'
-                        : 'text-gray-500/80 dark:text-white/45 border-gray-300 hover:bg-gray-50'
+                        ? 'bg-primary-light text-white shadow-sm dark:bg-primary-light dark:text-white'
+                        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white/80'
                     }`}
                   >
                     Completed ({completedTasks.length})
@@ -1588,25 +1601,30 @@ export default function Home() {
                         onClick={() =>
                           setExpandedTaskId(expandedTaskId === task.id ? null : task.id)
                         }
-                        className="p-3 border border-gray-200 rounded-lg hover:shadow-md transition-shadow bg-white flex flex-col cursor-pointer"
+                        className="task-card rounded-xl border border-gray-200 bg-white px-3.5 py-3 shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md flex flex-col cursor-pointer"
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <h3 className="font-semibold text-gray-800 text-sm flex-1 truncate">
+                        <div className="flex items-start justify-between gap-3">
+                          <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900">
                             {task.title}
                           </h3>
 
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <span
-                              className={`px-1.5 py-0.5 text-xs font-medium rounded border ${getPriorityColor(
-                                task.priority
-                              )}`}
-                            >
-                              {task.priority}
-                            </span>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {(() => {
+                              const priorityStyle = getPriorityColor(task.priority);
+
+                              return (
+                                <span
+                                  className={`inline-flex items-center gap-1.5 text-xs font-semibold capitalize ${priorityStyle.text}`}
+                                >
+                                  <span className={`h-1.5 w-1.5 rounded-full ${priorityStyle.dot}`} />
+                                  {task.priority}
+                                </span>
+                              );
+                            })()}
 
                             <ChevronDown
                               size={14}
-                              className={`text-gray-400 transition-transform ${
+                              className={`text-gray-400 transition-transform duration-200 ${
                                 expandedTaskId === task.id ? 'rotate-180' : ''
                               }`}
                             />
@@ -1615,19 +1633,19 @@ export default function Home() {
 
                         {task.description && (
                           <div
-                            className={`mt-1 w-full overflow-hidden transition-[max-height] duration-300 ease-in-out ${
+                            className={`mt-1.5 w-full overflow-hidden transition-[max-height] duration-300 ease-in-out ${
                               expandedTaskId === task.id ? 'max-h-40' : 'max-h-4'
                             }`}
                           >
-                            <p className="text-xs text-gray-600 leading-4">
+                            <p className="text-xs leading-4 text-gray-500">
                               {task.description}
                             </p>
                           </div>
                         )}
-        
-                        <div className="mt-2 flex items-center justify-between text-xs text-gray-500 flex-wrap">
-                          <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
-                            <div className="flex items-center gap-1 text-primary font-medium">
+
+                        <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
+                          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
+                            <div className="flex items-center gap-1 font-medium text-primary">
                               <Clock size={12} />
                               <span>
                                 Avg: {formatMinutesToHoursMinutes(getAverageDuration(task))}
@@ -1641,13 +1659,13 @@ export default function Home() {
                             )}
 
                             {task.dueDate && (
-                              <span className="text-orange-600">
+                              <span className="font-medium text-orange-600">
                                 Due: {new Date(task.dueDate).toLocaleDateString()}
                               </span>
                             )}
                           </div>
-                          
-                          <div className="flex items-center gap-1">
+
+                          <div className="flex shrink-0 items-center gap-1">
                             {!task.completedAt && (
                               <button
                                 onClick={() => {
@@ -1656,7 +1674,7 @@ export default function Home() {
                                     handleCompleteTask(task.id, parseInt(duration));
                                   }
                                 }}
-                                className="p-1.5 text-green-600 hover:bg-green-50 rounded"
+                                className="rounded-md p-1.5 text-green-600 transition-colors hover:bg-green-50 hover:text-green-700"
                               >
                                 <CheckCircle2 size={14} />
                               </button>
@@ -1664,7 +1682,7 @@ export default function Home() {
 
                             <button
                               onClick={() => handleDeleteTask(task.id)}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                              className="rounded-md p-1.5 text-red-600 transition-colors hover:bg-red-50 hover:text-red-700"
                             >
                               <X size={14} />
                             </button>
@@ -1704,7 +1722,7 @@ export default function Home() {
                 </div>
                 
                 {/* Days of the week*/}
-                <div className="grid grid-cols-7 gap-2 text-center text-[11px] text-gray-400 mb-3">
+                <div className="grid grid-cols-7 gap-2 text-center text-[11px] font-medium text-gray-400 mb-3">
                   {['S','M','T','W','T','F','S'].map(d => <div key={d}>{d}</div>)}
                 </div>
 
@@ -1732,7 +1750,7 @@ export default function Home() {
                           // Highlight today's date
                           : day && isCurrentMiniCalendarMonth && day === today.getDate()
                             ? 'border border-primary-light text-primary font-semibold'
-                            : day ? 'hover:bg-gray-200' : ''
+                            : day ? 'hover:bg-gray-200 dark:hover:bg-white/10 dark:hover:text-white' : ''
                       }`}
                     >
                       {day}
