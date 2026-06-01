@@ -954,3 +954,12 @@ html.dark .rbc-day-slot .calendar-outside-work-hours {
   padding: 6px 8px !important;
   overflow: hidden !important;
 }
+
+.mobile-view-scroll {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* old Edge */
+}
+
+.mobile-view-scroll::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+}
