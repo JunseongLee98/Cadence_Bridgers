@@ -10,7 +10,7 @@ import Calendar from '@/components/Calendar';
 import NotificationsBell from '@/components/NotificationsBell';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
-import { Plus, X, Clock, CheckCircle2, ChevronDown, ChevronRight, ChevronLeft, Menu, Calendar as CalendarIcon, LucideCalendarPlus, Upload, Link2, Trash2, CheckSquare, Settings, Sparkles } from 'lucide-react';
+import { Plus, X, Clock, CheckCircle2, ChevronDown, ChevronRight, ChevronLeft, Menu, Calendar as CalendarIcon, LucideCalendarPlus, List, Upload, Link2, Trash2, CheckSquare, Settings, Sparkles } from 'lucide-react';
 import { View } from 'react-big-calendar';
 import { parseICSFileFromFile, parseICSFileFromFileAsTasks, fetchICSFromURL } from '@/lib/ics-parser';
 import { formatMinutesToHoursMinutes } from '@/lib/time-utils';
@@ -1069,14 +1069,28 @@ export default function Home() {
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
 
-    const month = start.toLocaleDateString('en-US', { month: 'long' });
-    const startDay = start.toLocaleDateString('en-US', { day: '2-digit' });
-    const endDay = end.toLocaleDateString('en-US', { day: '2-digit' });
-    const year = end.getFullYear();
+    const startMonth = start.toLocaleDateString('en-US', { month: 'long' });
+    const endMonth = end.toLocaleDateString('en-US', { month: 'long' });
+    const startYear = start.getFullYear();
+    const endYear = end.getFullYear();
+
+    if (startMonth !== endMonth && startYear !== endYear) {
+      return {
+        dateText: `${startMonth} / ${endMonth}`,
+        yearText: `${startYear} / ${endYear}`,
+      };
+    }
+
+    if (startMonth !== endMonth) {
+      return {
+        dateText: `${startMonth} - ${endMonth}`,
+        yearText: String(endYear),
+      };
+    }
 
     return {
-      dateText: `${month} ${startDay} - ${endDay}`,
-      yearText: String(year),
+      dateText: startMonth,
+      yearText: String(startYear),
     };
   };
 
@@ -1156,26 +1170,55 @@ export default function Home() {
             {/* Date range */}
             <h1 className="flex w-full items-baseline justify-center text-center text-white whitespace-nowrap text-[40px] font-[500] tracking-tight leading-none">
               <span>{calendarHeaderLabel.dateText}</span>
-              <span className="ml-8 opacity-90">{calendarHeaderLabel.yearText}</span>
+              <span className="ml-4 opacity-90">{calendarHeaderLabel.yearText}</span>
             </h1>
 
             {/* View switcher */}
             <div className="hidden lg:flex justify-center">
               <div className="header-control-group flex items-center rounded-lg bg-white/10 border border-white/25 overflow-hidden">
-                {(['month', 'week', 'day', 'agenda'] as View[]).map((viewName) => (
-                  <button
-                    key={viewName}
-                    type="button"
-                    onClick={() => setCalendarView(viewName)}
-                    className={`h-10 px-4 flex items-center justify-center text-base font-medium transition-colors tracking-normal ${
-                      calendarView === viewName
-                        ? 'bg-[#FFFFFF] text-primary rounded-lg dark:bg-primary-light dark:text-white'
-                        : 'text-white hover:bg-white/15 rounded-lg'
+                {(['month', 'week', 'day', 'agenda'] as View[]).map((viewName, index) => {
+                  const shortLabel =
+                    viewName === 'month'
+                      ? 'M'
+                      : viewName === 'week'
+                        ? 'W'
+                        : viewName === 'day'
+                          ? 'D'
+                          : null;
+                          
+                  const isActive = calendarView === viewName;
+                  return (
+                    <div key={viewName} className="flex items-center">
+                      {index > 0 && (
+                        <span className="h-5 w-px bg-white/20" />
+                      )}
+
+                <button
+                  type="button"
+                  onClick={() => setCalendarView(viewName)}
+                  className="h-10 px-1.5 xl:px-2 flex items-center justify-center text-base font-medium transition-colors tracking-normal rounded-lg hover:bg-white/10"
+                  aria-label={viewName.charAt(0).toUpperCase() + viewName.slice(1)}
+                  title={viewName.charAt(0).toUpperCase() + viewName.slice(1)}
+                >
+                  <span
+                    className={`h-8 min-w-8 xl:min-w-0 xl:px-3 flex items-center justify-center rounded-md transition-colors ${
+                      isActive
+                        ? 'bg-white text-primary shadow-sm'
+                        : 'text-white'
                     }`}
                   >
-                    {viewName.charAt(0).toUpperCase() + viewName.slice(1)}
-                  </button>
-                ))}
+                    <span className="xl:hidden">
+                      {viewName === 'agenda' ? <List size={18} strokeWidth={2.4} /> : shortLabel}
+                    </span>
+
+                    <span className="hidden xl:inline">
+                      {viewName.charAt(0).toUpperCase() + viewName.slice(1)}
+                    </span>
+                  </span>
+                </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -1204,10 +1247,10 @@ export default function Home() {
               />
 
               {/* Subscribe */}
-              <div className="header-control-group flex items-center rounded-lg bg-white/10 border border-white/25 overflow-hidden">
+              <div className="header-control-group flex items-center rounded-lg bg-white/10 border border-white/25 overflow-hidden shrink-0">
                 <button
                   onClick={() => setShowSubscriptionDialog(!showSubscriptionDialog)}
-                  className={`h-9 px-3 flex items-center justify-center gap-1.5 text-base font-medium transition-colors ${
+                  className={`h-9 px-2.5 xl:px-3 flex items-center justify-center gap-1.5 text-sm xl:text-base font-medium transition-colors ${
                     showSubscriptionDialog
                       ? 'bg-white/10 text-white'
                       : 'text-white hover:bg-white/15'
@@ -1215,7 +1258,7 @@ export default function Home() {
                   title="Subscribe to ICS calendar URL"
                 >
                   <LucideCalendarPlus size={20} />
-                  Subscribe
+                  <span className="hidden xl:inline">Subscribe</span>
                 </button>
               </div>
               
@@ -1527,10 +1570,10 @@ export default function Home() {
       </header>
 
       {/* Full-Width Calendar with Task Sidebar */}
-      <div className="flex-1 min-h-0 overflow-hidden">
-        <div className="h-full w-full px-3 sm:px-4 xl:px-6 py-3 xl:py-4">
+      <div className="mobile-view-scroll flex-1 min-h-0 overflow-y-auto xl:overflow-hidden">
+        <div className="min-h-full xl:h-full w-full px-3 sm:px-4 xl:px-6 py-3 xl:py-4">          
           <div className="h-full w-full grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_clamp(270px,19vw,320px)] gap-3 xl:gap-4 min-w-0">         
-            <div className="flex-1 min-h-0 overflow-hidden">
+            <div className="h-[75vh] xl:h-full xl:max-h-none overflow-hidden">
               <Calendar
                 events={allEvents}
                 date={mainCalendarDate}
@@ -1547,10 +1590,10 @@ export default function Home() {
             </div>
 
             {/* Task Sidebar */}
-            <aside className="h-auto xl:h-full min-h-0 grid grid-cols-1 md:grid-cols-2 xl:flex xl:flex-col gap-4 items-stretch">
+            <aside className="h-auto xl:h-full min-h-0 grid grid-cols-1 lg:grid-cols-2 xl:flex xl:flex-col gap-4 items-stretch">
 
               {/* Tasks */}
-              <div className="bg-background rounded-lg shadow-lg border border-gray-200 p-4 flex flex-col min-h-[320px] xl:min-h-0 xl:flex-1">
+              <div className="bg-background rounded-lg shadow-lg border border-gray-200 p-4 flex flex-col min-h-[520px] md:min-h-[600px] xl:min-h-0 xl:flex-1">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-semibold text-primary">Tasks</h2>
                   <button
@@ -1604,7 +1647,13 @@ export default function Home() {
                         className="task-card rounded-xl border border-gray-200 bg-white px-3.5 py-3 shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md flex flex-col cursor-pointer"
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900">
+                          <h3
+                            className={`min-w-0 flex-1 text-sm font-semibold text-gray-900 ${
+                              expandedTaskId === task.id
+                                ? 'whitespace-normal break-words'
+                                : 'truncate'
+                            }`}
+                          >
                             {task.title}
                           </h3>
 
@@ -1695,10 +1744,8 @@ export default function Home() {
               </div>
               
               {/* Mini Calendar */}
-              <div className="bg-background rounded-lg shadow-lg border border-gray-200 p-4">
-
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-md font-semibold text-primary">
+              <div className="bg-background rounded-lg shadow-lg border border-gray-200 p-5 xl:p-4 min-h-[520px] md:min-h-[600px] xl:min-h-0 flex flex-col">                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl md:text-xl xl:text-md font-semibold text-primary">
                     {miniCalendarMonthLabel}
                   </h3>
                   
@@ -1722,12 +1769,12 @@ export default function Home() {
                 </div>
                 
                 {/* Days of the week*/}
-                <div className="grid grid-cols-7 gap-2 text-center text-[11px] font-medium text-gray-400 mb-3">
+                <div className="grid grid-cols-7 gap-3 md:gap-4 xl:gap-2 text-center text-sm md:text-base xl:text-[11px] font-medium text-gray-400 mb-4 xl:mb-3">
                   {['S','M','T','W','T','F','S'].map(d => <div key={d}>{d}</div>)}
                 </div>
 
                 {/* Mini calendar days grid */}
-                <div className="grid grid-cols-7 gap-2 text-center text-[11px] text-gray-600">
+                <div className="grid flex-1 grid-cols-7 grid-rows-6 gap-2 text-center text-sm md:text-md xl:text-[11px] text-gray-600">
                   {miniCalendarDays.map((day, index) => (
                     <button
                       key={index}
@@ -1739,7 +1786,7 @@ export default function Home() {
                           setMainCalendarDate(selectedDate);
                           setMiniCalendarDate(selectedDate);
                       }}
-                      className={`h-6 w-6 mx-auto flex items-center justify-center rounded-full ${
+                      className={`h-full aspect-square max-h-10 md:max-h-12 xl:max-h-6 w-full max-w-10 md:max-w-12 xl:max-w-6 mx-auto flex items-center justify-center rounded-full text-sm md:text-base xl:text-[11px] transition-colors ${
 
                         // Highlight selected date
                         day && mainCalendarDate.getFullYear() === miniCalendarYear &&

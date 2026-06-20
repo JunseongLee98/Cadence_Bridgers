@@ -289,7 +289,6 @@ html.dark .header-bar {
   border-color: rgba(255, 255, 255, 0.08);
 }
 
-
 html.dark .rbc-time-view,
 html.dark .rbc-month-view,
 html.dark .rbc-agenda-view,
@@ -936,6 +935,14 @@ html.dark .rbc-day-slot .calendar-outside-work-hours {
   white-space: nowrap;
 }
 
+.rbc-month-header {
+  min-height: 90px;
+}
+
+.rbc-month-header .rbc-header {
+  min-height: 90px;
+}
+
 .rbc-slot-selection {
   background-color: rgba(120, 108, 155, 0.18) !important;
   border: 1px solid rgba(120, 108, 155, 0.55) !important;
@@ -946,4 +953,13 @@ html.dark .rbc-day-slot .calendar-outside-work-hours {
   line-height: 1.2 !important;
   padding: 6px 8px !important;
   overflow: hidden !important;
+}
+
+.mobile-view-scroll {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* old Edge */
+}
+
+.mobile-view-scroll::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
 }
