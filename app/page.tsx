@@ -2013,8 +2013,7 @@ export default function Home() {
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Estimated Duration
                   </label>
-                  <div className="flex gap-2">
-                    <div className="flex-1 space-y-2">
+                  <div className="space-y-2">
                       <select
                         value={
                           taskDurationMode === 'preset'
@@ -2066,10 +2065,6 @@ export default function Home() {
                           <span className="text-xs text-gray-600">hours</span>
                         </div>
                       )}
-                    </div>
-                    <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-700 min-w-[140px] flex items-center">
-                      {formatMinutesToHoursMinutes(newTask.estimatedDuration || 0)}
-                    </div>
                   </div>
                 </div>
 
@@ -2167,8 +2162,7 @@ export default function Home() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Task Duration
                 </label>
-                <div className="flex gap-2 items-center">
-                  <div className="flex-1 space-y-2">
+                <div className="space-y-2">
                     <select
                       value={
                         conversionDurationMode === 'preset' &&
@@ -2219,10 +2213,6 @@ export default function Home() {
                         <span className="text-xs text-gray-600">hours</span>
                       </div>
                     )}
-                  </div>
-                  <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-700 min-w-[140px]">
-                    {formatMinutesToHoursMinutes(conversionDuration)}
-                  </div>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
                   How long will this task take to complete?
