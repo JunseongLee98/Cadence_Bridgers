@@ -122,6 +122,7 @@ export default function Home() {
   // Use refs to track latest state for scheduling
   const googleEventsRef = useRef<CalendarEvent[]>([]);
   const icsSubscribedEventsRef = useRef<CalendarEvent[]>([]);
+  const userProfileRef = useRef<UserProfile | null>(null);
   
   // Keep refs in sync with state
   useEffect(() => {
@@ -131,6 +132,10 @@ export default function Home() {
   useEffect(() => {
     icsSubscribedEventsRef.current = icsSubscribedEvents;
   }, [icsSubscribedEvents]);
+
+  useEffect(() => {
+    userProfileRef.current = userProfile;
+  }, [userProfile]);
 
   // Color palette for subscribed ICS calendars
   const ICS_SUBSCRIPTION_COLORS = [
@@ -607,6 +612,16 @@ export default function Home() {
     return result;
   };
 
+  /** Push feed to server immediately (ICS subscribers see updates after their next poll). */
+  const pushCalendarFeedSync = (eventsList: CalendarEvent[]) => {
+    if (!authReady || !initialAppDataLoadedRef.current) return;
+    const profile = userProfileRef.current ?? storage.getUserProfile();
+    if (!profile) return;
+    const token = profile.calendarFeedToken ?? storage.ensureCalendarFeedToken();
+    if (!token) return;
+    void runCalendarFeedSync(token, eventsList, profile.username);
+  };
+
   useEffect(() => {
     if (!authReady) return;
     void probePublicCalendarFeedHealth().then(setPublicFeedDeployed);
@@ -630,7 +645,7 @@ export default function Home() {
 
     const timer = window.setTimeout(() => {
       void runCalendarFeedSync(token, events, userProfile.username);
-    }, 500);
+    }, 50);
 
     return () => window.clearTimeout(timer);
   }, [events, authReady, userProfile?.username, userProfile?.calendarFeedToken]);
@@ -815,8 +830,9 @@ export default function Home() {
 
       if (scheduledEvents.length > 0) {
         enqueueCadenceNotificationsForEvents(scheduledEvents);
-        // Add the scheduled event to the events state
-        return [...prevEvents, ...scheduledEvents];
+        const next = [...prevEvents, ...scheduledEvents];
+        pushCalendarFeedSync(next);
+        return next;
       }
       
       return prevEvents;
@@ -871,7 +887,9 @@ export default function Home() {
 
       if (scheduledEvents.length > 0) {
         enqueueCadenceNotificationsForEvents(scheduledEvents);
-        return [...currentEvents, ...scheduledEvents];
+        const next = [...currentEvents, ...scheduledEvents];
+        pushCalendarFeedSync(next);
+        return next;
       }
       
       return currentEvents;
@@ -880,7 +898,11 @@ export default function Home() {
 
   const handleDeleteTask = (taskId: string) => {
     setTasks((prev) => prev.filter((task) => task.id !== taskId));
-    setEvents((prev) => prev.filter((event) => event.taskId !== taskId));
+    setEvents((prev) => {
+      const next = prev.filter((event) => event.taskId !== taskId);
+      pushCalendarFeedSync(next);
+      return next;
+    });
   };
 
   const handleCompleteTask = (taskId: string, actualDuration: number) => {
@@ -888,7 +910,11 @@ export default function Home() {
     if (!task) return;
     const updatedTask = CalendarAIAgent.recordTaskCompletion(task, actualDuration);
     setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
-    setEvents((prev) => prev.filter((event) => event.taskId !== taskId));
+    setEvents((prev) => {
+      const next = prev.filter((event) => event.taskId !== taskId);
+      pushCalendarFeedSync(next);
+      return next;
+    });
   };
 
   const handleScheduleTasks = (scheduledEvents: CalendarEvent[]) => {

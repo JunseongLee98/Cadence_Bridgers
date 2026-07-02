@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { getPublicFeedOrigin, getCalendarFeedSyncOrigin, buildCalendarFeedUrl, buildGoogleCalendarSubscribeUrl } from '@/lib/calendar-feed-url';
 import { CADENCE_PUBLIC_APP_URL } from '@/lib/cadence-public-url';
-import { filterEventsForCalendarFeed } from '@/lib/calendar-feed-events';
+import { filterEventsForCalendarFeed, mergeFeedEventSequences } from '@/lib/calendar-feed-events';
 import { buildIcsCalendar } from '@/lib/ics-export';
 import type { CalendarEvent } from '@/types';
 
@@ -51,6 +51,28 @@ describe('calendar feed store', () => {
 });
 
 describe('calendar feed events', () => {
+  it('bumps SEQUENCE when feed event content changes', () => {
+    const existing = [
+      {
+        id: 'e1',
+        title: 'Study',
+        start: '2026-06-01T14:00:00.000Z',
+        end: '2026-06-01T15:00:00.000Z',
+        sequence: 2,
+      },
+    ];
+    const incoming = [
+      {
+        id: 'e1',
+        title: 'Study (updated)',
+        start: '2026-06-01T14:00:00.000Z',
+        end: '2026-06-01T15:00:00.000Z',
+      },
+    ];
+    const merged = mergeFeedEventSequences(incoming, existing);
+    expect(merged[0].sequence).toBe(3);
+  });
+
   it('excludes Google and ICS subscription mirrors', () => {
     const events: CalendarEvent[] = [
       {
@@ -98,7 +120,7 @@ describe('ics export', () => {
     expect(ics).toContain('BEGIN:VEVENT');
     expect(ics).toContain('SUMMARY:Essay draft');
     expect(ics).toContain('STATUS:CONFIRMED');
-    expect(ics).toContain('REFRESH-INTERVAL;VALUE=DURATION:PT1H');
+    expect(ics).toContain('REFRESH-INTERVAL;VALUE=DURATION:PT5M');
     expect(ics).toContain('END:VCALENDAR');
   });
 });

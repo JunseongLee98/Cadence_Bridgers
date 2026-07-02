@@ -1,4 +1,6 @@
 import type { CalendarEvent } from '@/types';
+import type { SerializedFeedEvent } from '@/lib/calendar-feed-events';
+import { FEED_ICS_REFRESH_INTERVAL } from '@/lib/feed-ics-constants';
 
 function formatIcsUtc(date: Date): string {
   const iso = date.toISOString();
@@ -29,18 +31,63 @@ function foldLine(line: string): string {
   return parts.join('\r\n');
 }
 
-function eventToVevent(event: CalendarEvent, calendarName: string): string {
+function calendarHeader(calendarName: string, productId: string): string {
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    foldLine(`PRODID:${productId}`),
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    foldLine(`X-WR-CALNAME:${escapeIcsText(calendarName)}`),
+    'X-WR-TIMEZONE:UTC',
+    foldLine(`REFRESH-INTERVAL;VALUE=DURATION:${FEED_ICS_REFRESH_INTERVAL}`),
+    foldLine(`X-PUBLISHED-TTL:${FEED_ICS_REFRESH_INTERVAL}`),
+  ].join('\r\n');
+}
+
+function serializedRowToVevent(row: SerializedFeedEvent, publishedAt: Date): string {
+  const uid = `cadence-${row.id}@cadence.app`;
+  const start = new Date(row.start);
+  const end = new Date(row.end);
+  if (end.getTime() <= start.getTime()) return '';
+
+  const lines = [
+    'BEGIN:VEVENT',
+    foldLine(`UID:${uid}`),
+    foldLine(`DTSTAMP:${formatIcsUtc(publishedAt)}`),
+    foldLine(`DTSTART:${formatIcsUtc(start)}`),
+    foldLine(`DTEND:${formatIcsUtc(end)}`),
+    foldLine(`SUMMARY:${escapeIcsText(row.title)}`),
+    'STATUS:CONFIRMED',
+    'TRANSP:OPAQUE',
+    foldLine(`SEQUENCE:${row.sequence ?? 0}`),
+  ];
+  if (row.description) {
+    lines.push(foldLine(`DESCRIPTION:${escapeIcsText(row.description)}`));
+  }
+  if (row.taskId) {
+    lines.push(foldLine(`CATEGORIES:Cadence,Task`));
+    lines.push(foldLine(`X-CADENCE-TASK-ID:${escapeIcsText(row.taskId)}`));
+  } else {
+    lines.push(foldLine(`CATEGORIES:Cadence`));
+  }
+  lines.push(foldLine(`X-CADENCE-EVENT-ID:${escapeIcsText(row.id)}`));
+  lines.push('END:VEVENT');
+  return lines.join('\r\n');
+}
+
+function eventToVevent(event: CalendarEvent, publishedAt: Date, sequence = 0): string {
   const uid = `cadence-${event.id}@cadence.app`;
   const lines = [
     'BEGIN:VEVENT',
     foldLine(`UID:${uid}`),
-    foldLine(`DTSTAMP:${formatIcsUtc(new Date())}`),
+    foldLine(`DTSTAMP:${formatIcsUtc(publishedAt)}`),
     foldLine(`DTSTART:${formatIcsUtc(event.start)}`),
     foldLine(`DTEND:${formatIcsUtc(event.end)}`),
     foldLine(`SUMMARY:${escapeIcsText(event.title)}`),
     'STATUS:CONFIRMED',
     'TRANSP:OPAQUE',
-    'SEQUENCE:0',
+    foldLine(`SEQUENCE:${sequence}`),
   ];
   if (event.description) {
     lines.push(foldLine(`DESCRIPTION:${escapeIcsText(event.description)}`));
@@ -58,28 +105,42 @@ function eventToVevent(event: CalendarEvent, calendarName: string): string {
   return lines.join('\r\n');
 }
 
-export function buildIcsCalendar(
-  events: CalendarEvent[],
-  options?: { calendarName?: string; productId?: string }
+/** Build ICS from stored feed rows (includes SEQUENCE for subscription clients). */
+export function buildIcsCalendarFromFeedRows(
+  rows: SerializedFeedEvent[],
+  options?: { calendarName?: string; productId?: string; publishedAt?: Date }
 ): string {
   const calendarName = options?.calendarName ?? 'Cadence Schedule';
   const productId = options?.productId ?? '-//Cadence//Cadence Calendar Feed//EN';
-  const header = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    foldLine(`PRODID:${productId}`),
-    'CALSCALE:GREGORIAN',
-    'METHOD:PUBLISH',
-    foldLine(`X-WR-CALNAME:${escapeIcsText(calendarName)}`),
-    'X-WR-TIMEZONE:UTC',
-    'REFRESH-INTERVAL;VALUE=DURATION:PT1H',
-    'X-PUBLISHED-TTL:PT1H',
-  ].join('\r\n');
+  const publishedAt = options?.publishedAt ?? new Date();
+  const header = calendarHeader(calendarName, productId);
+
+  const body = rows
+    .map((row) => serializedRowToVevent(row, publishedAt))
+    .filter(Boolean)
+    .sort((a, b) => {
+      const startA = a.match(/DTSTART:(\d+Z)/)?.[1] ?? '';
+      const startB = b.match(/DTSTART:(\d+Z)/)?.[1] ?? '';
+      return startA.localeCompare(startB);
+    })
+    .join('\r\n');
+
+  return `${header}\r\n${body}\r\nEND:VCALENDAR\r\n`;
+}
+
+export function buildIcsCalendar(
+  events: CalendarEvent[],
+  options?: { calendarName?: string; productId?: string; publishedAt?: Date }
+): string {
+  const calendarName = options?.calendarName ?? 'Cadence Schedule';
+  const productId = options?.productId ?? '-//Cadence//Cadence Calendar Feed//EN';
+  const publishedAt = options?.publishedAt ?? new Date();
+  const header = calendarHeader(calendarName, productId);
 
   const body = events
     .filter((e) => e.end.getTime() > e.start.getTime())
     .sort((a, b) => a.start.getTime() - b.start.getTime())
-    .map((e) => eventToVevent(e, calendarName))
+    .map((e) => eventToVevent(e, publishedAt))
     .join('\r\n');
 
   return `${header}\r\n${body}\r\nEND:VCALENDAR\r\n`;
