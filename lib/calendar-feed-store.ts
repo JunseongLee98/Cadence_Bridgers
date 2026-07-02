@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { del, head, put } from '@vercel/blob';
+import { del, get, head, put } from '@vercel/blob';
 import type { SerializedFeedEvent } from '@/lib/calendar-feed-events';
 
 export type CalendarFeedRecord = {
@@ -35,8 +35,16 @@ function ensureDataDir(): void {
   }
 }
 
+/** Vercel: legacy token and/or linked store (OIDC via BLOB_STORE_ID on deploy). */
 function useBlobStore(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
+}
+
+function blobObjectAccess(): 'public' | 'private' {
+  if (process.env.BLOB_STORE_ID && !process.env.BLOB_READ_WRITE_TOKEN) {
+    return 'private';
+  }
+  return 'public';
 }
 
 function useRedisStore(): boolean {
@@ -57,7 +65,7 @@ function saveCalendarFeedFile(record: CalendarFeedRecord): void {
 
 async function saveCalendarFeedBlob(record: CalendarFeedRecord): Promise<void> {
   await put(blobPathname(record.token), JSON.stringify(record), {
-    access: 'public',
+    access: blobObjectAccess(),
     addRandomSuffix: false,
     allowOverwrite: true,
     contentType: 'application/json',
@@ -70,14 +78,25 @@ async function saveCalendarFeedRedis(record: CalendarFeedRecord): Promise<void> 
   await redis.set(REDIS_KEY_PREFIX + record.token, record);
 }
 
+function parseCalendarFeedRecord(raw: unknown, token: string): CalendarFeedRecord | null {
+  const record = raw as CalendarFeedRecord;
+  if (!record?.token || record.token !== token || !Array.isArray(record.events)) return null;
+  return record;
+}
+
 async function loadCalendarFeedBlob(token: string): Promise<CalendarFeedRecord | null> {
+  const pathname = blobPathname(token);
   try {
-    const meta = await head(blobPathname(token));
+    if (blobObjectAccess() === 'private') {
+      const result = await get(pathname, { access: 'private' });
+      if (!result?.stream) return null;
+      const text = await new Response(result.stream).text();
+      return parseCalendarFeedRecord(JSON.parse(text), token);
+    }
+    const meta = await head(pathname);
     const res = await fetch(meta.url);
     if (!res.ok) return null;
-    const raw = (await res.json()) as CalendarFeedRecord;
-    if (!raw?.token || raw.token !== token || !Array.isArray(raw.events)) return null;
-    return raw;
+    return parseCalendarFeedRecord(await res.json(), token);
   } catch {
     return null;
   }
@@ -138,7 +157,7 @@ function assertServerStorageConfigured(): void {
   if (process.env.VERCEL !== '1') return;
   if (useBlobStore() || useRedisStore()) return;
   throw new Error(
-    'Calendar feed storage is not configured on Vercel. Add Vercel Blob (BLOB_READ_WRITE_TOKEN) or Upstash Redis (UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN) in project settings.'
+    'Calendar feed storage is not configured on Vercel. Connect Vercel Blob (BLOB_STORE_ID or BLOB_READ_WRITE_TOKEN) or Upstash Redis in project Storage settings, then redeploy.'
   );
 }
 

@@ -30,6 +30,7 @@ describe('calendar feed store', () => {
   it('requires blob or redis on Vercel', async () => {
     vi.stubEnv('VERCEL', '1');
     vi.stubEnv('BLOB_READ_WRITE_TOKEN', '');
+    vi.stubEnv('BLOB_STORE_ID', '');
     vi.stubEnv('UPSTASH_REDIS_REST_URL', '');
     const { saveCalendarFeed } = await import('@/lib/calendar-feed-store');
     await expect(
