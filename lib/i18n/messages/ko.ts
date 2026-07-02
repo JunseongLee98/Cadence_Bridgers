@@ -149,6 +149,9 @@ export const ko = {
   },
   feed: {
     googleAdd: 'Google 캘린더에 추가',
+    appleAdd: 'Apple 캘린더에 추가',
+    outlookAdd: 'Outlook에 추가',
+    subscribeTitle: '캘린더에서 구독하기',
     googleHelp:
       'Google: 아래 Google 캘린더에 추가를 사용하거나(또는 다른 캘린더 → URL에서 https 링크). Apple: 파일 → 새 캘린더 구독.',
     googleEmptyHelp1:

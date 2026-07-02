@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { SerializedFeedEvent } from '@/lib/calendar-feed-events';
-import { mergeFeedEventSequences } from '@/lib/calendar-feed-events';
+import { reconcileFeedState } from '@/lib/calendar-feed-events';
 import { saveCalendarFeed, deleteCalendarFeed, loadCalendarFeed } from '@/lib/calendar-feed-store';
 
 export const dynamic = 'force-dynamic';
@@ -61,17 +61,22 @@ export async function POST(request: NextRequest) {
     }
 
     const existing = await loadCalendarFeed(token);
-    const mergedEvents = mergeFeedEventSequences(events, existing?.events);
+    const { events: mergedEvents, tombstones } = reconcileFeedState(
+      events,
+      existing?.events,
+      existing?.tombstones
+    );
 
     await saveCalendarFeed({
       token,
       username,
       updatedAt: new Date().toISOString(),
       events: mergedEvents,
+      tombstones,
     });
 
     return NextResponse.json(
-      { ok: true, eventCount: mergedEvents.length },
+      { ok: true, eventCount: mergedEvents.length, cancelledCount: tombstones.length },
       { headers: CORS_HEADERS }
     );
   } catch (error) {

@@ -150,6 +150,9 @@ export const en = {
   },
   feed: {
     googleAdd: 'Add to Google Calendar',
+    appleAdd: 'Add to Apple Calendar',
+    outlookAdd: 'Add to Outlook',
+    subscribeTitle: 'Subscribe on your calendar',
     googleHelp:
       'Google: use Add to Google Calendar below (or Other calendars → From URL with the https link). Apple: File → New Calendar Subscription.',
     googleEmptyHelp1:

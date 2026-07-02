@@ -10,6 +10,8 @@ import { syncCalendarFeedToServer } from '@/lib/sync-calendar-feed';
 import {
   buildCalendarFeedUrl,
   buildGoogleCalendarSubscribeUrl,
+  buildWebcalFeedUrl,
+  buildOutlookCalendarSubscribeUrl,
   getCalendarFeedSubscriptionOrigin,
   isLocalhostFeedOrigin,
   probePublicCalendarFeedHealth,
@@ -2517,14 +2519,35 @@ export default function Home() {
                       <p>{m.feed.googleEmptyHelp2}</p>
                     </div>
                     {calendarFeedUrl && (
-                      <a
-                        href={buildGoogleCalendarSubscribeUrl(calendarFeedUrl)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-block text-xs font-medium text-primary-700 underline hover:no-underline"
-                      >
-                        {m.feed.googleAdd}
-                      </a>
+                      <div className="space-y-1.5">
+                        <p className="text-[11px] font-semibold text-gray-700">
+                          {m.feed.subscribeTitle}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <a
+                            href={buildGoogleCalendarSubscribeUrl(calendarFeedUrl)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-block px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
+                          >
+                            {m.feed.googleAdd}
+                          </a>
+                          <a
+                            href={buildWebcalFeedUrl(calendarFeedUrl)}
+                            className="inline-block px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
+                          >
+                            {m.feed.appleAdd}
+                          </a>
+                          <a
+                            href={buildOutlookCalendarSubscribeUrl(calendarFeedUrl)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-block px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
+                          >
+                            {m.feed.outlookAdd}
+                          </a>
+                        </div>
+                      </div>
                     )}
                     {feedSyncError && (
                       <p className="text-xs text-red-600">{feedSyncError}</p>

@@ -1,13 +1,15 @@
 import fs from 'fs';
 import path from 'path';
 import { del, get, head, put } from '@vercel/blob';
-import type { SerializedFeedEvent } from '@/lib/calendar-feed-events';
+import type { SerializedFeedEvent, FeedTombstone } from '@/lib/calendar-feed-events';
 
 export type CalendarFeedRecord = {
   token: string;
   username?: string;
   updatedAt: string;
   events: SerializedFeedEvent[];
+  /** Recently removed events, published as STATUS:CANCELLED so subscribers delete them. */
+  tombstones?: FeedTombstone[];
 };
 
 const DATA_DIR =

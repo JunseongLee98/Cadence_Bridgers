@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { getPublicFeedOrigin, getCalendarFeedSyncOrigin, buildCalendarFeedUrl, buildGoogleCalendarSubscribeUrl } from '@/lib/calendar-feed-url';
 import { CADENCE_PUBLIC_APP_URL } from '@/lib/cadence-public-url';
-import { filterEventsForCalendarFeed, mergeFeedEventSequences } from '@/lib/calendar-feed-events';
-import { buildIcsCalendar } from '@/lib/ics-export';
+import { filterEventsForCalendarFeed, mergeFeedEventSequences, reconcileFeedState } from '@/lib/calendar-feed-events';
+import { buildIcsCalendar, buildIcsCalendarFromFeedRows } from '@/lib/ics-export';
 import type { CalendarEvent } from '@/types';
 
 describe('calendar feed url', () => {
@@ -71,6 +71,66 @@ describe('calendar feed events', () => {
     ];
     const merged = mergeFeedEventSequences(incoming, existing);
     expect(merged[0].sequence).toBe(3);
+  });
+
+  it('emits a cancelled tombstone when an event is removed', () => {
+    const existing = [
+      {
+        id: 'e1',
+        title: 'Study',
+        start: '2026-06-01T14:00:00.000Z',
+        end: '2026-06-01T15:00:00.000Z',
+        sequence: 1,
+      },
+    ];
+    const { events, tombstones } = reconcileFeedState([], existing, [], new Date('2026-06-02T00:00:00.000Z'));
+    expect(events).toHaveLength(0);
+    expect(tombstones).toHaveLength(1);
+    expect(tombstones[0].id).toBe('e1');
+    expect(tombstones[0].sequence).toBe(2);
+
+    const ics = buildIcsCalendarFromFeedRows(events, { tombstones });
+    expect(ics).toContain('STATUS:CANCELLED');
+    expect(ics).toContain('SEQUENCE:2');
+  });
+
+  it('revives an event that returns after cancellation', () => {
+    const tomb = [
+      {
+        id: 'e1',
+        title: 'Study',
+        start: '2026-06-01T14:00:00.000Z',
+        end: '2026-06-01T15:00:00.000Z',
+        sequence: 3,
+        cancelledAt: '2026-06-02T00:00:00.000Z',
+      },
+    ];
+    const incoming = [
+      {
+        id: 'e1',
+        title: 'Study',
+        start: '2026-06-01T14:00:00.000Z',
+        end: '2026-06-01T15:00:00.000Z',
+      },
+    ];
+    const { events, tombstones } = reconcileFeedState(incoming, [], tomb, new Date('2026-06-03T00:00:00.000Z'));
+    expect(tombstones).toHaveLength(0);
+    expect(events[0].sequence).toBe(4);
+  });
+
+  it('drops tombstones past the retention window', () => {
+    const tomb = [
+      {
+        id: 'e1',
+        title: 'Study',
+        start: '2026-06-01T14:00:00.000Z',
+        end: '2026-06-01T15:00:00.000Z',
+        sequence: 2,
+        cancelledAt: '2026-06-01T00:00:00.000Z',
+      },
+    ];
+    const { tombstones } = reconcileFeedState([], [], tomb, new Date('2026-07-01T00:00:00.000Z'));
+    expect(tombstones).toHaveLength(0);
   });
 
   it('excludes Google and ICS subscription mirrors', () => {

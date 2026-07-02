@@ -1,5 +1,5 @@
 import type { CalendarEvent } from '@/types';
-import type { SerializedFeedEvent } from '@/lib/calendar-feed-events';
+import type { SerializedFeedEvent, FeedTombstone } from '@/lib/calendar-feed-events';
 import { FEED_ICS_REFRESH_INTERVAL } from '@/lib/feed-ics-constants';
 
 function formatIcsUtc(date: Date): string {
@@ -76,6 +76,31 @@ function serializedRowToVevent(row: SerializedFeedEvent, publishedAt: Date): str
   return lines.join('\r\n');
 }
 
+function tombstoneToVevent(tomb: FeedTombstone, publishedAt: Date): string {
+  const uid = `cadence-${tomb.id}@cadence.app`;
+  const start = new Date(tomb.start);
+  const end = new Date(tomb.end);
+  const safeEnd = end.getTime() > start.getTime() ? end : new Date(start.getTime() + 60 * 1000);
+
+  const lines = [
+    'BEGIN:VEVENT',
+    foldLine(`UID:${uid}`),
+    foldLine(`DTSTAMP:${formatIcsUtc(publishedAt)}`),
+    foldLine(`DTSTART:${formatIcsUtc(start)}`),
+    foldLine(`DTEND:${formatIcsUtc(safeEnd)}`),
+    foldLine(`SUMMARY:${escapeIcsText(tomb.title)}`),
+    'STATUS:CANCELLED',
+    'TRANSP:TRANSPARENT',
+    foldLine(`SEQUENCE:${tomb.sequence}`),
+  ];
+  lines.push(foldLine(`X-CADENCE-EVENT-ID:${escapeIcsText(tomb.id)}`));
+  if (tomb.taskId) {
+    lines.push(foldLine(`X-CADENCE-TASK-ID:${escapeIcsText(tomb.taskId)}`));
+  }
+  lines.push('END:VEVENT');
+  return lines.join('\r\n');
+}
+
 function eventToVevent(event: CalendarEvent, publishedAt: Date, sequence = 0): string {
   const uid = `cadence-${event.id}@cadence.app`;
   const lines = [
@@ -108,22 +133,32 @@ function eventToVevent(event: CalendarEvent, publishedAt: Date, sequence = 0): s
 /** Build ICS from stored feed rows (includes SEQUENCE for subscription clients). */
 export function buildIcsCalendarFromFeedRows(
   rows: SerializedFeedEvent[],
-  options?: { calendarName?: string; productId?: string; publishedAt?: Date }
+  options?: {
+    calendarName?: string;
+    productId?: string;
+    publishedAt?: Date;
+    tombstones?: FeedTombstone[];
+  }
 ): string {
   const calendarName = options?.calendarName ?? 'Cadence Schedule';
   const productId = options?.productId ?? '-//Cadence//Cadence Calendar Feed//EN';
   const publishedAt = options?.publishedAt ?? new Date();
   const header = calendarHeader(calendarName, productId);
 
-  const body = rows
+  const activeVevents = rows
     .map((row) => serializedRowToVevent(row, publishedAt))
     .filter(Boolean)
     .sort((a, b) => {
       const startA = a.match(/DTSTART:(\d+Z)/)?.[1] ?? '';
       const startB = b.match(/DTSTART:(\d+Z)/)?.[1] ?? '';
       return startA.localeCompare(startB);
-    })
-    .join('\r\n');
+    });
+
+  const cancelledVevents = (options?.tombstones ?? []).map((t) =>
+    tombstoneToVevent(t, publishedAt)
+  );
+
+  const body = [...activeVevents, ...cancelledVevents].filter(Boolean).join('\r\n');
 
   return `${header}\r\n${body}\r\nEND:VCALENDAR\r\n`;
 }

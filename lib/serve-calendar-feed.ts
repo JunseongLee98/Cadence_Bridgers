@@ -18,9 +18,14 @@ export async function serveCalendarFeedIcs(token: string): Promise<NextResponse>
     ? `Cadence — ${record.username}`
     : 'Cadence Schedule';
 
+  const tombstones = record.tombstones ?? [];
   const updatedAt = record.updatedAt ? new Date(record.updatedAt) : new Date();
-  const ics = buildIcsCalendarFromFeedRows(events, { calendarName, publishedAt: updatedAt });
-  const etag = `"cadence-feed-${token}-${record.events.length}-${updatedAt.getTime()}"`;
+  const ics = buildIcsCalendarFromFeedRows(events, {
+    calendarName,
+    publishedAt: updatedAt,
+    tombstones,
+  });
+  const etag = `"cadence-feed-${token}-${events.length}-${tombstones.length}-${updatedAt.getTime()}"`;
 
   return new NextResponse(ics, {
     status: 200,

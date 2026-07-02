@@ -18,6 +18,25 @@ export type SerializedFeedEvent = {
   sequence?: number;
 };
 
+/**
+ * A cancelled event that used to be in the feed. We keep emitting it as a
+ * STATUS:CANCELLED VEVENT (with a bumped SEQUENCE) for a retention window so
+ * subscribers (Google/Apple/Outlook) actually delete the event instead of
+ * keeping their last-known copy when it simply disappears from the feed.
+ */
+export type FeedTombstone = {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  taskId?: string;
+  sequence: number;
+  cancelledAt: string;
+};
+
+/** How long a cancelled event keeps being published so clients can pick up the removal. */
+export const FEED_TOMBSTONE_RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
+
 function feedEventFingerprint(e: Pick<SerializedFeedEvent, 'start' | 'end' | 'title' | 'description'>): string {
   return `${e.start}|${e.end}|${e.title}|${e.description ?? ''}`;
 }
@@ -46,6 +65,75 @@ export function mergeFeedEventSequences(
     }
     return { ...e, sequence: prev.sequence + 1 };
   });
+}
+
+/**
+ * Reconcile an incoming set of events with the previously stored state.
+ *
+ * - Keeps/bumps SEQUENCE for events that stay (bumped only when content changes).
+ * - Revives an event that was previously cancelled (continues its SEQUENCE).
+ * - Emits a tombstone for any previously-present event that is now gone, so the
+ *   feed can publish it as STATUS:CANCELLED and subscribers remove it.
+ * - Carries forward prior tombstones that are still within the retention window
+ *   and drops the ones that expired or came back.
+ */
+export function reconcileFeedState(
+  incoming: SerializedFeedEvent[],
+  existingEvents: SerializedFeedEvent[] | undefined,
+  existingTombstones: FeedTombstone[] | undefined,
+  now: Date = new Date()
+): { events: SerializedFeedEvent[]; tombstones: FeedTombstone[] } {
+  const prevEventsById = new Map<string, SerializedFeedEvent>();
+  for (const e of existingEvents ?? []) prevEventsById.set(e.id, e);
+
+  const prevTombById = new Map<string, FeedTombstone>();
+  for (const t of existingTombstones ?? []) prevTombById.set(t.id, t);
+
+  const incomingIds = new Set(incoming.map((e) => e.id));
+
+  const events: SerializedFeedEvent[] = incoming.map((e) => {
+    const fp = feedEventFingerprint(e);
+    const prev = prevEventsById.get(e.id);
+    if (prev) {
+      const prevSeq = prev.sequence ?? 0;
+      return { ...e, sequence: feedEventFingerprint(prev) === fp ? prevSeq : prevSeq + 1 };
+    }
+    const tomb = prevTombById.get(e.id);
+    if (tomb) {
+      return { ...e, sequence: tomb.sequence + 1 };
+    }
+    return { ...e, sequence: 0 };
+  });
+
+  const nowIso = now.toISOString();
+  const tombstones: FeedTombstone[] = [];
+  const seenTomb = new Set<string>();
+
+  for (const prev of existingEvents ?? []) {
+    if (incomingIds.has(prev.id)) continue;
+    tombstones.push({
+      id: prev.id,
+      title: prev.title,
+      start: prev.start,
+      end: prev.end,
+      taskId: prev.taskId,
+      sequence: (prev.sequence ?? 0) + 1,
+      cancelledAt: nowIso,
+    });
+    seenTomb.add(prev.id);
+  }
+
+  for (const t of existingTombstones ?? []) {
+    if (incomingIds.has(t.id)) continue;
+    if (seenTomb.has(t.id)) continue;
+    const age = now.getTime() - new Date(t.cancelledAt).getTime();
+    if (Number.isFinite(age) && age <= FEED_TOMBSTONE_RETENTION_MS) {
+      tombstones.push(t);
+      seenTomb.add(t.id);
+    }
+  }
+
+  return { events, tombstones };
 }
 
 export function serializeFeedEvents(events: CalendarEvent[]): SerializedFeedEvent[] {

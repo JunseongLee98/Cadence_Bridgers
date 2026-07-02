@@ -60,6 +60,22 @@ export function buildGoogleCalendarSubscribeUrl(feedUrl: string): string {
   return `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(httpsUrl)}`;
 }
 
+/**
+ * webcal:// link. Apple Calendar and Outlook desktop auto-subscribe when this is
+ * opened (rather than downloading a one-off .ics file).
+ */
+export function buildWebcalFeedUrl(feedUrl: string): string {
+  return feedUrl.trim().replace(/^https?:/i, 'webcal:');
+}
+
+/** Opens the Outlook.com "add calendar from web" subscribe flow. */
+export function buildOutlookCalendarSubscribeUrl(feedUrl: string): string {
+  const httpsUrl = feedUrl.trim().replace(/^webcal:/i, 'https:');
+  return `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(
+    httpsUrl
+  )}&name=${encodeURIComponent('Cadence')}`;
+}
+
 export async function probePublicCalendarFeedHealth(): Promise<boolean> {
   const base = CADENCE_PUBLIC_APP_URL.replace(/\/$/, '');
   try {
