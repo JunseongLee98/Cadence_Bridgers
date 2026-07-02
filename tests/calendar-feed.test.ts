@@ -23,7 +23,7 @@ describe('calendar feed url', () => {
   it('builds Google subscribe link from feed URL', () => {
     const feed = `${CADENCE_PUBLIC_APP_URL}/cadence/feed/abc.ics`;
     expect(buildGoogleCalendarSubscribeUrl(feed)).toBe(
-      `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(feed)}`
+      `https://calendar.google.com/calendar/u/0/r/settings/addbyurl?url=${encodeURIComponent(feed)}`
     );
   });
 });

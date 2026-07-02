@@ -54,10 +54,16 @@ export function buildCalendarFeedUrl(origin: string, token: string): string {
   return `${base}/cadence/feed/${token}.ics`;
 }
 
-/** Opens Google Calendar subscribe flow with this HTTPS feed (public ICS URL). */
+/**
+ * Opens Google Calendar's "Add calendar → From URL" settings page with the ICS
+ * feed pre-filled. The older render?cid endpoint only works for Google-hosted
+ * calendars, so it silently fails for external .ics feeds.
+ */
 export function buildGoogleCalendarSubscribeUrl(feedUrl: string): string {
   const httpsUrl = feedUrl.trim().replace(/^webcal:/i, 'https:');
-  return `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(httpsUrl)}`;
+  return `https://calendar.google.com/calendar/u/0/r/settings/addbyurl?url=${encodeURIComponent(
+    httpsUrl
+  )}`;
 }
 
 /**
