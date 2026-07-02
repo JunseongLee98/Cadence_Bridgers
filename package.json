@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "WATCHPACK_POLLING=true next dev",
+    "dev:3001": "WATCHPACK_POLLING=true next dev -p 3001",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -12,6 +13,7 @@
     "build:extension": "node extension/esbuild.config.mjs"
   },
   "dependencies": {
+    "@vercel/blob": "^2.5.0",
     "date-fns": "^3.6.0",
     "googleapis": "^168.0.0",
     "ical.js": "^2.2.1",
@@ -21,6 +23,7 @@
     "react": "^18.3.1",
     "react-big-calendar": "^1.8.5",
     "react-dom": "^18.3.1",
+    "resend": "^6.12.4",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

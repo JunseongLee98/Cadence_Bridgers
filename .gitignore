@@ -38,3 +38,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# server-side calendar feed payloads (local dev)
+.data/

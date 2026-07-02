@@ -1,4 +1,12 @@
-import { Task, CalendarEvent, WorkHoursConfig, WorkSegment, InAppNotification } from '@/types';
+import { v4 as uuidv4 } from 'uuid';
+import {
+  Task,
+  CalendarEvent,
+  WorkHoursConfig,
+  WorkSegment,
+  InAppNotification,
+  UserProfile,
+} from '@/types';
 
 const TASKS_KEY = 'cadence_tasks';
 const EVENTS_KEY = 'cadence_events';
@@ -9,6 +17,7 @@ const WORK_HOURS_KEY = 'cadence_work_hours';
 const BREAK_AFTER_EVENTS_KEY = 'cadence_break_after_events';
 const FOCUS_MINUTES_KEY = 'cadence_focus_minutes';
 const NOTIFICATIONS_KEY = 'cadence_notifications';
+const USER_PROFILE_KEY = 'cadence_user_profile';
 
 // Default pastel color palette for subscribed ICS calendars (easy on the eyes)
 const ICS_SUBSCRIPTION_COLORS = [
@@ -119,6 +128,67 @@ export const storage = {
   clearNotifications(): void {
     if (typeof window === 'undefined') return;
     localStorage.removeItem(NOTIFICATIONS_KEY);
+  },
+
+  getUserProfile(): UserProfile | null {
+    if (typeof window === 'undefined') return null;
+    const data = localStorage.getItem(USER_PROFILE_KEY);
+    if (!data) return null;
+    try {
+      const raw = JSON.parse(data) as UserProfile & { createdAt: string };
+      if (!raw?.username || !raw?.email) return null;
+      return {
+        username: raw.username,
+        email: raw.email,
+        emailVerified: Boolean(raw.emailVerified),
+        emailNotificationsEnabled: raw.emailNotificationsEnabled !== false,
+        calendarFeedToken:
+          typeof raw.calendarFeedToken === 'string' ? raw.calendarFeedToken : undefined,
+        createdAt: new Date(raw.createdAt),
+      };
+    } catch {
+      return null;
+    }
+  },
+
+  saveUserProfile(profile: UserProfile): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profile));
+  },
+
+  updateUserProfile(patch: Partial<UserProfile>): UserProfile | null {
+    const current = this.getUserProfile();
+    if (!current) return null;
+    const next: UserProfile = {
+      ...current,
+      ...patch,
+      username: patch.username ?? current.username,
+      email: patch.email ?? current.email,
+    };
+    this.saveUserProfile(next);
+    return next;
+  },
+
+  clearUserProfile(): void {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(USER_PROFILE_KEY);
+  },
+
+  ensureCalendarFeedToken(): string | null {
+    const profile = this.getUserProfile();
+    if (!profile) return null;
+    if (profile.calendarFeedToken) return profile.calendarFeedToken;
+    const token = uuidv4();
+    this.updateUserProfile({ calendarFeedToken: token });
+    return token;
+  },
+
+  regenerateCalendarFeedToken(): string | null {
+    const profile = this.getUserProfile();
+    if (!profile) return null;
+    const token = uuidv4();
+    this.updateUserProfile({ calendarFeedToken: token });
+    return token;
   },
 
   // Google Calendar Tokens

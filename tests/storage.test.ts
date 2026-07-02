@@ -103,4 +103,19 @@ describe('storage (browser API mocked)', () => {
     const updated = storage.markNotificationRead('n1');
     expect(updated[0].readAt instanceof Date).toBe(true);
   });
+
+  it('round-trips user profile', () => {
+    storage.saveUserProfile({
+      username: 'Alex',
+      email: 'alex@example.com',
+      emailVerified: false,
+      emailNotificationsEnabled: true,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+    const loaded = storage.getUserProfile();
+    expect(loaded?.username).toBe('Alex');
+    expect(loaded?.email).toBe('alex@example.com');
+    const updated = storage.updateUserProfile({ emailVerified: true });
+    expect(updated?.emailVerified).toBe(true);
+  });
 });

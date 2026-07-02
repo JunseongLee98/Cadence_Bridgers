@@ -1,8 +1,18 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Task, CalendarEvent, InAppNotification } from '@/types';
+import { useRouter } from 'next/navigation';
+import { Task, CalendarEvent, InAppNotification, UserProfile } from '@/types';
 import { storage } from '@/lib/storage';
+import { sendEmailNotificationsForUser } from '@/lib/notify-by-email';
+import { syncCalendarFeedToServer } from '@/lib/sync-calendar-feed';
+import {
+  buildCalendarFeedUrl,
+  getCalendarFeedServiceOrigin,
+  isLocalhostFeedOrigin,
+  probePublicCalendarFeedHealth,
+} from '@/lib/calendar-feed-url';
+import { filterEventsForCalendarFeed } from '@/lib/calendar-feed-events';
 import { CalendarAIAgent } from '@/lib/ai-agent';
 import { SCHEDULE_MAX_HORIZON_DAYS } from '@/lib/schedule-constants';
 import { formatDateToLocalISO, parseLocalDateInput } from '@/lib/date-utils';
@@ -25,6 +35,17 @@ function dedupeCalendarEventsById(events: CalendarEvent[]): CalendarEvent[] {
 }
 
 export default function Home() {
+  const router = useRouter();
+  const [authReady, setAuthReady] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [verificationBannerBusy, setVerificationBannerBusy] = useState(false);
+  const [calendarFeedUrl, setCalendarFeedUrl] = useState<string | null>(null);
+  const [feedSyncError, setFeedSyncError] = useState<string | null>(null);
+  const [feedLinkCopied, setFeedLinkCopied] = useState(false);
+  const [feedSyncedEventCount, setFeedSyncedEventCount] = useState<number | null>(null);
+  const [feedSyncing, setFeedSyncing] = useState(false);
+  const [publicFeedDeployed, setPublicFeedDeployed] = useState<boolean | null>(null);
+  const initialAppDataLoadedRef = useRef(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
@@ -78,6 +99,7 @@ export default function Home() {
   const [tempBreakAfterEvents, setTempBreakAfterEvents] = useState(5);
   const [focusMinutes, setFocusMinutes] = useState(50);
   const [tempFocusMinutes, setTempFocusMinutes] = useState(50);
+  const [tempEmailNotifications, setTempEmailNotifications] = useState(true);
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
   const [taskDurationMode, setTaskDurationMode] = useState<'preset' | 'custom'>('preset');
   const [taskDurationCustomHours, setTaskDurationCustomHours] = useState(1);
@@ -186,7 +208,30 @@ export default function Home() {
     } catch {
       // ignore storage access errors
     }
-  }, []);
+
+    const profile = storage.getUserProfile();
+    if (!profile) {
+      router.replace('/login');
+      return;
+    }
+    setUserProfile(profile);
+
+    const urlParamsVerify = new URLSearchParams(window.location.search);
+    if (urlParamsVerify.get('email_verified') === '1') {
+      const verifiedEmail = urlParamsVerify.get('verified_email')?.toLowerCase();
+      if (verifiedEmail && profile.email.toLowerCase() === verifiedEmail) {
+        const updated = storage.updateUserProfile({ emailVerified: true });
+        if (updated) setUserProfile(updated);
+      }
+      urlParamsVerify.delete('email_verified');
+      urlParamsVerify.delete('verified_email');
+      const qs = urlParamsVerify.toString();
+      window.history.replaceState({}, '', qs ? `?${qs}` : window.location.pathname);
+    }
+
+    setAuthReady(true);
+    initialAppDataLoadedRef.current = true;
+  }, [router]);
 
   // Load user's saved theme preference
   useEffect(() => {
@@ -543,6 +588,62 @@ export default function Home() {
     storage.saveNotifications(notifications);
   }, [notifications]);
 
+  const feedPublishPreviewCount = useMemo(
+    () => filterEventsForCalendarFeed(events).length,
+    [events]
+  );
+
+  const devUsesPublicCadenceFeed =
+    typeof window !== 'undefined' && isLocalhostFeedOrigin(window.location.origin);
+
+  const runCalendarFeedSync = async (
+    token: string,
+    eventsToSync: CalendarEvent[],
+    username?: string,
+    revokeToken?: string
+  ) => {
+    setFeedSyncing(true);
+    const result = await syncCalendarFeedToServer(token, eventsToSync, username, revokeToken);
+    setFeedSyncing(false);
+    if (result.ok) {
+      setFeedSyncError(null);
+      setFeedSyncedEventCount(
+        result.eventCount ?? filterEventsForCalendarFeed(eventsToSync).length
+      );
+    } else {
+      setFeedSyncError(result.error ?? 'Could not sync calendar feed');
+    }
+    return result;
+  };
+
+  useEffect(() => {
+    if (!authReady) return;
+    void probePublicCalendarFeedHealth().then(setPublicFeedDeployed);
+  }, [authReady]);
+
+  useEffect(() => {
+    if (!authReady || !userProfile) return;
+    const token = storage.ensureCalendarFeedToken();
+    if (!token) return;
+    setCalendarFeedUrl(buildCalendarFeedUrl(getCalendarFeedServiceOrigin(), token));
+    const refreshed = storage.getUserProfile();
+    if (refreshed && refreshed.calendarFeedToken !== userProfile.calendarFeedToken) {
+      setUserProfile(refreshed);
+    }
+  }, [authReady, userProfile?.calendarFeedToken, userProfile?.email, publicFeedDeployed]);
+
+  useEffect(() => {
+    if (!authReady || !userProfile || !initialAppDataLoadedRef.current) return;
+    const token = userProfile.calendarFeedToken ?? storage.ensureCalendarFeedToken();
+    if (!token) return;
+
+    const timer = window.setTimeout(() => {
+      void runCalendarFeedSync(token, events, userProfile.username);
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [events, authReady, userProfile?.username, userProfile?.calendarFeedToken]);
+
   // Merge all events for display. Cadence (local) events must come **last** so react-big-calendar
   // paints them above Google/ICS when times overlap; otherwise task blocks sit underneath and look missing.
   const allEvents = useMemo(() => {
@@ -596,15 +697,77 @@ export default function Home() {
     setNotifications((prev) => {
       const seen = new Set(prev.map((n) => n.id));
       const merged = [...prev];
+      const added: InAppNotification[] = [];
       for (const n of next) {
         if (!seen.has(n.id)) {
           merged.push(n);
+          added.push(n);
           seen.add(n.id);
         }
       }
       merged.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      const user = storage.getUserProfile();
+      if (user && added.length > 0) {
+        void sendEmailNotificationsForUser(user, added);
+      }
       return merged;
     });
+  };
+
+  const resendVerificationEmail = async () => {
+    if (!userProfile || verificationBannerBusy) return;
+    setVerificationBannerBusy(true);
+    try {
+      const res = await fetch('/api/auth/verify-email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userProfile.email,
+          username: userProfile.username,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(typeof data.error === 'string' ? data.error : 'Could not resend verification email.');
+        return;
+      }
+      alert('Verification email sent. Check your inbox.');
+    } finally {
+      setVerificationBannerBusy(false);
+    }
+  };
+
+  const copyCalendarFeedLink = async () => {
+    if (!calendarFeedUrl) return;
+    try {
+      await navigator.clipboard.writeText(calendarFeedUrl);
+      setFeedLinkCopied(true);
+      window.setTimeout(() => setFeedLinkCopied(false), 2000);
+    } catch {
+      alert(calendarFeedUrl);
+    }
+  };
+
+  const rotateCalendarFeedLink = async () => {
+    if (!userProfile) return;
+    if (!confirm('Generate a new subscription link? Remove the old URL from Google/Apple Calendar.')) {
+      return;
+    }
+    const oldToken = userProfile.calendarFeedToken;
+    const token = storage.regenerateCalendarFeedToken();
+    if (!token) return;
+    const updated = storage.getUserProfile();
+    if (updated) setUserProfile(updated);
+    const url = buildCalendarFeedUrl(getCalendarFeedServiceOrigin(), token);
+    setCalendarFeedUrl(url);
+    await runCalendarFeedSync(token, events, updated?.username, oldToken);
+  };
+
+  const manualSyncCalendarFeed = async () => {
+    if (!userProfile) return;
+    const token = userProfile.calendarFeedToken ?? storage.ensureCalendarFeedToken();
+    if (!token) return;
+    await runCalendarFeedSync(token, events, userProfile.username);
   };
 
   const handleAddTask = async (taskData: {
@@ -748,16 +911,16 @@ export default function Home() {
   };
 
   const handleDeleteTask = (taskId: string) => {
-    setTasks(tasks.filter(task => task.id !== taskId));
-    setEvents(events.filter(event => event.taskId !== taskId));
+    setTasks((prev) => prev.filter((task) => task.id !== taskId));
+    setEvents((prev) => prev.filter((event) => event.taskId !== taskId));
   };
 
   const handleCompleteTask = (taskId: string, actualDuration: number) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (task) {
-      const updatedTask = CalendarAIAgent.recordTaskCompletion(task, actualDuration);
-      setTasks(tasks.map(t => (t.id === taskId ? updatedTask : t)));
-    }
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+    const updatedTask = CalendarAIAgent.recordTaskCompletion(task, actualDuration);
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? updatedTask : t)));
+    setEvents((prev) => prev.filter((event) => event.taskId !== taskId));
   };
 
   const handleScheduleTasks = (scheduledEvents: CalendarEvent[]) => {
@@ -1117,10 +1280,33 @@ export default function Home() {
 
   const calendarHeaderLabel = getCalendarHeaderLabel(mainCalendarDate);
 
+  if (!authReady) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-primary-dark text-white">
+        Loading…
+      </main>
+    );
+  }
+
   return (
     <main className="h-screen flex flex-col bg-white">
       {/* Header with dropdowns */}
       <header>
+        {userProfile && !userProfile.emailVerified && (
+          <div className="mx-3 sm:mx-4 xl:mx-6 mt-3 rounded-lg border border-amber-400/40 bg-amber-50 text-amber-950 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm">
+            <span>
+              Verify <strong>{userProfile.email}</strong> to receive email notifications.
+            </span>
+            <button
+              type="button"
+              onClick={() => void resendVerificationEmail()}
+              disabled={verificationBannerBusy}
+              className="font-semibold text-amber-900 underline hover:no-underline disabled:opacity-60"
+            >
+              {verificationBannerBusy ? 'Sending…' : 'Resend verification email'}
+            </button>
+          </div>
+        )}
         <div className="header-bar relative bg-primary-dark px-4 py-2.5 mx-3 sm:mx-4 xl:mx-6 mt-3 rounded-lg border dark:border-white/5">
           <div className="grid grid-cols-[145px_1fr_auto] lg:grid-cols-[145px_minmax(130px,1fr)_320px_minmax(190px,1fr)_auto] items-center gap-3 xl:gap-4">
             {/* Logo */}
@@ -1294,6 +1480,7 @@ export default function Home() {
                     setTempWorkHours(workHours);
                     setTempBreakAfterEvents(breakAfterEvents);
                     setTempFocusMinutes(focusMinutes);
+                    setTempEmailNotifications(userProfile?.emailNotificationsEnabled ?? true);
                     setShowSettingsDialog(true);
                   }}
                   className="h-9 w-9 flex items-center justify-center text-white hover:bg-white/15 transition-colors"
@@ -2268,6 +2455,127 @@ export default function Home() {
             <p className="text-sm text-gray-600 mb-6">Configure scheduling and calendar behavior</p>
             
             <div className="space-y-6">
+              {userProfile && (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-800 mb-2">Email notifications</h4>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Signed in as <strong>{userProfile.username}</strong> ({userProfile.email}
+                    {userProfile.emailVerified ? ', verified' : ', not verified'})
+                  </p>
+                  <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={tempEmailNotifications}
+                      onChange={(e) => setTempEmailNotifications(e.target.checked)}
+                      className="mt-0.5"
+                      disabled={!userProfile.emailVerified}
+                    />
+                    <span>
+                      Send schedule updates to this email when Cadence creates calendar blocks
+                    </span>
+                  </label>
+                  {!userProfile.emailVerified && (
+                    <p className="text-xs text-amber-700 mt-2">
+                      Verify your email from the banner at the top to enable delivery.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                  <Link2 size={16} />
+                  Subscribe in Google / Apple Calendar
+                </h4>
+                <p className="text-xs text-gray-500 mb-2">
+                  Add this link as a calendar subscription. Only <strong>Cadence-scheduled blocks</strong>{' '}
+                  on your in-app calendar are published (not Google/ICS imports). Updates can take up to
+                  several hours in Google Calendar.
+                </p>
+                {devUsesPublicCadenceFeed && publicFeedDeployed === false && (
+                  <div className="mb-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-950">
+                    <strong>Google Calendar can&apos;t load your feed yet.</strong> The live site at{' '}
+                    www.bridgerscadence.com does not have the calendar-feed API deployed (we checked).
+                    Deploy the latest Cadence build to Vercel, connect <strong>Vercel Blob</strong> storage,
+                    then click <strong>Sync now</strong> and re-subscribe in Google Calendar.
+                  </div>
+                )}
+                {devUsesPublicCadenceFeed && publicFeedDeployed === true && (
+                  <div className="mb-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950">
+                    You&apos;re on localhost; this link uses <strong>www.bridgerscadence.com</strong>. Click{' '}
+                    <strong>Sync now</strong> after scheduling so Google can pull your blocks.
+                  </div>
+                )}
+                {calendarFeedUrl ? (
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-700">
+                      On feed:{' '}
+                      <strong>
+                        {feedSyncedEventCount ?? feedPublishPreviewCount} event
+                        {(feedSyncedEventCount ?? feedPublishPreviewCount) === 1 ? '' : 's'}
+                      </strong>
+                      {feedPublishPreviewCount === 0 && (
+                        <span className="text-amber-800">
+                          {' '}
+                          — add a task with auto-schedule (or distribute tasks) so blocks appear here
+                          first.
+                        </span>
+                      )}
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={calendarFeedUrl}
+                        className="flex-1 min-w-0 px-2 py-1.5 border border-gray-300 rounded text-xs text-gray-700 bg-gray-50"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void copyCalendarFeedLink()}
+                        className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
+                      >
+                        {feedLinkCopied ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-gray-500">
+                      Google: Other calendars → From URL. Apple: File → New Calendar Subscription.
+                    </p>
+                    {feedSyncError && (
+                      <p className="text-xs text-red-600">{feedSyncError}</p>
+                    )}
+                    <div className="flex flex-wrap gap-3 items-center">
+                      <button
+                        type="button"
+                        disabled={feedSyncing}
+                        onClick={() => void manualSyncCalendarFeed()}
+                        className="text-xs font-medium text-primary-700 underline hover:no-underline disabled:opacity-60"
+                      >
+                        {feedSyncing ? 'Syncing…' : 'Sync now'}
+                      </button>
+                      {calendarFeedUrl && (
+                        <a
+                          href={calendarFeedUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-gray-700 underline hover:no-underline"
+                        >
+                          Preview feed
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void rotateCalendarFeedLink()}
+                        className="text-xs text-gray-600 underline hover:no-underline"
+                      >
+                        Generate new link
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">Loading your subscription link…</p>
+                )}
+              </div>
+
               {/* Working Hours */}
               <div>
                 <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
@@ -2456,6 +2764,12 @@ export default function Home() {
                   storage.saveBreakAfterEvents(tempBreakAfterEvents);
                   setFocusMinutes(tempFocusMinutes);
                   storage.saveFocusMinutes(tempFocusMinutes);
+                  if (userProfile) {
+                    const updated = storage.updateUserProfile({
+                      emailNotificationsEnabled: tempEmailNotifications,
+                    });
+                    if (updated) setUserProfile(updated);
+                  }
                   setShowSettingsDialog(false);
                 }}
                 disabled={!isTempWorkHoursValid}

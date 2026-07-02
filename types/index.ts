@@ -24,7 +24,21 @@ export interface CalendarEvent {
   color?: string;
 }
 
-export type InAppNotificationKind = 'cadence_subtask_scheduled';
+export type InAppNotificationKind =
+  | 'cadence_subtask_scheduled'
+  | 'email_delivery'
+  | 'system';
+
+export interface UserProfile {
+  username: string;
+  email: string;
+  emailVerified: boolean;
+  /** When true and email is verified, Cadence sends notification copies by email. */
+  emailNotificationsEnabled: boolean;
+  /** Secret token for the personal ICS subscription URL (server-synced). */
+  calendarFeedToken?: string;
+  createdAt: Date;
+}
 
 export interface InAppNotification {
   id: string;
