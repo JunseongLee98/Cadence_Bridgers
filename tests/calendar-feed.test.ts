@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { getPublicFeedOrigin, buildCalendarFeedUrl } from '@/lib/calendar-feed-url';
+import { getPublicFeedOrigin, getCalendarFeedSyncOrigin, buildCalendarFeedUrl } from '@/lib/calendar-feed-url';
 import { CADENCE_PUBLIC_APP_URL } from '@/lib/cadence-public-url';
 import { filterEventsForCalendarFeed } from '@/lib/calendar-feed-events';
 import { buildIcsCalendar } from '@/lib/ics-export';
@@ -15,8 +15,30 @@ describe('calendar feed url', () => {
     vi.stubEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000');
     vi.stubGlobal('window', { location: { origin: 'http://localhost:3000' } });
     expect(getPublicFeedOrigin()).toBe(CADENCE_PUBLIC_APP_URL);
+    expect(getCalendarFeedSyncOrigin()).toBe('http://localhost:3000');
     const url = buildCalendarFeedUrl(getPublicFeedOrigin(), 'test-token');
     expect(url).toBe(`${CADENCE_PUBLIC_APP_URL}/cadence/feed/test-token.ics`);
+  });
+});
+
+describe('calendar feed store', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it('requires blob or redis on Vercel', async () => {
+    vi.stubEnv('VERCEL', '1');
+    vi.stubEnv('BLOB_READ_WRITE_TOKEN', '');
+    vi.stubEnv('UPSTASH_REDIS_REST_URL', '');
+    const { saveCalendarFeed } = await import('@/lib/calendar-feed-store');
+    await expect(
+      saveCalendarFeed({
+        token: '93b8813e-1f1c-42ca-85bb-3a1034637412',
+        updatedAt: new Date().toISOString(),
+        events: [],
+      })
+    ).rejects.toThrow(/not configured on Vercel/);
   });
 });
 

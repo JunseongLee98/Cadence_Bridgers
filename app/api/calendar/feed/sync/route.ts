@@ -73,9 +73,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('calendar feed sync:', error);
     const message =
-      error instanceof Error && error.message.includes('BLOB')
-        ? 'Calendar feed storage is not configured on the server.'
-        : 'Failed to sync calendar feed.';
+      error instanceof Error ? error.message : 'Failed to sync calendar feed.';
     return NextResponse.json({ error: message }, { status: 500, headers: CORS_HEADERS });
   }
 }

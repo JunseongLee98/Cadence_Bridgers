@@ -9,9 +9,10 @@ import { sendEmailNotificationsForUser } from '@/lib/notify-by-email';
 import { syncCalendarFeedToServer } from '@/lib/sync-calendar-feed';
 import {
   buildCalendarFeedUrl,
-  getCalendarFeedServiceOrigin,
+  getCalendarFeedSubscriptionOrigin,
   isLocalhostFeedOrigin,
   probePublicCalendarFeedHealth,
+  calendarFeedSyncDiffersFromSubscription,
 } from '@/lib/calendar-feed-url';
 import { filterEventsForCalendarFeed } from '@/lib/calendar-feed-events';
 import { CalendarAIAgent } from '@/lib/ai-agent';
@@ -611,7 +612,7 @@ export default function Home() {
     if (!authReady || !userProfile) return;
     const token = storage.ensureCalendarFeedToken();
     if (!token) return;
-    setCalendarFeedUrl(buildCalendarFeedUrl(getCalendarFeedServiceOrigin(), token));
+    setCalendarFeedUrl(buildCalendarFeedUrl(getCalendarFeedSubscriptionOrigin(), token));
     const refreshed = storage.getUserProfile();
     if (refreshed && refreshed.calendarFeedToken !== userProfile.calendarFeedToken) {
       setUserProfile(refreshed);
@@ -721,7 +722,7 @@ export default function Home() {
     if (!token) return;
     const updated = storage.getUserProfile();
     if (updated) setUserProfile(updated);
-    const url = buildCalendarFeedUrl(getCalendarFeedServiceOrigin(), token);
+    const url = buildCalendarFeedUrl(getCalendarFeedSubscriptionOrigin(), token);
     setCalendarFeedUrl(url);
     await runCalendarFeedSync(token, events, updated?.username, oldToken);
   };
@@ -2427,10 +2428,11 @@ export default function Home() {
                     then click <strong>Sync now</strong> and re-subscribe in Google Calendar.
                   </div>
                 )}
-                {devUsesPublicCadenceFeed && publicFeedDeployed === true && (
+                {devUsesPublicCadenceFeed && calendarFeedSyncDiffersFromSubscription() && (
                   <div className="mb-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950">
-                    You&apos;re on localhost; this link uses <strong>www.bridgerscadence.com</strong>. Click{' '}
-                    <strong>Sync now</strong> after scheduling so Google can pull your blocks.
+                    Sync saves to <strong>localhost</strong>; your subscription link uses{' '}
+                    <strong>www.bridgerscadence.com</strong>. Use the live site (or configure Blob on
+                    Vercel) so Google Calendar sees the same data.
                   </div>
                 )}
                 {calendarFeedUrl ? (
@@ -2469,6 +2471,12 @@ export default function Home() {
                     </p>
                     {feedSyncError && (
                       <p className="text-xs text-red-600">{feedSyncError}</p>
+                    )}
+                    {feedSyncError?.includes('not configured on Vercel') && (
+                      <p className="text-xs text-gray-600 mt-1">
+                        In Vercel: Project → Storage → create <strong>Blob</strong> (or Upstash Redis),
+                        redeploy, then try Sync again.
+                      </p>
                     )}
                     <div className="flex flex-wrap gap-3 items-center">
                       <button

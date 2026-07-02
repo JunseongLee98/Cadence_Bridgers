@@ -4,8 +4,28 @@ export function isCadenceProductionHost(hostname: string): boolean {
   return hostname === 'bridgerscadence.com' || hostname === 'www.bridgerscadence.com';
 }
 
-/** Where the ICS feed is hosted (must match where sync POSTs). */
-export function getCalendarFeedServiceOrigin(): string {
+export function isLocalhostFeedOrigin(origin: string): boolean {
+  try {
+    const host = new URL(origin).hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  } catch {
+    return false;
+  }
+}
+
+/** Where POST /api/calendar/feed/sync runs (same app you are using). */
+export function getCalendarFeedSyncOrigin(): string {
+  if (typeof window !== 'undefined') {
+    return window.location.origin.replace(/\/$/, '');
+  }
+  return CADENCE_PUBLIC_APP_URL.replace(/\/$/, '');
+}
+
+/**
+ * Public URL for the ICS subscription link (Google must fetch this host).
+ * Local dev shows production URL; production uses the current site.
+ */
+export function getCalendarFeedSubscriptionOrigin(): string {
   if (typeof window !== 'undefined') {
     const { hostname, origin } = window.location;
     if (isCadenceProductionHost(hostname)) {
@@ -19,22 +39,14 @@ export function getCalendarFeedServiceOrigin(): string {
   return CADENCE_PUBLIC_APP_URL.replace(/\/$/, '');
 }
 
-/** @deprecated use getCalendarFeedServiceOrigin */
+/** @deprecated use getCalendarFeedSubscriptionOrigin */
+export function getCalendarFeedServiceOrigin(): string {
+  return getCalendarFeedSubscriptionOrigin();
+}
+
+/** @deprecated use getCalendarFeedSubscriptionOrigin */
 export function getPublicFeedOrigin(): string {
-  return getCalendarFeedServiceOrigin();
-}
-
-export function getCalendarFeedSyncOrigin(): string {
-  return getCalendarFeedServiceOrigin();
-}
-
-export function isLocalhostFeedOrigin(origin: string): boolean {
-  try {
-    const host = new URL(origin).hostname;
-    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
-  } catch {
-    return false;
-  }
+  return getCalendarFeedSubscriptionOrigin();
 }
 
 export function buildCalendarFeedUrl(origin: string, token: string): string {
@@ -55,4 +67,10 @@ export async function probePublicCalendarFeedHealth(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** True when ICS link host differs from where sync POSTs (localhost → production). */
+export function calendarFeedSyncDiffersFromSubscription(): boolean {
+  if (typeof window === 'undefined') return false;
+  return getCalendarFeedSyncOrigin() !== getCalendarFeedSubscriptionOrigin();
 }

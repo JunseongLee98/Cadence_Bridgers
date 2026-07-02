@@ -13,6 +13,7 @@
     "build:extension": "node extension/esbuild.config.mjs"
   },
   "dependencies": {
+    "@upstash/redis": "^1.38.0",
     "@vercel/blob": "^2.5.0",
     "date-fns": "^3.6.0",
     "googleapis": "^168.0.0",
