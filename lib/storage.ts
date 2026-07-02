@@ -7,6 +7,8 @@ import {
   InAppNotification,
   UserProfile,
 } from '@/types';
+import type { AppLocale } from '@/lib/i18n/types';
+import { LOCALE_STORAGE_KEY, isAppLocale } from '@/lib/i18n/types';
 
 const TASKS_KEY = 'cadence_tasks';
 const EVENTS_KEY = 'cadence_events';
@@ -345,6 +347,18 @@ export const storage = {
   saveFocusMinutes(minutes: number): void {
     if (typeof window === 'undefined') return;
     localStorage.setItem(FOCUS_MINUTES_KEY, String(Math.max(30, Math.min(180, minutes))));
+  },
+
+  getLocale(): AppLocale | null {
+    if (typeof window === 'undefined') return null;
+    const raw = localStorage.getItem(LOCALE_STORAGE_KEY);
+    if (!raw) return null;
+    return isAppLocale(raw) ? raw : null;
+  },
+
+  saveLocale(locale: AppLocale): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(LOCALE_STORAGE_KEY, locale);
   },
 };
 

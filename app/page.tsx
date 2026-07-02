@@ -27,6 +27,8 @@ import { Plus, X, Clock, CheckCircle2, ChevronDown, ChevronRight, ChevronLeft, M
 import { View } from 'react-big-calendar';
 import { parseICSFileFromFile, parseICSFileFromFileAsTasks, fetchICSFromURL } from '@/lib/ics-parser';
 import { formatMinutesToHoursMinutes } from '@/lib/time-utils';
+import { useI18n } from '@/lib/i18n/context';
+import type { AppLocale } from '@/lib/i18n/types';
 
 function dedupeCalendarEventsById(events: CalendarEvent[]): CalendarEvent[] {
   const seen = new Set<string>();
@@ -39,6 +41,7 @@ function dedupeCalendarEventsById(events: CalendarEvent[]): CalendarEvent[] {
 
 export default function Home() {
   const router = useRouter();
+  const { m, locale, setLocale, dateLocale, t } = useI18n();
   const [authReady, setAuthReady] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [calendarFeedUrl, setCalendarFeedUrl] = useState<string | null>(null);
@@ -599,7 +602,7 @@ export default function Home() {
         result.eventCount ?? filterEventsForCalendarFeed(eventsToSync).length
       );
     } else {
-      setFeedSyncError(result.error ?? 'Could not sync calendar feed');
+      setFeedSyncError(result.error ?? m.alerts.feedSyncFailed);
     }
     return result;
   };
@@ -715,7 +718,7 @@ export default function Home() {
 
   const rotateCalendarFeedLink = async () => {
     if (!userProfile) return;
-    if (!confirm('Generate a new subscription link? Remove the old URL from Google/Apple Calendar.')) {
+    if (!confirm(m.alerts.confirmNewFeedLink)) {
       return;
     }
     const oldToken = userProfile.calendarFeedToken;
@@ -903,9 +906,9 @@ export default function Home() {
     
     const incompleteTasks = tasks.filter(task => !task.completedAt);
     if (incompleteTasks.length === 0) {
-      alert('No incomplete tasks to schedule!');
+      alert(m.alerts.noTasksToSchedule);
     } else {
-      alert('Tasks have been distributed on your calendar!');
+      alert(m.alerts.tasksDistributed);
     }
 
     setIsProcessing(false);
@@ -1085,7 +1088,7 @@ export default function Home() {
 
   // Delete event
   const handleDeleteEvent = (event: CalendarEvent) => {
-    if (confirm('Delete this event?')) {
+    if (confirm(m.eventDialog.confirmDelete)) {
       setEvents(events.filter(e => e.id !== event.id));
       // Also remove from other event sources if applicable
       setGoogleEvents(googleEvents.filter(e => e.id !== event.id));
@@ -1137,7 +1140,7 @@ export default function Home() {
   const miniCalendarYear = miniCalendarDate.getFullYear();
   const miniCalendarMonth = miniCalendarDate.getMonth();
 
-  const miniCalendarMonthLabel = miniCalendarDate.toLocaleDateString('en-US', {
+  const miniCalendarMonthLabel = miniCalendarDate.toLocaleDateString(dateLocale, {
   month: 'long',
   year: 'numeric',
   });
@@ -1174,7 +1177,7 @@ export default function Home() {
   const getCalendarHeaderLabel = (date: Date) => {
     if (calendarView === 'month') {
       return {
-        dateText: date.toLocaleDateString('en-US', {
+        dateText: date.toLocaleDateString(dateLocale, {
           month: 'long',
         }),
         yearText: String(date.getFullYear()),
@@ -1183,7 +1186,7 @@ export default function Home() {
 
     if (calendarView === 'day') {
       return {
-        dateText: date.toLocaleDateString('en-US', {
+        dateText: date.toLocaleDateString(dateLocale, {
           month: 'long',
           day: '2-digit',
         }),
@@ -1197,8 +1200,8 @@ export default function Home() {
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
 
-    const startMonth = start.toLocaleDateString('en-US', { month: 'long' });
-    const endMonth = end.toLocaleDateString('en-US', { month: 'long' });
+    const startMonth = start.toLocaleDateString(dateLocale, { month: 'long' });
+    const endMonth = end.toLocaleDateString(dateLocale, { month: 'long' });
     const startYear = start.getFullYear();
     const endYear = end.getFullYear();
 
@@ -1280,7 +1283,7 @@ export default function Home() {
                   type="button"
                   onClick={() => navigateMainCalendar('previous')}
                   className="h-10 px-3.5 flex items-center justify-center text-white text-base font-semibold hover:bg-white/15 transition-colors"
-                  aria-label="Previous"
+                  aria-label={m.nav.previous}
                 >
                   <ChevronLeft size={16} strokeWidth={2.5} />
                 </button>
@@ -1290,14 +1293,14 @@ export default function Home() {
                   onClick={() => navigateMainCalendar('today')}
                   className="h-10 px-4 flex items-center justify-center gap-1.5 text-white text-base font-semibold hover:bg-white/15 transition-colors tracking-normal"
                 >
-                  Today
+                  {m.nav.today}
                 </button>
 
                 <button
                   type="button"
                   onClick={() => navigateMainCalendar('next')}
                   className="h-10 px-3.5 flex items-center justify-center text-white text-base font-semibold hover:bg-white/15 transition-colors"
-                  aria-label="Next"
+                  aria-label={m.nav.next}
                 >
                   <ChevronRight size={16} strokeWidth={2.5} />
                 </button>
@@ -1322,7 +1325,15 @@ export default function Home() {
                         : viewName === 'day'
                           ? 'D'
                           : null;
-                          
+                  const viewLabel =
+                    viewName === 'month'
+                      ? m.nav.month
+                      : viewName === 'week'
+                        ? m.nav.week
+                        : viewName === 'day'
+                          ? m.nav.day
+                          : m.nav.agenda;
+
                   const isActive = calendarView === viewName;
                   return (
                     <div key={viewName} className="flex items-center">
@@ -1334,8 +1345,8 @@ export default function Home() {
                   type="button"
                   onClick={() => setCalendarView(viewName)}
                   className="h-10 px-1.5 xl:px-2 flex items-center justify-center text-base font-medium transition-colors tracking-normal rounded-lg hover:bg-white/10"
-                  aria-label={viewName.charAt(0).toUpperCase() + viewName.slice(1)}
-                  title={viewName.charAt(0).toUpperCase() + viewName.slice(1)}
+                  aria-label={viewLabel}
+                  title={viewLabel}
                 >
                   <span
                     className={`h-8 min-w-8 xl:min-w-0 xl:px-3 flex items-center justify-center rounded-md transition-colors ${
@@ -1349,7 +1360,7 @@ export default function Home() {
                     </span>
 
                     <span className="hidden xl:inline">
-                      {viewName.charAt(0).toUpperCase() + viewName.slice(1)}
+                      {viewLabel}
                     </span>
                   </span>
                 </button>
@@ -1367,7 +1378,7 @@ export default function Home() {
                 setShowSubscriptionDialog(false);
               }}
               className="lg:hidden col-start-3 flex items-center justify-center p-2.5 rounded-lg bg-white/10 text-white border border-white/20 hover:bg-white/20 transition-colors"
-              aria-label="Open menu"
+              aria-label={m.nav.openMenu}
             >
               <Menu size={20} />
             </button>
@@ -1392,10 +1403,10 @@ export default function Home() {
                       ? 'bg-white/10 text-white'
                       : 'text-white hover:bg-white/15'
                   }`}
-                  title="Subscribe to ICS calendar URL"
+                  title={m.subscription.title}
                 >
                   <LucideCalendarPlus size={20} />
-                  <span className="hidden xl:inline">Subscribe</span>
+                  <span className="hidden xl:inline">{m.nav.subscribe}</span>
                 </button>
               </div>
               
@@ -1416,7 +1427,7 @@ export default function Home() {
                     setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt ?? now })));
                   }}
                   onClearAll={() => {
-                    if (!confirm('Clear all notifications?')) return;
+                    if (!confirm(m.notifications.confirmClear)) return;
                     storage.clearNotifications();
                     setNotifications([]);
                     setNotificationsOpen(false);
@@ -1434,8 +1445,8 @@ export default function Home() {
                     setShowSettingsDialog(true);
                   }}
                   className="h-9 w-9 flex items-center justify-center text-white hover:bg-white/15 transition-colors"
-                  title="Settings"
-                  aria-label="Settings"
+                  title={m.nav.settings}
+                  aria-label={m.nav.settings}
                 >
                   <Settings size={20} />
                 </button>
@@ -1445,7 +1456,7 @@ export default function Home() {
               {showSubscriptionDialog && (
                 <div className="subscription-dropdown absolute right-0 top-12 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 p-4">
                   <h3 className="text-lg font-[700] text-primary mb-3">
-                    Subscribe to Calendar
+                    {m.subscription.title}
                   </h3>
 
                   <div className="space-y-3">
@@ -1459,40 +1470,40 @@ export default function Home() {
                       className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-primary hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Upload size={16} />
-                      {isImportingICS ? 'Importing...' : 'Import ICS File'}
+                      {isImportingICS ? m.nav.importing : m.nav.importIcsFile}
                     </button>
 
                     <div className="flex items-center gap-3">
                       <div className="h-px flex-1 bg-gray-200" />
-                      <span className="text-xs text-gray-400">or subscribe by URL</span>
+                      <span className="text-xs text-gray-400">{m.subscription.orUrl}</span>
                       <div className="h-px flex-1 bg-gray-200" />
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-primary mb-1">
-                        Calendar URL *
+                        {m.subscription.calendarUrl}
                       </label>
                       <input
                         type="url"
                         value={newSubscriptionUrl}
                         onChange={(e) => setNewSubscriptionUrl(e.target.value)}
-                        placeholder="ICS or Google embed URL"
+                        placeholder={m.subscription.placeholderUrl}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       />
                       <p className="text-xs text-gray-500 mt-1">
-                        Enter a public ICS calendar feed URL or a Google Calendar embed link
+                        {m.subscription.hintUrl}
                       </p>
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-primary mb-1">
-                        Calendar Name (Optional)
+                        {m.subscription.calendarName}
                       </label>
                       <input
                         type="text"
                         value={newSubscriptionName}
                         onChange={(e) => setNewSubscriptionName(e.target.value)}
-                        placeholder="My Calendar"
+                        placeholder={m.subscription.placeholderName}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       />
                     </div>
@@ -1502,7 +1513,7 @@ export default function Home() {
                       <div className="pt-3 mt-3 border-t border-gray-200">
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <h4 className="text-sm font-semibold text-primary">
-                            Subscribed Calendars
+                            {m.subscription.subscribedCalendars}
                           </h4>
 
                           <button
@@ -1511,7 +1522,7 @@ export default function Home() {
                             disabled={isLoadingICSSubscription}
                             className="text-xs px-2 py-1 text-primary-600 hover:bg-primary-50/10 rounded transition-colors disabled:opacity-50"
                           >
-                            {isLoadingICSSubscription ? 'Refreshing…' : 'Refresh all'}
+                            {isLoadingICSSubscription ? m.subscription.refreshing : m.subscription.refreshAll}
                           </button>
                         </div>
 
@@ -1547,19 +1558,19 @@ export default function Home() {
                                     setOpenColorMenuId(openColorMenuId === sub.id ? null : sub.id)
                                   }
                                   className="px-2 py-1 text-xs text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
-                                  title="Choose calendar color"
+                                  title={m.subscription.pickColor}
                                 >
                                   <span
                                     className="w-3.5 h-3.5 rounded border border-gray-300"
                                     style={{ backgroundColor: sub.color || '#8b5cf6' }}
                                   />
-                                  Color
+                                  {m.subscription.color}
                                 </button>
 
                                 {openColorMenuId === sub.id && (
                                   <div className="absolute right-0 top-full mt-1 z-[999] bg-white border border-gray-200 rounded-lg shadow-lg p-2 min-w-[180px]">
                                     <p className="text-xs font-medium text-gray-600 mb-2">
-                                      Pick a color
+                                      {m.subscription.pickColor}
                                     </p>
 
                                     <div className="grid grid-cols-6 gap-1 mb-2">
@@ -1589,7 +1600,7 @@ export default function Home() {
                                         className="w-8 h-8 cursor-pointer rounded border border-gray-300"
                                         title="Custom color"
                                       />
-                                      <span className="text-xs text-gray-500">Custom</span>
+                                      <span className="text-xs text-gray-500">{m.subscription.custom}</span>
                                     </div>
                                   </div>
                                 )}
@@ -1616,7 +1627,7 @@ export default function Home() {
                         disabled={isLoadingICSSubscription || !newSubscriptionUrl.trim()}
                         className="flex-1 px-4 py-2 bg-secondary text-white rounded-lg font-normal hover:bg-secondary/90 disabled:bg-secondary/85 disabled:cursor-not-allowed transition-colors"
                       >
-                        {isLoadingICSSubscription ? 'Adding...' : 'Add Subscription'}
+                        {isLoadingICSSubscription ? m.subscription.adding : m.subscription.addSubscription}
                       </button>
 
                       <button
@@ -1654,7 +1665,7 @@ export default function Home() {
                 className="mobile-menu-btn import-btn w-full flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-white/10 text-white border border-white/25"
               >
                 <Upload size={18} />
-                {isImportingICS ? 'Importing...' : 'Import ICS'}
+                {isImportingICS ? m.nav.importing : m.nav.importIcs}
               </button>
 
               <button
@@ -1666,7 +1677,7 @@ export default function Home() {
                 className="mobile-menu-btn subscribe-btn w-full flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-white/10 text-white border border-white/25"
               >
                 <Link2 size={18} />
-                Subscribe
+                {m.nav.subscribe}
               </button>
 
               <button
@@ -1679,7 +1690,7 @@ export default function Home() {
               >
                 <span className="flex items-center gap-2">
                   <Menu size={18} />
-                  Tasks
+                  {m.tasks.title}
                 </span>
                 {incompleteTasksCount > 0 && (
                   <span className="bg-white/90 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">
@@ -1699,7 +1710,7 @@ export default function Home() {
                 className="mobile-menu-btn settings-btn w-full flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-white/10 text-white border border-white/25"
               >
                 <Settings size={18} />
-                Settings
+                {m.nav.settings}
               </button>
             </div>
           </div>
@@ -1732,7 +1743,7 @@ export default function Home() {
               {/* Tasks */}
               <div className="bg-background rounded-lg shadow-lg border border-gray-200 p-4 flex flex-col min-h-[520px] md:min-h-[600px] xl:min-h-0 xl:flex-1">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-primary">Tasks</h2>
+                  <h2 className="text-xl font-semibold text-primary">{m.tasks.title}</h2>
                   <button
                     onClick={() => {
                       setTaskDurationMode('preset');
@@ -1755,7 +1766,7 @@ export default function Home() {
                         : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white/80'
                     }`}
                   >
-                    Active ({activeTasks.length})
+                    {m.tasks.activeTab} ({activeTasks.length})
                   </button>
 
                   <button
@@ -1767,13 +1778,18 @@ export default function Home() {
                         : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white/80'
                     }`}
                   >
-                    Completed ({completedTasks.length})
+                    {m.tasks.completedTab} ({completedTasks.length})
                   </button>
                 </div>
 
                 <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
                   {displayedTasks.length === 0 ? (
-                    <p className="text-gray-600 text-center py-6 text-sm">No {taskSidebarTab} tasks</p>
+                    <p className="text-gray-600 text-center py-6 text-sm">
+                      {t('tasks.noTasks', {
+                        status:
+                          taskSidebarTab === 'active' ? m.tasks.active : m.tasks.completed,
+                      })}
+                    </p>
                   ) : (
                     displayedTasks.map((task) => (
                       <div
@@ -1803,7 +1819,7 @@ export default function Home() {
                                   className={`inline-flex items-center gap-1.5 text-xs font-semibold capitalize ${priorityStyle.text}`}
                                 >
                                   <span className={`h-1.5 w-1.5 rounded-full ${priorityStyle.dot}`} />
-                                  {task.priority}
+                                  {m.priority[task.priority]}
                                 </span>
                               );
                             })()}
@@ -1834,19 +1850,19 @@ export default function Home() {
                             <div className="flex items-center gap-1 font-medium text-primary">
                               <Clock size={12} />
                               <span>
-                                Avg: {formatMinutesToHoursMinutes(getAverageDuration(task))}
+                                {m.tasks.avg} {formatMinutesToHoursMinutes(getAverageDuration(task))}
                               </span>
                             </div>
 
                             {task.actualDurations.length > 0 && (
                               <span className="text-gray-400">
-                                ({task.actualDurations.length} completed)
+                                {t('tasks.completedCount', { count: task.actualDurations.length })}
                               </span>
                             )}
 
                             {task.dueDate && (
                               <span className="font-medium text-orange-600">
-                                Due: {new Date(task.dueDate).toLocaleDateString()}
+                                {m.tasks.due} {new Date(task.dueDate).toLocaleDateString(dateLocale)}
                               </span>
                             )}
                           </div>
@@ -1855,7 +1871,7 @@ export default function Home() {
                             {!task.completedAt && (
                               <button
                                 onClick={() => {
-                                  const duration = prompt('How long did this task actually take? (in minutes)');
+                                  const duration = prompt(m.tasks.promptActualMinutes);
                                   if (duration) {
                                     handleCompleteTask(task.id, parseInt(duration));
                                   }
@@ -1907,7 +1923,9 @@ export default function Home() {
                 
                 {/* Days of the week*/}
                 <div className="grid grid-cols-7 gap-3 md:gap-4 xl:gap-2 text-center text-sm md:text-base xl:text-[11px] font-medium text-gray-400 mb-4 xl:mb-3">
-                  {['S','M','T','W','T','F','S'].map(d => <div key={d}>{d}</div>)}
+                  {m.calendar.weekdaysShort.map((d) => (
+                    <div key={d}>{d}</div>
+                  ))}
                 </div>
 
                 {/* Mini calendar days grid */}
@@ -1953,12 +1971,12 @@ export default function Home() {
           <div className="bg-white rounded-lg shadow-xl p-6 max-w-lg w-full mx-4 border border-gray-200">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-xl font-bold text-primary">Add Task</h3>
+                <h3 className="text-xl font-bold text-primary">{m.addTask.title}</h3>
               </div>
               <button
                 onClick={() => setShowAddTaskDialog(false)}
                 className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Close"
+                title={m.common.close}
               >
                 <X size={18} />
               </button>
@@ -1979,7 +1997,7 @@ export default function Home() {
                   value={newTask.title}
                   onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Task title *"
+                  placeholder={m.addTask.taskTitle}
                   required
                   autoFocus
                 />
@@ -1987,7 +2005,7 @@ export default function Home() {
                   value={newTask.description}
                   onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Description"
+                  placeholder={m.addTask.description}
                   rows={3}
                 />
 
@@ -2087,10 +2105,8 @@ export default function Home() {
 
               <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2">
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Schedule automatically</p>
-                  <p className="text-xs text-gray-500">
-                    Add this task directly to the calendar
-                  </p>
+                  <p className="text-sm font-medium text-gray-700">{m.addTask.scheduleAuto}</p>
+                  <p className="text-xs text-gray-500">{m.addTask.scheduleAutoHint}</p>
                 </div>
                 
                 <button
@@ -2113,14 +2129,14 @@ export default function Home() {
                   type="submit"
                   className="flex-1 px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-colors"
                 >
-                  Add Task
+                  {m.addTask.addTaskBtn}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowAddTaskDialog(false)}
                   className="cancel-btn px-4 py-2 text-primary rounded-lg border transition-colors"
                 >
-                  Cancel
+                  {m.common.cancel}
                 </button>
               </div>
             </form>
@@ -2401,26 +2417,39 @@ export default function Home() {
       {showSettingsDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto border border-gray-200">
-            <h3 className="text-xl font-bold text-primary mb-1">Settings</h3>
-            <p className="text-sm text-gray-600 mb-6">Configure scheduling and calendar behavior</p>
+            <h3 className="text-xl font-bold text-primary mb-1">{m.settings.title}</h3>
+            <p className="text-sm text-gray-600 mb-6">{m.settings.subtitle}</p>
             
             <div className="space-y-6">
+              <div>
+                <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.common.languageLabel}</h4>
+                <select
+                  value={locale}
+                  onChange={(e) => setLocale(e.target.value as AppLocale)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="en">{m.common.english}</option>
+                  <option value="ko">{m.common.korean}</option>
+                </select>
+              </div>
+
               {userProfile && (
                 <p className="text-xs text-gray-500">
-                  Signed in as <strong>{userProfile.username}</strong> ({userProfile.email})
+                  {t('settings.signedInAs', {
+                    username: userProfile.username,
+                    email: userProfile.email,
+                  })}
                 </p>
               )}
 
               <div>
                 <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
                   <Link2 size={16} />
-                  Subscribe in Google / Apple Calendar
+                  {m.settings.feedSection.title}
                 </h4>
                 <p className="text-xs text-gray-500 mb-2">
-                  Add this link as a calendar subscription. Only <strong>Cadence-scheduled blocks</strong>{' '}
-                  on your in-app calendar are published (not Google/ICS imports).{' '}
-                  <strong>Google refreshes URL subscriptions slowly</strong> (often hours, not instantly like
-                  a downloaded file in Apple Calendar).
+                  {m.settings.feedSection.paragraph1}{' '}
+                  <strong>{m.settings.feedSection.paragraph2}</strong>
                 </p>
                 {devUsesPublicCadenceFeed && publicFeedDeployed === false && (
                   <div className="mb-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-950">
@@ -2440,17 +2469,15 @@ export default function Home() {
                 {calendarFeedUrl ? (
                   <div className="space-y-2">
                     <p className="text-xs text-gray-700">
-                      On feed:{' '}
+                      {m.feed.onFeed}{' '}
                       <strong>
-                        {feedSyncedEventCount ?? feedPublishPreviewCount} event
-                        {(feedSyncedEventCount ?? feedPublishPreviewCount) === 1 ? '' : 's'}
+                        {feedSyncedEventCount ?? feedPublishPreviewCount}{' '}
+                        {(feedSyncedEventCount ?? feedPublishPreviewCount) === 1
+                          ? m.feed.event
+                          : m.feed.events}
                       </strong>
                       {feedPublishPreviewCount === 0 && (
-                        <span className="text-amber-800">
-                          {' '}
-                          — add a task with auto-schedule (or distribute tasks) so blocks appear here
-                          first.
-                        </span>
+                        <span className="text-amber-800"> {m.feed.addTaskHint}</span>
                       )}
                     </p>
                     <div className="flex gap-2">
@@ -2465,24 +2492,13 @@ export default function Home() {
                         onClick={() => void copyCalendarFeedLink()}
                         className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
                       >
-                        {feedLinkCopied ? 'Copied' : 'Copy'}
+                        {feedLinkCopied ? m.common.copied : m.common.copy}
                       </button>
                     </div>
-                    <p className="text-[11px] text-gray-500">
-                      Google: use <strong>Add to Google Calendar</strong> below (or Other calendars → From
-                      URL with the <strong>https</strong> link). Apple: File → New Calendar Subscription.
-                    </p>
+                    <p className="text-[11px] text-gray-500">{m.feed.googleHelp}</p>
                     <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-950 space-y-1">
-                      <p>
-                        <strong>Google shows nothing?</strong> Click <strong>Sync now</strong>, then{' '}
-                        <strong>Preview feed</strong> — you should see <code className="text-[10px]">BEGIN:VEVENT</code>.
-                        If the feed is empty, Google will stay empty until it re-fetches (up to ~24h).
-                      </p>
-                      <p>
-                        Remove the old subscription, add the URL again after a successful sync, and in the
-                        left sidebar under <strong>Other calendars</strong> make sure the Cadence calendar
-                        checkbox is on.
-                      </p>
+                      <p>{m.feed.googleEmptyHelp1}</p>
+                      <p>{m.feed.googleEmptyHelp2}</p>
                     </div>
                     {calendarFeedUrl && (
                       <a
@@ -2491,7 +2507,7 @@ export default function Home() {
                         rel="noreferrer"
                         className="inline-block text-xs font-medium text-primary-700 underline hover:no-underline"
                       >
-                        Add to Google Calendar
+                        {m.feed.googleAdd}
                       </a>
                     )}
                     {feedSyncError && (
@@ -2510,7 +2526,7 @@ export default function Home() {
                         onClick={() => void manualSyncCalendarFeed()}
                         className="text-xs font-medium text-primary-700 underline hover:no-underline disabled:opacity-60"
                       >
-                        {feedSyncing ? 'Syncing…' : 'Sync now'}
+                        {feedSyncing ? m.settings.syncing : m.settings.syncNow}
                       </button>
                       {calendarFeedUrl && (
                         <a
@@ -2519,7 +2535,7 @@ export default function Home() {
                           rel="noreferrer"
                           className="text-xs text-gray-700 underline hover:no-underline"
                         >
-                          Preview feed
+                          {m.settings.previewFeed}
                         </a>
                       )}
                       <button
@@ -2527,12 +2543,12 @@ export default function Home() {
                         onClick={() => void rotateCalendarFeedLink()}
                         className="text-xs text-gray-600 underline hover:no-underline"
                       >
-                        Generate new link
+                        {m.settings.generateNewLink}
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-500">Loading your subscription link…</p>
+                  <p className="text-xs text-gray-500">{m.settings.loadingFeedLink}</p>
                 )}
               </div>
 
@@ -2540,16 +2556,14 @@ export default function Home() {
               <div>
                 <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
                   <Clock size={16} />
-                  Working Hours
+                  {m.settings.workingHours}
                 </h4>
-                <p className="text-xs text-gray-500 mb-2">
-                  Tasks are only scheduled during these hours (Mon–Fri). Define one or more work blocks per day.
-                </p>
+                <p className="text-xs text-gray-500 mb-2">{m.settings.workingHoursHint}</p>
                 <div className="space-y-3">
                   {tempWorkHours.segments.map((segment, index) => (
                     <div key={index} className="flex items-end gap-2">
                       <div className="flex-1">
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Start</label>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">{m.settings.start}</label>
                         <select
                           value={segment.startHour}
                           onChange={(e) => {
@@ -2574,7 +2588,7 @@ export default function Home() {
                         </select>
                       </div>
                       <div className="flex-1">
-                        <label className="block text-xs font-medium text-gray-600 mb-1">End</label>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">{m.settings.end}</label>
                         <select
                           value={segment.endHour}
                           onChange={(e) => {
@@ -2608,7 +2622,7 @@ export default function Home() {
                           }}
                           className="px-2 py-1 text-xs text-red-600 hover:text-red-700"
                         >
-                          Remove
+                          {m.settings.remove}
                         </button>
                       )}
                     </div>
@@ -2626,20 +2640,20 @@ export default function Home() {
                     }}
                     className="text-xs text-primary-600 hover:text-primary-700"
                   >
-                    + Add work segment
+                    {m.settings.addWorkSegment}
                   </button>
                 </div>
                 {!isTempWorkHoursValid && (
                   <p className="text-xs text-red-600 mt-1">
-                    Each segment must have an end hour after its start hour, and at least one segment is required.
+                    {m.settings.workHoursInvalid}
                   </p>
                 )}
               </div>
 
               {/* Break after events */}
               <div>
-                <h4 className="text-sm font-semibold text-gray-800 mb-2">Break After Each Event</h4>
-                <p className="text-xs text-gray-500 mb-2">Gap (in minutes) before another task can be scheduled after an event or task</p>
+                <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.settings.breakAfter}</h4>
+                <p className="text-xs text-gray-500 mb-2">{m.settings.breakAfterHint}</p>
                 <div className="flex items-center gap-3">
                   <input
                     type="number"
@@ -2649,14 +2663,14 @@ export default function Home() {
                     max={120}
                     className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
                   />
-                  <span className="text-sm text-gray-600">minutes</span>
+                  <span className="text-sm text-gray-600">{m.common.minutes}</span>
                 </div>
               </div>
 
               {/* Focus hours */}
               <div>
-                <h4 className="text-sm font-semibold text-gray-800 mb-2">Focus Duration</h4>
-                <p className="text-xs text-gray-500 mb-2">How long you feel comfortable focusing on a task. Longer tasks are split into chunks of this size (30 min – 3 hours)</p>
+                <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.settings.focusDuration}</h4>
+                <p className="text-xs text-gray-500 mb-2">{m.settings.focusDurationHint}</p>
                 <select
                   value={tempFocusMinutes}
                   onChange={(e) => setTempFocusMinutes(parseInt(e.target.value))}
@@ -2672,12 +2686,14 @@ export default function Home() {
 
               {/* Appearance */}
             <div>
-              <h4 className="text-sm font-semibold text-gray-800 mb-2">Appearance</h4>
-              <p className="text-xs text-gray-500 mb-2">Toggle between light and dark mode</p>
+              <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.settings.appearance}</h4>
+              <p className="text-xs text-gray-500 mb-2">
+                {locale === 'ko' ? '라이트/다크 모드 전환' : 'Toggle between light and dark mode'}
+              </p>
 
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-700">
-                  {darkMode ? 'Dark Mode' : 'Light Mode'}
+                  {darkMode ? m.settings.darkMode : m.settings.lightMode}
                 </span>
 
                 <button
@@ -2698,8 +2714,8 @@ export default function Home() {
 
               {/* Tutorial */}
               <div>
-                <h4 className="text-sm font-semibold text-gray-800 mb-2">Tutorial</h4>
-                <p className="text-xs text-gray-500 mb-2">Run the first-time setup walkthrough again</p>
+                <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.settings.tutorial}</h4>
+                <p className="text-xs text-gray-500 mb-2">{m.settings.tutorialHint}</p>
                 <button
                   type="button"
                   onClick={() => {
@@ -2708,7 +2724,7 @@ export default function Home() {
                   }}
                     className="replay-btn w-full px-4 py-2 rounded-lg text-sm font-medium border transition-colors"
                 >
-                  Replay tutorial
+                  {m.settings.replayTutorial}
                 </button>
               </div>
             </div>
@@ -2729,7 +2745,7 @@ export default function Home() {
                 disabled={!isTempWorkHoursValid}
                 className="flex-1 px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary/90 disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
               >
-                Save
+                {m.common.save}
               </button>
               <button
                 onClick={() => {
@@ -2740,7 +2756,7 @@ export default function Home() {
                 }}
                 className="cancel-btn px-4 py-2 text-primary rounded-lg border transition-colors"
               >
-                Cancel
+                {m.common.cancel}
               </button>
             </div>
           </div>
@@ -2751,53 +2767,38 @@ export default function Home() {
       {showTutorial && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
           <div className="bg-white rounded-lg shadow-xl p-6 max-w-lg w-full mx-4">
-            <h3 className="text-xl font-bold text-primary mb-1">Welcome to Cadence</h3>
-            <p className="text-sm text-gray-600 mb-4">A quick walkthrough to get your schedule working</p>
+            <h3 className="text-xl font-bold text-primary mb-1">{m.tutorial.welcome}</h3>
+            <p className="text-sm text-gray-600 mb-4">{m.tutorial.subtitle}</p>
 
             <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
               {tutorialStep === 0 && (
                 <div className="space-y-2">
-                  <h4 className="font-semibold text-gray-900">Step 1: Set your working hours</h4>
-                  <p className="text-sm text-gray-700">
-                    Cadence only schedules tasks inside your work blocks (Mon–Fri). Add multiple segments if you work
-                    split shifts.
-                  </p>
+                  <h4 className="font-semibold text-gray-900">{m.tutorial.step1Title}</h4>
+                  <p className="text-sm text-gray-700">{m.tutorial.step1Body}</p>
                 </div>
               )}
               {tutorialStep === 1 && (
                 <div className="space-y-2">
-                  <h4 className="font-semibold text-gray-900">Step 2: Connect calendars</h4>
-                  <p className="text-sm text-gray-700">
-                    Use <span className="font-medium">Subscribe</span> for public ICS feeds or Google Calendar embed links.
-                    All-day placeholders (like Canvas due dates) won’t block scheduling.
-                  </p>
+                  <h4 className="font-semibold text-gray-900">{m.tutorial.step2Title}</h4>
+                  <p className="text-sm text-gray-700">{m.tutorial.step2Body}</p>
                 </div>
               )}
               {tutorialStep === 2 && (
                 <div className="space-y-2">
-                  <h4 className="font-semibold text-gray-900">Step 3: Add a task</h4>
-                  <p className="text-sm text-gray-700">
-                    Create a manual task with an estimated duration and due date. Cadence will split it into focus-sized
-                    chunks and distribute it across available days.
-                  </p>
+                  <h4 className="font-semibold text-gray-900">{m.tutorial.step3Title}</h4>
+                  <p className="text-sm text-gray-700">{m.tutorial.step3Body}</p>
                 </div>
               )}
               {tutorialStep === 3 && (
                 <div className="space-y-2">
-                  <h4 className="font-semibold text-gray-900">Step 4: Understand priority</h4>
-                  <p className="text-sm text-gray-700">
-                    High priority tends to claim earlier slots. Medium/Low will still schedule fully, but may be placed
-                    around higher-priority work.
-                  </p>
+                  <h4 className="font-semibold text-gray-900">{m.tutorial.step4Title}</h4>
+                  <p className="text-sm text-gray-700">{m.tutorial.step4Body}</p>
                 </div>
               )}
               {tutorialStep === 4 && (
                 <div className="space-y-2">
-                  <h4 className="font-semibold text-gray-900">You’re ready</h4>
-                  <p className="text-sm text-gray-700">
-                    Tip: if your schedule looks too “chunky”, adjust <span className="font-medium">Focus Duration</span>{' '}
-                    in Settings.
-                  </p>
+                  <h4 className="font-semibold text-gray-900">{m.tutorial.readyTitle}</h4>
+                  <p className="text-sm text-gray-700">{m.tutorial.readyBody}</p>
                 </div>
               )}
             </div>
@@ -2812,7 +2813,7 @@ export default function Home() {
                   }}
                   className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors"
                 >
-                  Open Settings
+                  {m.tutorial.openSettings}
                 </button>
               )}
               {tutorialStep === 1 && (
@@ -2824,7 +2825,7 @@ export default function Home() {
                   }}
                   className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors"
                 >
-                  Open Subscribe
+                  {m.tutorial.openSubscribe}
                 </button>
               )}
               {tutorialStep === 2 && (
@@ -2837,7 +2838,7 @@ export default function Home() {
                   }}
                   className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors"
                 >
-                  Open Add Task
+                  {m.tutorial.openAddTask}
                 </button>
               )}
             </div>
@@ -2848,7 +2849,7 @@ export default function Home() {
                 onClick={completeTutorial}
                 className="skip-btn px-4 py-2 bg-neutral text-gray-700 rounded-lg hover:bg-neutral/90 transition-colors"
               >
-                Skip
+                {m.common.skip}
               </button>
               <div className="flex-1" />
               <button
@@ -2857,7 +2858,7 @@ export default function Home() {
                 disabled={tutorialStep === 0}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Back
+                {m.common.back}
               </button>
               {tutorialStep < 4 ? (
                 <button
@@ -2865,7 +2866,7 @@ export default function Home() {
                   onClick={() => setTutorialStep((s) => Math.min(4, s + 1))}
                   className="px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-colors"
                 >
-                  Next
+                  {m.common.next}
                 </button>
               ) : (
                 <button
@@ -2873,7 +2874,7 @@ export default function Home() {
                   onClick={completeTutorial}
                   className="px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-colors"
                 >
-                  Finish
+                  {m.common.finish}
                 </button>
               )}
             </div>

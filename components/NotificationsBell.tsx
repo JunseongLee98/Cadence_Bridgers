@@ -2,10 +2,11 @@
 
 import { Bell, CheckCheck, Trash2 } from 'lucide-react';
 import type { InAppNotification } from '@/types';
+import { useI18n } from '@/lib/i18n/context';
 
-function formatWhen(d: Date): string {
+function formatWhen(d: Date, dateLocale: string): string {
   try {
-    return d.toLocaleString(undefined, {
+    return d.toLocaleString(dateLocale, {
       month: 'short',
       day: '2-digit',
       hour: '2-digit',
@@ -31,6 +32,7 @@ export default function NotificationsBell({
   onMarkAllRead: () => void;
   onClearAll: () => void;
 }) {
+  const { m, dateLocale } = useI18n();
   const unread = notifications.filter((n) => !n.readAt).length;
 
   return (
@@ -39,8 +41,8 @@ export default function NotificationsBell({
         <button
           onClick={onToggle}
           className="h-9 w-9 flex items-center justify-center text-white hover:bg-white/15 transition-colors"
-          title="Notifications"
-          aria-label="Notifications"
+          title={m.notifications.title}
+          aria-label={m.notifications.title}
         >
           <span className="relative inline-flex">
             <Bell size={20} />
@@ -56,21 +58,21 @@ export default function NotificationsBell({
       {open && (
         <div className="absolute right-0 top-full z-[200] mt-2 w-[340px] max-w-[calc(100vw-24px)] flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
           <div className="flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-3 py-2.5">
-            <div className="font-semibold text-gray-800">Notifications</div>
+            <div className="font-semibold text-gray-800">{m.notifications.title}</div>
             <div className="flex items-center gap-1">
               <button
                 onClick={onMarkAllRead}
                 className="p-2 rounded-lg hover:bg-gray-100 text-gray-700"
-                title="Mark all as read"
-                aria-label="Mark all as read"
+                title={m.notifications.markAllRead}
+                aria-label={m.notifications.markAllRead}
               >
                 <CheckCheck size={18} />
               </button>
               <button
                 onClick={onClearAll}
                 className="p-2 rounded-lg hover:bg-gray-100 text-gray-700"
-                title="Clear all"
-                aria-label="Clear all"
+                title={m.notifications.clearAll}
+                aria-label={m.notifications.clearAll}
               >
                 <Trash2 size={18} />
               </button>
@@ -79,7 +81,7 @@ export default function NotificationsBell({
 
           <div className="max-h-[min(420px,calc(100vh-8rem))] overflow-y-auto overscroll-contain">
             {notifications.length === 0 ? (
-              <div className="p-4 text-sm text-gray-500">No notifications yet.</div>
+              <div className="p-4 text-sm text-gray-500">{m.notifications.empty}</div>
             ) : (
               <ul className="divide-y divide-gray-100">
                 {notifications.map((n) => {
@@ -107,7 +109,7 @@ export default function NotificationsBell({
                             </div>
                           )}
                           <div className="text-[11px] text-gray-500 mt-1">
-                            {formatWhen(n.createdAt)}
+                            {formatWhen(n.createdAt, dateLocale)}
                           </div>
                         </div>
                         {unreadRow && (
