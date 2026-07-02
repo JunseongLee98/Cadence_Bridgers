@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { getPublicFeedOrigin, getCalendarFeedSyncOrigin, buildCalendarFeedUrl } from '@/lib/calendar-feed-url';
+import { getPublicFeedOrigin, getCalendarFeedSyncOrigin, buildCalendarFeedUrl, buildGoogleCalendarSubscribeUrl } from '@/lib/calendar-feed-url';
 import { CADENCE_PUBLIC_APP_URL } from '@/lib/cadence-public-url';
 import { filterEventsForCalendarFeed } from '@/lib/calendar-feed-events';
 import { buildIcsCalendar } from '@/lib/ics-export';
@@ -18,6 +18,13 @@ describe('calendar feed url', () => {
     expect(getCalendarFeedSyncOrigin()).toBe('http://localhost:3000');
     const url = buildCalendarFeedUrl(getPublicFeedOrigin(), 'test-token');
     expect(url).toBe(`${CADENCE_PUBLIC_APP_URL}/cadence/feed/test-token.ics`);
+  });
+
+  it('builds Google subscribe link from feed URL', () => {
+    const feed = `${CADENCE_PUBLIC_APP_URL}/cadence/feed/abc.ics`;
+    expect(buildGoogleCalendarSubscribeUrl(feed)).toBe(
+      `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(feed)}`
+    );
   });
 });
 
@@ -90,6 +97,8 @@ describe('ics export', () => {
     expect(ics).toContain('BEGIN:VCALENDAR');
     expect(ics).toContain('BEGIN:VEVENT');
     expect(ics).toContain('SUMMARY:Essay draft');
+    expect(ics).toContain('STATUS:CONFIRMED');
+    expect(ics).toContain('REFRESH-INTERVAL;VALUE=DURATION:PT1H');
     expect(ics).toContain('END:VCALENDAR');
   });
 });

@@ -54,6 +54,12 @@ export function buildCalendarFeedUrl(origin: string, token: string): string {
   return `${base}/cadence/feed/${token}.ics`;
 }
 
+/** Opens Google Calendar subscribe flow with this HTTPS feed (public ICS URL). */
+export function buildGoogleCalendarSubscribeUrl(feedUrl: string): string {
+  const httpsUrl = feedUrl.trim().replace(/^webcal:/i, 'https:');
+  return `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(httpsUrl)}`;
+}
+
 export async function probePublicCalendarFeedHealth(): Promise<boolean> {
   const base = CADENCE_PUBLIC_APP_URL.replace(/\/$/, '');
   try {

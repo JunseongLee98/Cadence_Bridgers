@@ -9,6 +9,7 @@ import { sendEmailNotificationsForUser } from '@/lib/notify-by-email';
 import { syncCalendarFeedToServer } from '@/lib/sync-calendar-feed';
 import {
   buildCalendarFeedUrl,
+  buildGoogleCalendarSubscribeUrl,
   getCalendarFeedSubscriptionOrigin,
   isLocalhostFeedOrigin,
   probePublicCalendarFeedHealth,
@@ -2417,8 +2418,9 @@ export default function Home() {
                 </h4>
                 <p className="text-xs text-gray-500 mb-2">
                   Add this link as a calendar subscription. Only <strong>Cadence-scheduled blocks</strong>{' '}
-                  on your in-app calendar are published (not Google/ICS imports). Updates can take up to
-                  several hours in Google Calendar.
+                  on your in-app calendar are published (not Google/ICS imports).{' '}
+                  <strong>Google refreshes URL subscriptions slowly</strong> (often hours, not instantly like
+                  a downloaded file in Apple Calendar).
                 </p>
                 {devUsesPublicCadenceFeed && publicFeedDeployed === false && (
                   <div className="mb-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-950">
@@ -2467,8 +2469,31 @@ export default function Home() {
                       </button>
                     </div>
                     <p className="text-[11px] text-gray-500">
-                      Google: Other calendars → From URL. Apple: File → New Calendar Subscription.
+                      Google: use <strong>Add to Google Calendar</strong> below (or Other calendars → From
+                      URL with the <strong>https</strong> link). Apple: File → New Calendar Subscription.
                     </p>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-950 space-y-1">
+                      <p>
+                        <strong>Google shows nothing?</strong> Click <strong>Sync now</strong>, then{' '}
+                        <strong>Preview feed</strong> — you should see <code className="text-[10px]">BEGIN:VEVENT</code>.
+                        If the feed is empty, Google will stay empty until it re-fetches (up to ~24h).
+                      </p>
+                      <p>
+                        Remove the old subscription, add the URL again after a successful sync, and in the
+                        left sidebar under <strong>Other calendars</strong> make sure the Cadence calendar
+                        checkbox is on.
+                      </p>
+                    </div>
+                    {calendarFeedUrl && (
+                      <a
+                        href={buildGoogleCalendarSubscribeUrl(calendarFeedUrl)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-block text-xs font-medium text-primary-700 underline hover:no-underline"
+                      >
+                        Add to Google Calendar
+                      </a>
+                    )}
                     {feedSyncError && (
                       <p className="text-xs text-red-600">{feedSyncError}</p>
                     )}

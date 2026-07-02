@@ -38,6 +38,9 @@ function eventToVevent(event: CalendarEvent, calendarName: string): string {
     foldLine(`DTSTART:${formatIcsUtc(event.start)}`),
     foldLine(`DTEND:${formatIcsUtc(event.end)}`),
     foldLine(`SUMMARY:${escapeIcsText(event.title)}`),
+    'STATUS:CONFIRMED',
+    'TRANSP:OPAQUE',
+    'SEQUENCE:0',
   ];
   if (event.description) {
     lines.push(foldLine(`DESCRIPTION:${escapeIcsText(event.description)}`));
@@ -68,6 +71,9 @@ export function buildIcsCalendar(
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     foldLine(`X-WR-CALNAME:${escapeIcsText(calendarName)}`),
+    'X-WR-TIMEZONE:UTC',
+    'REFRESH-INTERVAL;VALUE=DURATION:PT1H',
+    'X-PUBLISHED-TTL:PT1H',
   ].join('\r\n');
 
   const body = events
