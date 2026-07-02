@@ -13,6 +13,11 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const continueWithProfile = (profile: UserProfile) => {
+    storage.saveUserProfile(profile);
+    router.push('/');
+  };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -38,8 +43,7 @@ export default function LoginPage() {
         createdAt: existing?.createdAt ?? new Date(),
         calendarFeedToken: existing?.calendarFeedToken,
       };
-      storage.saveUserProfile(profile);
-      router.push('/');
+      continueWithProfile(profile);
 
       /* Email verification (re-enable with EMAIL_FEATURES_ENABLED in lib/email-features.ts)
       const res = await fetch('/api/auth/verify-email/send', {
@@ -56,6 +60,23 @@ export default function LoginPage() {
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSkip = () => {
+    setError(null);
+    setSubmitting(true);
+    try {
+      const existing = storage.getUserProfile();
+      continueWithProfile({
+        username: 'Guest',
+        email: 'guest@local.cadence',
+        createdAt: existing?.createdAt ?? new Date(),
+        calendarFeedToken: existing?.calendarFeedToken,
+      });
+    } catch {
+      setError('Something went wrong. Please try again.');
       setSubmitting(false);
     }
   };
@@ -121,6 +142,19 @@ export default function LoginPage() {
           >
             {submitting ? 'Continuing…' : 'Continue'}
           </button>
+
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={handleSkip}
+            className="w-full rounded-lg border border-white/25 bg-transparent text-white/90 font-medium py-2.5 hover:bg-white/10 transition-colors disabled:opacity-60"
+          >
+            Skip for now
+          </button>
+          <p className="text-[11px] text-center text-white/50">
+            Uses a guest profile on this device. Clear site data or return to /login to enter your
+            name and email later.
+          </p>
         </form>
       </div>
     </main>
