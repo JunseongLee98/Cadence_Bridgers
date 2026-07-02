@@ -26,15 +26,15 @@ export interface CalendarEvent {
 
 export type InAppNotificationKind =
   | 'cadence_subtask_scheduled'
-  | 'email_delivery'
+  | 'email_delivery' // used when EMAIL_FEATURES_ENABLED (lib/email-features.ts)
   | 'system';
 
 export interface UserProfile {
   username: string;
   email: string;
-  emailVerified: boolean;
-  /** When true and email is verified, Cadence sends notification copies by email. */
-  emailNotificationsEnabled: boolean;
+  /** Used when email features are enabled (lib/email-features.ts). */
+  emailVerified?: boolean;
+  emailNotificationsEnabled?: boolean;
   /** Secret token for the personal ICS subscription URL (server-synced). */
   calendarFeedToken?: string;
   createdAt: Date;

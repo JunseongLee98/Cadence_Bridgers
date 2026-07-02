@@ -1,10 +1,13 @@
 import type { InAppNotification, UserProfile } from '@/types';
+import { EMAIL_FEATURES_ENABLED } from '@/lib/email-features';
 
 /** Sends notification copies to the user's verified email when enabled. */
 export async function sendEmailNotificationsForUser(
   user: UserProfile,
   notifications: InAppNotification[]
 ): Promise<void> {
+  if (!EMAIL_FEATURES_ENABLED) return;
+
   if (!user.emailVerified || !user.emailNotificationsEnabled) return;
   if (!notifications.length) return;
 

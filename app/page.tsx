@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Task, CalendarEvent, InAppNotification, UserProfile } from '@/types';
 import { storage } from '@/lib/storage';
+// Email delivery (disabled via lib/email-features.ts — keep import for re-enable)
 import { sendEmailNotificationsForUser } from '@/lib/notify-by-email';
 import { syncCalendarFeedToServer } from '@/lib/sync-calendar-feed';
 import {
@@ -38,7 +39,6 @@ export default function Home() {
   const router = useRouter();
   const [authReady, setAuthReady] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [verificationBannerBusy, setVerificationBannerBusy] = useState(false);
   const [calendarFeedUrl, setCalendarFeedUrl] = useState<string | null>(null);
   const [feedSyncError, setFeedSyncError] = useState<string | null>(null);
   const [feedLinkCopied, setFeedLinkCopied] = useState(false);
@@ -99,7 +99,6 @@ export default function Home() {
   const [tempBreakAfterEvents, setTempBreakAfterEvents] = useState(5);
   const [focusMinutes, setFocusMinutes] = useState(50);
   const [tempFocusMinutes, setTempFocusMinutes] = useState(50);
-  const [tempEmailNotifications, setTempEmailNotifications] = useState(true);
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
   const [taskDurationMode, setTaskDurationMode] = useState<'preset' | 'custom'>('preset');
   const [taskDurationCustomHours, setTaskDurationCustomHours] = useState(1);
@@ -215,19 +214,6 @@ export default function Home() {
       return;
     }
     setUserProfile(profile);
-
-    const urlParamsVerify = new URLSearchParams(window.location.search);
-    if (urlParamsVerify.get('email_verified') === '1') {
-      const verifiedEmail = urlParamsVerify.get('verified_email')?.toLowerCase();
-      if (verifiedEmail && profile.email.toLowerCase() === verifiedEmail) {
-        const updated = storage.updateUserProfile({ emailVerified: true });
-        if (updated) setUserProfile(updated);
-      }
-      urlParamsVerify.delete('email_verified');
-      urlParamsVerify.delete('verified_email');
-      const qs = urlParamsVerify.toString();
-      window.history.replaceState({}, '', qs ? `?${qs}` : window.location.pathname);
-    }
 
     setAuthReady(true);
     initialAppDataLoadedRef.current = true;
@@ -712,29 +698,6 @@ export default function Home() {
       }
       return merged;
     });
-  };
-
-  const resendVerificationEmail = async () => {
-    if (!userProfile || verificationBannerBusy) return;
-    setVerificationBannerBusy(true);
-    try {
-      const res = await fetch('/api/auth/verify-email/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: userProfile.email,
-          username: userProfile.username,
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        alert(typeof data.error === 'string' ? data.error : 'Could not resend verification email.');
-        return;
-      }
-      alert('Verification email sent. Check your inbox.');
-    } finally {
-      setVerificationBannerBusy(false);
-    }
   };
 
   const copyCalendarFeedLink = async () => {
@@ -1292,21 +1255,7 @@ export default function Home() {
     <main className="h-screen flex flex-col bg-white">
       {/* Header with dropdowns */}
       <header>
-        {userProfile && !userProfile.emailVerified && (
-          <div className="mx-3 sm:mx-4 xl:mx-6 mt-3 rounded-lg border border-amber-400/40 bg-amber-50 text-amber-950 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm">
-            <span>
-              Verify <strong>{userProfile.email}</strong> to receive email notifications.
-            </span>
-            <button
-              type="button"
-              onClick={() => void resendVerificationEmail()}
-              disabled={verificationBannerBusy}
-              className="font-semibold text-amber-900 underline hover:no-underline disabled:opacity-60"
-            >
-              {verificationBannerBusy ? 'Sending…' : 'Resend verification email'}
-            </button>
-          </div>
-        )}
+        {/* EMAIL_FEATURES_ENABLED: resend verification banner + Settings email toggles (see git history) */}
         <div className="header-bar relative bg-primary-dark px-4 py-2.5 mx-3 sm:mx-4 xl:mx-6 mt-3 rounded-lg border dark:border-white/5">
           <div className="grid grid-cols-[145px_1fr_auto] lg:grid-cols-[145px_minmax(130px,1fr)_320px_minmax(190px,1fr)_auto] items-center gap-3 xl:gap-4">
             {/* Logo */}
@@ -1480,7 +1429,6 @@ export default function Home() {
                     setTempWorkHours(workHours);
                     setTempBreakAfterEvents(breakAfterEvents);
                     setTempFocusMinutes(focusMinutes);
-                    setTempEmailNotifications(userProfile?.emailNotificationsEnabled ?? true);
                     setShowSettingsDialog(true);
                   }}
                   className="h-9 w-9 flex items-center justify-center text-white hover:bg-white/15 transition-colors"
@@ -2456,30 +2404,9 @@ export default function Home() {
             
             <div className="space-y-6">
               {userProfile && (
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-800 mb-2">Email notifications</h4>
-                  <p className="text-xs text-gray-500 mb-2">
-                    Signed in as <strong>{userProfile.username}</strong> ({userProfile.email}
-                    {userProfile.emailVerified ? ', verified' : ', not verified'})
-                  </p>
-                  <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={tempEmailNotifications}
-                      onChange={(e) => setTempEmailNotifications(e.target.checked)}
-                      className="mt-0.5"
-                      disabled={!userProfile.emailVerified}
-                    />
-                    <span>
-                      Send schedule updates to this email when Cadence creates calendar blocks
-                    </span>
-                  </label>
-                  {!userProfile.emailVerified && (
-                    <p className="text-xs text-amber-700 mt-2">
-                      Verify your email from the banner at the top to enable delivery.
-                    </p>
-                  )}
-                </div>
+                <p className="text-xs text-gray-500">
+                  Signed in as <strong>{userProfile.username}</strong> ({userProfile.email})
+                </p>
               )}
 
               <div>
@@ -2764,12 +2691,6 @@ export default function Home() {
                   storage.saveBreakAfterEvents(tempBreakAfterEvents);
                   setFocusMinutes(tempFocusMinutes);
                   storage.saveFocusMinutes(tempFocusMinutes);
-                  if (userProfile) {
-                    const updated = storage.updateUserProfile({
-                      emailNotificationsEnabled: tempEmailNotifications,
-                    });
-                    if (updated) setUserProfile(updated);
-                  }
                   setShowSettingsDialog(false);
                 }}
                 disabled={!isTempWorkHoursValid}

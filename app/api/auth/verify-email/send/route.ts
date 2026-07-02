@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { EMAIL_FEATURES_ENABLED } from '@/lib/email-features';
 import { createEmailVerificationToken } from '@/lib/verification-token';
 import { buildVerificationEmailHtml, sendMail } from '@/lib/mail';
 import { getAppOrigin } from '@/lib/app-origin';
@@ -6,6 +7,10 @@ import { getAppOrigin } from '@/lib/app-origin';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: NextRequest) {
+  if (!EMAIL_FEATURES_ENABLED) {
+    return NextResponse.json({ error: 'Email features are disabled.' }, { status: 503 });
+  }
+
   try {
     const body = await request.json();
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';

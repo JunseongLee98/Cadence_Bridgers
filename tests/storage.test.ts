@@ -108,14 +108,12 @@ describe('storage (browser API mocked)', () => {
     storage.saveUserProfile({
       username: 'Alex',
       email: 'alex@example.com',
-      emailVerified: false,
-      emailNotificationsEnabled: true,
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
     });
     const loaded = storage.getUserProfile();
     expect(loaded?.username).toBe('Alex');
     expect(loaded?.email).toBe('alex@example.com');
-    const updated = storage.updateUserProfile({ emailVerified: true });
-    expect(updated?.emailVerified).toBe(true);
+    const updated = storage.updateUserProfile({ username: 'Alexa' });
+    expect(updated?.username).toBe('Alexa');
   });
 });

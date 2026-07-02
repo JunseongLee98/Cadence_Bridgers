@@ -140,8 +140,11 @@ export const storage = {
       return {
         username: raw.username,
         email: raw.email,
-        emailVerified: Boolean(raw.emailVerified),
-        emailNotificationsEnabled: raw.emailNotificationsEnabled !== false,
+        emailVerified: raw.emailVerified === undefined ? undefined : Boolean(raw.emailVerified),
+        emailNotificationsEnabled:
+          raw.emailNotificationsEnabled === undefined
+            ? undefined
+            : raw.emailNotificationsEnabled !== false,
         calendarFeedToken:
           typeof raw.calendarFeedToken === 'string' ? raw.calendarFeedToken : undefined,
         createdAt: new Date(raw.createdAt),

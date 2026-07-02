@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { EMAIL_FEATURES_ENABLED } from '@/lib/email-features';
 
 export type SendMailInput = {
   to: string;
@@ -20,6 +21,10 @@ function getFromAddress(): string {
 }
 
 export async function sendMail(input: SendMailInput): Promise<SendMailResult> {
+  if (!EMAIL_FEATURES_ENABLED) {
+    return { ok: false, error: 'Email features are disabled.', skipped: true };
+  }
+
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     if (process.env.NODE_ENV === 'development') {

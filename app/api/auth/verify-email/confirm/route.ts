@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { EMAIL_FEATURES_ENABLED } from '@/lib/email-features';
 import { parseEmailVerificationToken } from '@/lib/verification-token';
 import { getAppOrigin } from '@/lib/app-origin';
 
 export async function GET(request: NextRequest) {
+  if (!EMAIL_FEATURES_ENABLED) {
+    return NextResponse.redirect(new URL('/login?error=email_disabled', request.url));
+  }
+
   const token = request.nextUrl.searchParams.get('token');
   if (!token) {
     return NextResponse.redirect(new URL('/login?error=missing_token', request.url));

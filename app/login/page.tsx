@@ -10,15 +10,12 @@ export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
-  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    setStatus(null);
 
     const trimmedName = username.trim();
     const trimmedEmail = email.trim().toLowerCase();
@@ -38,26 +35,24 @@ export default function LoginPage() {
       const profile: UserProfile = {
         username: trimmedName,
         email: trimmedEmail,
-        emailVerified:
-          existing?.email === trimmedEmail ? Boolean(existing.emailVerified) : false,
-        emailNotificationsEnabled,
         createdAt: existing?.createdAt ?? new Date(),
+        calendarFeedToken: existing?.calendarFeedToken,
       };
       storage.saveUserProfile(profile);
+      router.push('/');
 
+      /* Email verification (re-enable with EMAIL_FEATURES_ENABLED in lib/email-features.ts)
       const res = await fetch('/api/auth/verify-email/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: trimmedEmail, username: trimmedName }),
       });
-      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
         setError(typeof data.error === 'string' ? data.error : 'Could not send verification email.');
         return;
       }
-
-      setStatus('We sent a verification link to your inbox. You can continue using Cadence while you confirm.');
-      router.push('/');
+      */
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
@@ -78,8 +73,7 @@ export default function LoginPage() {
           />
           <h1 className="mt-4 text-2xl font-semibold">Welcome to Cadence</h1>
           <p className="mt-2 text-sm text-white/75 text-center">
-            Sign in with your name and email. We&apos;ll verify your address and send schedule
-            notifications there.
+            Sign in with your name and email to save your profile and calendar subscription.
           </p>
         </div>
 
@@ -114,24 +108,9 @@ export default function LoginPage() {
             />
           </div>
 
-          <label className="flex items-start gap-2 text-sm text-white/85 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={emailNotificationsEnabled}
-              onChange={(e) => setEmailNotificationsEnabled(e.target.checked)}
-              className="mt-1 rounded border-white/30"
-            />
-            <span>Email me when Cadence schedules tasks or sends updates</span>
-          </label>
-
           {error && (
             <p className="text-sm text-red-200 bg-red-900/30 border border-red-400/30 rounded-lg px-3 py-2">
               {error}
-            </p>
-          )}
-          {status && (
-            <p className="text-sm text-amber-100 bg-amber-900/30 border border-amber-400/30 rounded-lg px-3 py-2">
-              {status}
             </p>
           )}
 
@@ -140,7 +119,7 @@ export default function LoginPage() {
             disabled={submitting}
             className="w-full rounded-lg bg-amber-400 text-primary-dark font-semibold py-2.5 hover:bg-amber-300 transition-colors disabled:opacity-60"
           >
-            {submitting ? 'Sending verification…' : 'Continue'}
+            {submitting ? 'Continuing…' : 'Continue'}
           </button>
         </form>
       </div>
