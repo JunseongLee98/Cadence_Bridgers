@@ -2,7 +2,41 @@ import { google } from 'googleapis';
 import { CalendarEvent } from '@/types';
 import { fetchGoogleCalendarEventsRest } from '@/lib/google-calendar-rest';
 
-const SCOPES = ['https://www.googleapis.com/auth/calendar.readonly'];
+const SCOPES = [
+  'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/calendar.events',
+];
+
+/** Exchange a refresh token for a fresh access token (access tokens expire ~1h). */
+export async function refreshGoogleAccessToken(refreshToken: string): Promise<string> {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    throw new Error('Google credentials not configured');
+  }
+
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Failed to refresh Google token: ${text || res.statusText}`);
+  }
+
+  const data = (await res.json()) as { access_token?: string };
+  if (!data.access_token) {
+    throw new Error('Google refresh response missing access_token');
+  }
+  return data.access_token;
+}
 
 export function getAuthClient(accessToken: string) {
   const oauth2Client = new google.auth.OAuth2(

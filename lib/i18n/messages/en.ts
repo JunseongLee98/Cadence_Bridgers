@@ -153,6 +153,17 @@ export const en = {
     appleAdd: 'Add to Apple Calendar',
     outlookAdd: 'Add to Outlook',
     subscribeTitle: 'Subscribe on your calendar',
+    googleConnect: 'Connect Google Calendar',
+    googleSync: 'Sync to Google Calendar',
+    googleSyncing: 'Syncing to Google…',
+    googleConnectedTitle: 'Google Calendar (live sync)',
+    googlePushHelp:
+      'Connected — new, completed, and deleted tasks appear in your Cadence Google calendar within seconds.',
+    googleConnectHelp:
+      'Connect once to push tasks straight into Google (updates in seconds instead of waiting for Google to poll).',
+    googleReconnect: 'Google session expired — reconnect Google Calendar.',
+    googlePushFailed: 'Failed to update Google Calendar.',
+    googleSynced: 'Synced to Google Calendar.',
     googleHelp:
       'Google: use Add to Google Calendar below (or Other calendars → From URL with the https link). Apple: File → New Calendar Subscription.',
     googleEmptyHelp1:

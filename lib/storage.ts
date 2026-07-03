@@ -197,15 +197,27 @@ export const storage = {
   },
 
   // Google Calendar Tokens
-  getGoogleTokens(): { access_token?: string; refresh_token?: string } | null {
+  getGoogleTokens(): {
+    access_token?: string;
+    refresh_token?: string;
+    calendar_id?: string;
+  } | null {
     if (typeof window === 'undefined') return null;
     const data = localStorage.getItem(GOOGLE_TOKENS_KEY);
     return data ? JSON.parse(data) : null;
   },
 
-  saveGoogleTokens(tokens: { access_token?: string; refresh_token?: string }): void {
+  saveGoogleTokens(tokens: {
+    access_token?: string;
+    refresh_token?: string;
+    calendar_id?: string;
+  }): void {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(GOOGLE_TOKENS_KEY, JSON.stringify(tokens));
+    const existing = this.getGoogleTokens() ?? {};
+    localStorage.setItem(
+      GOOGLE_TOKENS_KEY,
+      JSON.stringify({ ...existing, ...tokens })
+    );
   },
 
   clearGoogleTokens(): void {

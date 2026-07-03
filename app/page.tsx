@@ -9,7 +9,6 @@ import { sendEmailNotificationsForUser } from '@/lib/notify-by-email';
 import { syncCalendarFeedToServer } from '@/lib/sync-calendar-feed';
 import {
   buildCalendarFeedUrl,
-  buildGoogleCalendarSubscribeUrl,
   buildWebcalFeedUrl,
   buildOutlookCalendarSubscribeUrl,
   getCalendarFeedSubscriptionOrigin,
@@ -17,7 +16,7 @@ import {
   probePublicCalendarFeedHealth,
   calendarFeedSyncDiffersFromSubscription,
 } from '@/lib/calendar-feed-url';
-import { filterEventsForCalendarFeed } from '@/lib/calendar-feed-events';
+import { filterEventsForCalendarFeed, serializeFeedEvents } from '@/lib/calendar-feed-events';
 import { CalendarAIAgent } from '@/lib/ai-agent';
 import { SCHEDULE_MAX_HORIZON_DAYS } from '@/lib/schedule-constants';
 import { formatDateToLocalISO, parseLocalDateInput } from '@/lib/date-utils';
@@ -51,6 +50,9 @@ export default function Home() {
   const [feedLinkCopied, setFeedLinkCopied] = useState(false);
   const [feedSyncedEventCount, setFeedSyncedEventCount] = useState<number | null>(null);
   const [feedSyncing, setFeedSyncing] = useState(false);
+  const [googleSyncing, setGoogleSyncing] = useState(false);
+  const [googlePushError, setGooglePushError] = useState<string | null>(null);
+  const [googlePushedCount, setGooglePushedCount] = useState<number | null>(null);
   const [publicFeedDeployed, setPublicFeedDeployed] = useState<boolean | null>(null);
   const initialAppDataLoadedRef = useRef(false);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -624,6 +626,48 @@ export default function Home() {
     void runCalendarFeedSync(token, eventsList, profile.username);
   };
 
+  /**
+   * Push Cadence events directly into the user's Google Calendar via the API
+   * (OAuth). Unlike the ICS feed, this reflects adds/completes/deletes within
+   * seconds. No-op when Google isn't connected.
+   */
+  const pushGoogleCalendar = async (eventsList: CalendarEvent[], manual = false) => {
+    if (!authReady || !initialAppDataLoadedRef.current) return;
+    const tokens = storage.getGoogleTokens();
+    if (!tokens?.access_token && !tokens?.refresh_token) return;
+
+    if (manual) setGoogleSyncing(true);
+    try {
+      const res = await fetch('/api/calendar/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token,
+          calendarId: tokens.calendar_id,
+          events: serializeFeedEvents(eventsList),
+        }),
+      });
+      const data = await res.json().catch(() => ({} as Record<string, unknown>));
+      if (res.ok) {
+        const update: { access_token?: string; calendar_id?: string } = {};
+        if (typeof data.accessToken === 'string') update.access_token = data.accessToken;
+        if (typeof data.calendarId === 'string') update.calendar_id = data.calendarId;
+        if (Object.keys(update).length > 0) storage.saveGoogleTokens(update);
+        setGooglePushError(null);
+        setGooglePushedCount(serializeFeedEvents(eventsList).length);
+      } else if (res.status === 401) {
+        setGooglePushError(m.feed.googleReconnect);
+      } else {
+        setGooglePushError((data.error as string) ?? m.feed.googlePushFailed);
+      }
+    } catch {
+      setGooglePushError(m.feed.googlePushFailed);
+    } finally {
+      if (manual) setGoogleSyncing(false);
+    }
+  };
+
   useEffect(() => {
     if (!authReady) return;
     void probePublicCalendarFeedHealth().then(setPublicFeedDeployed);
@@ -651,6 +695,16 @@ export default function Home() {
 
     return () => window.clearTimeout(timer);
   }, [events, authReady, userProfile?.username, userProfile?.calendarFeedToken]);
+
+  // When Google is connected, push adds/completes/deletes straight into the
+  // user's Cadence Google calendar (debounced to coalesce rapid changes).
+  useEffect(() => {
+    if (!authReady || !initialAppDataLoadedRef.current || !googleConnected) return;
+    const timer = window.setTimeout(() => {
+      void pushGoogleCalendar(events);
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [events, authReady, googleConnected]);
 
   // Merge all events for display. Cadence (local) events must come **last** so react-big-calendar
   // paints them above Google/ICS when times overlap; otherwise task blocks sit underneath and look missing.
@@ -2524,14 +2578,23 @@ export default function Home() {
                           {m.feed.subscribeTitle}
                         </p>
                         <div className="flex flex-wrap gap-2">
-                          <a
-                            href={buildGoogleCalendarSubscribeUrl(calendarFeedUrl)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-block px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
+                          <button
+                            type="button"
+                            disabled={googleSyncing}
+                            onClick={() =>
+                              googleConnected
+                                ? void pushGoogleCalendar(events, true)
+                                : void handleConnectGoogle()
+                            }
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-60"
                           >
-                            {m.feed.googleAdd}
-                          </a>
+                            <CalendarIcon size={13} />
+                            {googleSyncing
+                              ? m.feed.googleSyncing
+                              : googleConnected
+                                ? m.feed.googleSync
+                                : m.feed.googleConnect}
+                          </button>
                           <a
                             href={buildWebcalFeedUrl(calendarFeedUrl)}
                             className="inline-block px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
@@ -2547,6 +2610,12 @@ export default function Home() {
                             {m.feed.outlookAdd}
                           </a>
                         </div>
+                        <p className="text-[11px] text-gray-500">
+                          {googleConnected ? m.feed.googlePushHelp : m.feed.googleConnectHelp}
+                        </p>
+                        {googlePushError && (
+                          <p className="text-[11px] text-red-600">{googlePushError}</p>
+                        )}
                       </div>
                     )}
                     {feedSyncError && (
