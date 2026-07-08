@@ -102,7 +102,13 @@ function eventBody(row: SerializedFeedEvent) {
   };
 }
 
-async function listManagedEvents(
+/**
+ * List every event in the dedicated Cadence calendar. Because this calendar is
+ * created and owned exclusively by the app, we treat all of its events as ours
+ * rather than relying on Google's privateExtendedProperty filter (which is
+ * unreliable and previously caused deletions to be skipped).
+ */
+async function listCalendarEvents(
   accessToken: string,
   calendarId: string
 ): Promise<GoogleEvent[]> {
@@ -113,7 +119,6 @@ async function listManagedEvents(
       maxResults: '2500',
       showDeleted: 'false',
       singleEvents: 'true',
-      privateExtendedProperty: `${CADENCE_MANAGED_KEY}=true`,
     });
     if (pageToken) params.set('pageToken', pageToken);
     const res = await googleFetch(
@@ -142,11 +147,16 @@ export async function syncEventsToGoogle(
 ): Promise<GooglePushResult> {
   const calendarId = knownCalendarId || (await ensureCadenceCalendar(accessToken));
 
-  const existing = await listManagedEvents(accessToken, calendarId);
-  const existingByCadenceId = new Map<string, GoogleEvent>();
+  // Everything in the dedicated Cadence calendar is app-managed. Group by
+  // cadenceEventId so we can also clean up any duplicates from earlier bugs.
+  const existing = await listCalendarEvents(accessToken, calendarId);
+  const existingByCadenceId = new Map<string, GoogleEvent[]>();
   for (const ev of existing) {
     const cadenceId = ev.extendedProperties?.private?.[CADENCE_EVENT_ID_KEY];
-    if (cadenceId) existingByCadenceId.set(cadenceId, ev);
+    if (!cadenceId || !ev.id) continue;
+    const list = existingByCadenceId.get(cadenceId);
+    if (list) list.push(ev);
+    else existingByCadenceId.set(cadenceId, [ev]);
   }
 
   const desiredById = new Map<string, SerializedFeedEvent>();
@@ -160,10 +170,20 @@ export async function syncEventsToGoogle(
   let updated = 0;
   let deleted = 0;
 
+  const deleteEvent = async (eventId: string): Promise<boolean> => {
+    const res = await googleFetch(
+      accessToken,
+      `/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}`,
+      { method: 'DELETE' }
+    );
+    return res.ok || res.status === 410;
+  };
+
   for (const [id, row] of desiredById) {
-    const match = existingByCadenceId.get(id);
+    const matches = existingByCadenceId.get(id) ?? [];
     const body = eventBody(row);
-    if (!match) {
+
+    if (matches.length === 0) {
       const res = await googleFetch(
         accessToken,
         `/calendars/${encodeURIComponent(calendarId)}/events`,
@@ -172,6 +192,12 @@ export async function syncEventsToGoogle(
       if (res.ok) created += 1;
       continue;
     }
+
+    const [match, ...duplicates] = matches;
+    for (const dup of duplicates) {
+      if (dup.id && (await deleteEvent(dup.id))) deleted += 1;
+    }
+
     const before = fingerprint({
       summary: match.summary,
       description: match.description,
@@ -194,14 +220,11 @@ export async function syncEventsToGoogle(
     }
   }
 
-  for (const [id, ev] of existingByCadenceId) {
-    if (desiredById.has(id) || !ev.id) continue;
-    const res = await googleFetch(
-      accessToken,
-      `/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(ev.id)}`,
-      { method: 'DELETE' }
-    );
-    if (res.ok || res.status === 410) deleted += 1;
+  for (const [id, events] of existingByCadenceId) {
+    if (desiredById.has(id)) continue;
+    for (const ev of events) {
+      if (ev.id && (await deleteEvent(ev.id))) deleted += 1;
+    }
   }
 
   return { calendarId, created, updated, deleted };
