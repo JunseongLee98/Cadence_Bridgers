@@ -17,6 +17,7 @@ const STORAGE = {
 const CALENDAR_SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
   'https://www.googleapis.com/auth/calendar.events',
+  'https://www.googleapis.com/auth/calendar',
 ].join(' ');
 
 async function loadDecomposeEnv(): Promise<DecomposeEnv> {

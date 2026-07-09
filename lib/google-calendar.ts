@@ -8,6 +8,8 @@ import {
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
   'https://www.googleapis.com/auth/calendar.events',
+  // Needed for Calendars.insert (creating the dedicated "Cadence" secondary calendar)
+  'https://www.googleapis.com/auth/calendar',
 ];
 
 /** Exchange a refresh token for a fresh access token (access tokens expire ~1h). */
