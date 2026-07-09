@@ -30,7 +30,7 @@ export const en = {
     continuing: 'Continuing…',
     skipForNow: 'Skip for now',
     skipHint:
-      'Uses a guest profile on this device. Clear site data or return to /login to enter your name and email later.',
+      'Uses a guest profile on this device. Clear site data to reset your local profile.',
     errorNameRequired: 'Please enter your name.',
     errorInvalidEmail: 'Please enter a valid email address.',
     errorVerification: 'Could not send verification email.',
@@ -161,6 +161,8 @@ export const en = {
       'Connected — new, completed, and deleted tasks appear in your Cadence Google calendar within seconds.',
     googleConnectHelp:
       'Connect once to push tasks straight into Google (updates in seconds instead of waiting for Google to poll).',
+    googleOAuthDenied: 'Google sign-in was cancelled.',
+    googleOAuthFailed: 'Google sign-in failed. Use Reconnect Google and try again.',
     googleReconnect: 'Google session expired — reconnect Google Calendar.',
     googlePushFailed: 'Failed to update Google Calendar.',
     googleSynced: 'Synced to Google Calendar.',

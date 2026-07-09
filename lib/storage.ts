@@ -161,6 +161,19 @@ export const storage = {
     localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profile));
   },
 
+  /** Create a default on-device profile when none exists (no /login screen). */
+  ensureUserProfile(): UserProfile {
+    const existing = this.getUserProfile();
+    if (existing) return existing;
+    const profile: UserProfile = {
+      username: 'Guest',
+      email: 'guest@local.cadence',
+      createdAt: new Date(),
+    };
+    this.saveUserProfile(profile);
+    return profile;
+  },
+
   updateUserProfile(patch: Partial<UserProfile>): UserProfile | null {
     const current = this.getUserProfile();
     if (!current) return null;
@@ -214,10 +227,11 @@ export const storage = {
   }): void {
     if (typeof window === 'undefined') return;
     const existing = this.getGoogleTokens() ?? {};
-    localStorage.setItem(
-      GOOGLE_TOKENS_KEY,
-      JSON.stringify({ ...existing, ...tokens })
-    );
+    const merged = { ...existing };
+    if (tokens.access_token !== undefined) merged.access_token = tokens.access_token;
+    if (tokens.refresh_token !== undefined) merged.refresh_token = tokens.refresh_token;
+    if (tokens.calendar_id !== undefined) merged.calendar_id = tokens.calendar_id;
+    localStorage.setItem(GOOGLE_TOKENS_KEY, JSON.stringify(merged));
   },
 
   clearGoogleTokens(): void {

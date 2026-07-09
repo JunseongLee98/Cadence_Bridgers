@@ -40,6 +40,12 @@ function dedupeCalendarEventsById(events: CalendarEvent[]): CalendarEvent[] {
   });
 }
 
+function googleTokensIndicateConnection(
+  tokens: { access_token?: string; refresh_token?: string } | null
+): boolean {
+  return Boolean(tokens?.access_token || tokens?.refresh_token);
+}
+
 export default function Home() {
   const router = useRouter();
   const { m, locale, setLocale, dateLocale, t } = useI18n();
@@ -174,9 +180,42 @@ export default function Home() {
 
     // Check for Google Calendar connection
     const tokens = storage.getGoogleTokens();
-    if (tokens?.access_token) {
+    if (googleTokensIndicateConnection(tokens)) {
       setGoogleConnected(true);
+      if (tokens?.access_token) {
+        fetchGoogleCalendarEvents();
+      }
+    }
+
+    // Handle OAuth callback from URL query params
+    const urlParams = new URLSearchParams(window.location.search);
+    const oauthError = urlParams.get('error');
+    let shouldPushGoogleAfterOAuth = false;
+
+    if (oauthError) {
+      const msg =
+        oauthError === 'access_denied'
+          ? m.feed.googleOAuthDenied
+          : oauthError === 'auth_failed'
+            ? m.feed.googleOAuthFailed
+            : m.feed.googleOAuthFailed;
+      setGooglePushError(msg);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    const accessToken = urlParams.get('access_token');
+    const refreshToken = urlParams.get('refresh_token');
+
+    if (accessToken) {
+      const patch: { access_token: string; refresh_token?: string } = {
+        access_token: accessToken,
+      };
+      if (refreshToken) patch.refresh_token = refreshToken;
+      storage.saveGoogleTokens(patch);
+      setGoogleConnected(true);
+      window.history.replaceState({}, '', window.location.pathname);
       fetchGoogleCalendarEvents();
+      shouldPushGoogleAfterOAuth = true;
     }
 
     // Load ICS subscriptions
@@ -195,22 +234,6 @@ export default function Home() {
       fetchAllICSSubscriptions(subscriptionsWithColors);
     }
 
-    // Handle OAuth callback from URL query params
-    const urlParams = new URLSearchParams(window.location.search);
-    const accessToken = urlParams.get('access_token');
-    const refreshToken = urlParams.get('refresh_token');
-    
-    if (accessToken) {
-      storage.saveGoogleTokens({
-        access_token: accessToken,
-        refresh_token: refreshToken || undefined,
-      });
-      setGoogleConnected(true);
-      // Clean up URL
-      window.history.replaceState({}, '', window.location.pathname);
-      fetchGoogleCalendarEvents();
-    }
-
     // First-time tutorial
     try {
       const completed = window.localStorage.getItem('cadence:tutorialCompleted');
@@ -222,28 +245,16 @@ export default function Home() {
       // ignore storage access errors
     }
 
-    const profile = storage.getUserProfile();
-    if (!profile) {
-      router.replace('/login');
-      return;
-    }
+    const profile = storage.ensureUserProfile();
     setUserProfile(profile);
 
     setAuthReady(true);
     initialAppDataLoadedRef.current = true;
+
+    if (shouldPushGoogleAfterOAuth) {
+      void pushGoogleCalendar(storage.getEvents(), false);
+    }
   }, [router]);
-
-  // Load user's saved theme preference
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('cadence-theme');
-    setDarkMode(savedTheme === 'dark');
-  }, []);
-
-  // Apply theme changes
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', darkMode);
-    localStorage.setItem('cadence-theme', darkMode ? 'dark' : 'light');
-  }, [darkMode]);
 
   const startTutorial = () => {
     try {
@@ -263,6 +274,18 @@ export default function Home() {
     }
     setShowTutorial(false);
   };
+
+  // Load user's saved theme preference
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('cadence-theme');
+    setDarkMode(savedTheme === 'dark');
+  }, []);
+
+  // Apply theme changes
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('cadence-theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
 
   // Auto-refresh ICS subscriptions more often so they feel live
   useEffect(() => {
@@ -285,21 +308,59 @@ export default function Home() {
   }, [icsSubscriptions]);
 
   // Fetch Google Calendar events
+  const refreshGoogleAccessTokenClient = async (): Promise<string | null> => {
+    const tokens = storage.getGoogleTokens();
+    if (!tokens?.refresh_token) return null;
+    try {
+      const res = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: tokens.refresh_token }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (typeof data.accessToken !== 'string') return null;
+      storage.saveGoogleTokens({ access_token: data.accessToken });
+      return data.accessToken;
+    } catch {
+      return null;
+    }
+  };
+
   const fetchGoogleCalendarEvents = async () => {
     const tokens = storage.getGoogleTokens();
-    if (!tokens?.access_token) return;
+    if (!googleTokensIndicateConnection(tokens)) return;
 
     setIsLoadingGoogleEvents(true);
     try {
+      let accessToken = tokens?.access_token;
+      if (!accessToken) {
+        accessToken = (await refreshGoogleAccessTokenClient()) ?? undefined;
+      }
+      if (!accessToken) {
+        setGooglePushError(m.feed.googleReconnect);
+        return;
+      }
+
       const now = new Date();
       const timeMin = now.toISOString();
       const timeMax = new Date(
         now.getTime() + SCHEDULE_MAX_HORIZON_DAYS * 24 * 60 * 60 * 1000
       ).toISOString();
 
-      const response = await fetch(
-        `/api/calendar/events?access_token=${tokens.access_token}&timeMin=${timeMin}&timeMax=${timeMax}`
-      );
+      const fetchEvents = (token: string) =>
+        fetch(
+          `/api/calendar/events?access_token=${encodeURIComponent(token)}&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`
+        );
+
+      let response = await fetchEvents(accessToken);
+      if (response.status === 401) {
+        const refreshed = await refreshGoogleAccessTokenClient();
+        if (refreshed) {
+          accessToken = refreshed;
+          response = await fetchEvents(refreshed);
+        }
+      }
 
       if (response.ok) {
         const data = await response.json();
@@ -309,11 +370,12 @@ export default function Home() {
           end: new Date(event.end),
         }));
         setGoogleEvents(fetchedEvents);
+        setGooglePushError(null);
       } else {
         console.error('Failed to fetch Google Calendar events');
         if (response.status === 401) {
-          // Token expired, disconnect
           handleDisconnectGoogle();
+          setGooglePushError(m.feed.googleReconnect);
         }
       }
     } catch (error) {
@@ -642,9 +704,9 @@ export default function Home() {
    * seconds. No-op when Google isn't connected.
    */
   const pushGoogleCalendar = async (eventsList: CalendarEvent[], manual = false) => {
-    if (!authReady || !initialAppDataLoadedRef.current) return;
+    if (!initialAppDataLoadedRef.current) return;
     const tokens = storage.getGoogleTokens();
-    if (!tokens?.access_token && !tokens?.refresh_token) return;
+    if (!tokens || !googleTokensIndicateConnection(tokens)) return;
 
     if (manual) setGoogleSyncing(true);
     try {
@@ -2548,6 +2610,61 @@ export default function Home() {
                     Vercel) so Google Calendar sees the same data.
                   </div>
                 )}
+                <div className="space-y-1.5 mb-3">
+                  <p className="text-[11px] font-semibold text-gray-700">{m.feed.googleConnectedTitle}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={googleSyncing}
+                      onClick={() =>
+                        googleConnected
+                          ? void pushGoogleCalendar(events, true)
+                          : void handleConnectGoogle()
+                      }
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-60"
+                    >
+                      <CalendarIcon size={13} />
+                      {googleSyncing
+                        ? m.feed.googleSyncing
+                        : googleConnected
+                          ? m.feed.googleSync
+                          : m.feed.googleConnect}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-gray-500">
+                    {googleConnected ? m.feed.googlePushHelp : m.feed.googleConnectHelp}
+                  </p>
+                  {googleConnected && (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleReconnectGoogle}
+                        className="text-[11px] text-primary-700 underline hover:no-underline"
+                      >
+                        {m.feed.googleReconnectAction}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDisconnectGoogle}
+                        className="text-[11px] text-gray-500 underline hover:no-underline"
+                      >
+                        {m.feed.googleDisconnect}
+                      </button>
+                    </div>
+                  )}
+                  {googlePushError && (
+                    <p className="text-[11px] text-red-600">
+                      {googlePushError}{' '}
+                      <button
+                        type="button"
+                        onClick={handleReconnectGoogle}
+                        className="underline hover:no-underline"
+                      >
+                        {m.feed.googleReconnectAction}
+                      </button>
+                    </p>
+                  )}
+                </div>
                 {calendarFeedUrl ? (
                   <div className="space-y-2">
                     <p className="text-xs text-gray-700">
@@ -2577,84 +2694,23 @@ export default function Home() {
                         {feedLinkCopied ? m.common.copied : m.common.copy}
                       </button>
                     </div>
-                    <p className="text-[11px] text-gray-500">{m.feed.googleHelp}</p>
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-950 space-y-1">
-                      <p>{m.feed.googleEmptyHelp1}</p>
-                      <p>{m.feed.googleEmptyHelp2}</p>
+                    <p className="text-[11px] text-gray-500">{m.feed.subscribeTitle}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <a
+                        href={buildWebcalFeedUrl(calendarFeedUrl)}
+                        className="inline-block px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
+                      >
+                        {m.feed.appleAdd}
+                      </a>
+                      <a
+                        href={buildOutlookCalendarSubscribeUrl(calendarFeedUrl)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-block px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
+                      >
+                        {m.feed.outlookAdd}
+                      </a>
                     </div>
-                    {calendarFeedUrl && (
-                      <div className="space-y-1.5">
-                        <p className="text-[11px] font-semibold text-gray-700">
-                          {m.feed.subscribeTitle}
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            disabled={googleSyncing}
-                            onClick={() =>
-                              googleConnected
-                                ? void pushGoogleCalendar(events, true)
-                                : void handleConnectGoogle()
-                            }
-                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-60"
-                          >
-                            <CalendarIcon size={13} />
-                            {googleSyncing
-                              ? m.feed.googleSyncing
-                              : googleConnected
-                                ? m.feed.googleSync
-                                : m.feed.googleConnect}
-                          </button>
-                          <a
-                            href={buildWebcalFeedUrl(calendarFeedUrl)}
-                            className="inline-block px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
-                          >
-                            {m.feed.appleAdd}
-                          </a>
-                          <a
-                            href={buildOutlookCalendarSubscribeUrl(calendarFeedUrl)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-block px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
-                          >
-                            {m.feed.outlookAdd}
-                          </a>
-                        </div>
-                        <p className="text-[11px] text-gray-500">
-                          {googleConnected ? m.feed.googlePushHelp : m.feed.googleConnectHelp}
-                        </p>
-                        {googleConnected && (
-                          <div className="flex flex-wrap items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={handleReconnectGoogle}
-                              className="text-[11px] text-primary-700 underline hover:no-underline"
-                            >
-                              {m.feed.googleReconnectAction}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleDisconnectGoogle}
-                              className="text-[11px] text-gray-500 underline hover:no-underline"
-                            >
-                              {m.feed.googleDisconnect}
-                            </button>
-                          </div>
-                        )}
-                        {googlePushError && (
-                          <p className="text-[11px] text-red-600">
-                            {googlePushError}{' '}
-                            <button
-                              type="button"
-                              onClick={handleReconnectGoogle}
-                              className="underline hover:no-underline"
-                            >
-                              {m.feed.googleReconnectAction}
-                            </button>
-                          </p>
-                        )}
-                      </div>
-                    )}
                     {feedSyncError && (
                       <p className="text-xs text-red-600">{feedSyncError}</p>
                     )}
@@ -2829,6 +2885,22 @@ export default function Home() {
                 </select>
               </div>
 
+              {/* Tutorial */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.settings.tutorial}</h4>
+                <p className="text-xs text-gray-500 mb-2">{m.settings.tutorialHint}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSettingsDialog(false);
+                    startTutorial();
+                  }}
+                  className="replay-btn w-full px-4 py-2 rounded-lg text-sm font-medium border transition-colors"
+                >
+                  {m.settings.replayTutorial}
+                </button>
+              </div>
+
               {/* Appearance */}
             <div>
               <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.settings.appearance}</h4>
@@ -2857,21 +2929,6 @@ export default function Home() {
               </div>
             </div>
 
-              {/* Tutorial */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.settings.tutorial}</h4>
-                <p className="text-xs text-gray-500 mb-2">{m.settings.tutorialHint}</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSettingsDialog(false);
-                    startTutorial();
-                  }}
-                    className="replay-btn w-full px-4 py-2 rounded-lg text-sm font-medium border transition-colors"
-                >
-                  {m.settings.replayTutorial}
-                </button>
-              </div>
             </div>
 
             <div className="flex gap-3 mt-6 pt-4 border-t border-gray-200">
@@ -3026,6 +3083,7 @@ export default function Home() {
           </div>
         </div>
       )}
+
     </main>
   );
 }

@@ -29,7 +29,7 @@ export const ko = {
     continuing: '처리 중…',
     skipForNow: '나중에 하기',
     skipHint:
-      '이 기기에서 게스트 프로필을 사용합니다. 사이트 데이터를 지우거나 /login으로 돌아와 나중에 이름과 이메일을 입력할 수 있습니다.',
+      '이 기기에서 게스트 프로필을 사용합니다. 로컬 프로필을 초기화하려면 사이트 데이터를 지우세요.',
     errorNameRequired: '이름을 입력해 주세요.',
     errorInvalidEmail: '올바른 이메일 주소를 입력해 주세요.',
     errorVerification: '인증 이메일을 보내지 못했습니다.',
@@ -160,6 +160,8 @@ export const ko = {
       '연결됨 — 새 작업, 완료, 삭제가 몇 초 안에 Cadence Google 캘린더에 반영됩니다.',
     googleConnectHelp:
       '한 번 연결하면 작업이 Google에 바로 반영됩니다(Google 폴링을 기다리지 않고 몇 초 내 업데이트).',
+    googleOAuthDenied: 'Google 로그인이 취소되었습니다.',
+    googleOAuthFailed: 'Google 로그인에 실패했습니다. Google 다시 연결을 시도하세요.',
     googleReconnect: 'Google 세션이 만료되었습니다 — Google 캘린더를 다시 연결하세요.',
     googlePushFailed: 'Google 캘린더 업데이트에 실패했습니다.',
     googleSynced: 'Google 캘린더에 동기화되었습니다.',
