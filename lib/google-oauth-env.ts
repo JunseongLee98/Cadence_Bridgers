@@ -12,11 +12,11 @@ export function getGoogleOAuthEnv() {
 }
 
 export function assertGoogleOAuthEnv() {
-  const { clientId, clientSecret } = getGoogleOAuthEnv();
+  const { clientId, clientSecret, redirectUri } = getGoogleOAuthEnv();
   if (!clientId || !clientSecret) {
     throw new Error('Google credentials not configured');
   }
-  return getGoogleOAuthEnv();
+  return { clientId, clientSecret, redirectUri };
 }
 
 export function createGoogleOAuth2Client() {
