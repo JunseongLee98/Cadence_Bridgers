@@ -85,6 +85,22 @@ npm run dev
 - Verify the redirect URI matches exactly: `http://localhost:3000/api/auth/callback`
 - Make sure you've enabled the Google Calendar API
 
+### `invalid_client` / "The provided client secret is invalid"
+This means Google does not accept the **client secret** for the **Web application** OAuth client with your `GOOGLE_CLIENT_ID`. It is not a redirect-uri mismatch (that usually fails earlier).
+
+1. [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services** → **Credentials**
+2. Open the **Web application** OAuth 2.0 client whose Client ID matches `GOOGLE_CLIENT_ID`
+3. If you do not have the current secret, click **Reset secret** (or create a new Web client) and copy the new value
+4. Update **both**:
+   - Local: `GOOGLE_CLIENT_SECRET` in `.env.local`
+   - Production (Vercel): **Project → Settings → Environment Variables** — set `GOOGLE_CLIENT_SECRET` for Production (and Preview if you test there). Also set:
+     - `GOOGLE_CLIENT_ID` (same Web client)
+     - `GOOGLE_REDIRECT_URI=https://www.bridgerscadence.com/api/auth/callback`
+5. **Redeploy** after changing Vercel env vars (a new deployment is required)
+6. Confirm locally: `npm run verify:google-oauth` — success prints that credentials are accepted
+
+Use only a **Web application** client secret. Android/iOS/Desktop clients do not use this server-side flow.
+
 ### Events not showing up
 - Click the refresh button next to "Google Calendar" to sync
 - Check browser console for errors

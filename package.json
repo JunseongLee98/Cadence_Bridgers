@@ -10,7 +10,8 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build:extension": "node extension/esbuild.config.mjs"
+    "build:extension": "node extension/esbuild.config.mjs",
+    "verify:google-oauth": "node scripts/verify-google-oauth.mjs"
   },
   "dependencies": {
     "@upstash/redis": "^1.38.0",

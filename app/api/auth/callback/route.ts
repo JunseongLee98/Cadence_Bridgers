@@ -33,7 +33,24 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.redirect(redirectUrl);
   } catch (error) {
-    console.error('Error exchanging code for tokens:', error);
+    const googleError =
+      error &&
+      typeof error === 'object' &&
+      'response' in error &&
+      error.response &&
+      typeof error.response === 'object' &&
+      'data' in error.response
+        ? (error.response as { data?: { error?: string; error_description?: string } })
+            .data
+        : undefined;
+    if (googleError?.error === 'invalid_client') {
+      console.error(
+        'Google OAuth invalid_client:',
+        googleError.error_description ?? 'check GOOGLE_CLIENT_SECRET'
+      );
+    } else {
+      console.error('Error exchanging code for tokens:', error);
+    }
     return NextResponse.redirect(
       new URL('/?error=auth_failed', request.url)
     );
