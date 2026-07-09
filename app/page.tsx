@@ -363,6 +363,16 @@ export default function Home() {
     storage.clearGoogleTokens();
     setGoogleConnected(false);
     setGoogleEvents([]);
+    setGooglePushError(null);
+    setGooglePushedCount(null);
+  };
+
+  // Force a fresh OAuth consent (needed after the write scope was added, so the
+  // app gets calendar.events access + a refresh token and can create the calendar).
+  const handleReconnectGoogle = () => {
+    storage.clearGoogleTokens();
+    setGoogleConnected(false);
+    void handleConnectGoogle();
   };
 
   // Handle ICS file import
@@ -2613,8 +2623,35 @@ export default function Home() {
                         <p className="text-[11px] text-gray-500">
                           {googleConnected ? m.feed.googlePushHelp : m.feed.googleConnectHelp}
                         </p>
+                        {googleConnected && (
+                          <div className="flex flex-wrap items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={handleReconnectGoogle}
+                              className="text-[11px] text-primary-700 underline hover:no-underline"
+                            >
+                              {m.feed.googleReconnectAction}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleDisconnectGoogle}
+                              className="text-[11px] text-gray-500 underline hover:no-underline"
+                            >
+                              {m.feed.googleDisconnect}
+                            </button>
+                          </div>
+                        )}
                         {googlePushError && (
-                          <p className="text-[11px] text-red-600">{googlePushError}</p>
+                          <p className="text-[11px] text-red-600">
+                            {googlePushError}{' '}
+                            <button
+                              type="button"
+                              onClick={handleReconnectGoogle}
+                              className="underline hover:no-underline"
+                            >
+                              {m.feed.googleReconnectAction}
+                            </button>
+                          </p>
                         )}
                       </div>
                     )}

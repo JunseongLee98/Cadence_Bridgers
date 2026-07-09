@@ -164,6 +164,8 @@ export const en = {
     googleReconnect: 'Google session expired — reconnect Google Calendar.',
     googlePushFailed: 'Failed to update Google Calendar.',
     googleSynced: 'Synced to Google Calendar.',
+    googleReconnectAction: 'Reconnect Google',
+    googleDisconnect: 'Disconnect',
     googleHelp:
       'Google: use Add to Google Calendar below (or Other calendars → From URL with the https link). Apple: File → New Calendar Subscription.',
     googleEmptyHelp1:

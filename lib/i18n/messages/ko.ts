@@ -163,6 +163,8 @@ export const ko = {
     googleReconnect: 'Google 세션이 만료되었습니다 — Google 캘린더를 다시 연결하세요.',
     googlePushFailed: 'Google 캘린더 업데이트에 실패했습니다.',
     googleSynced: 'Google 캘린더에 동기화되었습니다.',
+    googleReconnectAction: 'Google 다시 연결',
+    googleDisconnect: '연결 해제',
     googleHelp:
       'Google: 아래 Google 캘린더에 추가를 사용하거나(또는 다른 캘린더 → URL에서 https 링크). Apple: 파일 → 새 캘린더 구독.',
     googleEmptyHelp1:
