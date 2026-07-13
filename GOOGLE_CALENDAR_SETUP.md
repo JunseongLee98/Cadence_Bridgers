@@ -24,7 +24,11 @@ This guide will help you set up Google Calendar integration for your Cadence app
      - App name: Cadence
      - User support email: your email
      - Developer contact: your email
-   - Add scopes: `https://www.googleapis.com/auth/calendar.readonly`
+     - Application home page: `https://www.bridgerscadence.com`
+     - Privacy policy: `https://www.bridgerscadence.com/privacy`
+     - Terms of service: `https://www.bridgerscadence.com/tos`
+     - Authorized domains: `bridgerscadence.com`
+   - Add scopes needed by the app (at least Calendar scopes you use in production)
    - Add test users (your email) if in testing mode
    - Save and continue through the steps
 
