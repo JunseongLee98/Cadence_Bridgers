@@ -2,6 +2,7 @@
  * Cadence extension service worker — API routes + Google OAuth for the panel on Calendar.
  */
 import { decomposeAssignment, type DecomposeEnv } from '../../lib/decompose-assignment';
+import { calibrateSubtaskEstimates } from '../../lib/estimate-calibration';
 import { fetchGoogleCalendarEventsRest } from '../../lib/google-calendar-rest';
 import type { CadenceMessage } from '../../lib/cadence-messages';
 
@@ -15,10 +16,68 @@ const STORAGE = {
 } as const;
 
 const CALENDAR_SCOPES = [
+  'openid',
+  'email',
+  'profile',
   'https://www.googleapis.com/auth/calendar.readonly',
   'https://www.googleapis.com/auth/calendar.events',
   'https://www.googleapis.com/auth/calendar',
 ].join(' ');
+
+const LEARNING_API_ORIGIN = 'https://www.bridgerscadence.com';
+const GOOGLE_IDENTITY_KEY = 'cadence_google_identity';
+const LOCAL_CALIBRATION_KEY = 'cadence_local_calibration';
+
+async function fetchAndStoreGoogleIdentity(accessToken: string): Promise<void> {
+  try {
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return;
+    const data = (await res.json()) as { sub?: string; email?: string; name?: string };
+    if (!data.sub) return;
+    await chrome.storage.local.set({
+      [GOOGLE_IDENTITY_KEY]: JSON.stringify({
+        sub: data.sub,
+        ...(data.email ? { email: data.email } : {}),
+        ...(data.name ? { name: data.name } : {}),
+      }),
+    });
+  } catch {
+    // optional identity bootstrap
+  }
+}
+
+async function loadCalibrationForAccessToken(
+  accessToken: string | undefined
+): Promise<Record<string, number>> {
+  const stored = await chrome.storage.local.get(LOCAL_CALIBRATION_KEY);
+  let local: Record<string, number> = {};
+  try {
+    if (typeof stored[LOCAL_CALIBRATION_KEY] === 'string') {
+      local = JSON.parse(stored[LOCAL_CALIBRATION_KEY] as string) as Record<string, number>;
+    }
+  } catch {
+    local = {};
+  }
+  if (!accessToken) return local;
+  try {
+    const res = await fetch(`${LEARNING_API_ORIGIN}/api/learning/profile`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return local;
+    const data = (await res.json()) as { calibrationByUnit?: Record<string, number> };
+    if (data.calibrationByUnit) {
+      await chrome.storage.local.set({
+        [LOCAL_CALIBRATION_KEY]: JSON.stringify(data.calibrationByUnit),
+      });
+      return data.calibrationByUnit;
+    }
+  } catch {
+    // fall back to local
+  }
+  return local;
+}
 
 async function loadDecomposeEnv(): Promise<DecomposeEnv> {
   const data = await chrome.storage.local.get([
@@ -93,7 +152,23 @@ async function handleMessage(msg: CadenceMessage): Promise<unknown> {
     }
     case 'CADENCE_DECOMPOSE': {
       const env = await loadDecomposeEnv();
-      return decomposeAssignment(msg.payload, env);
+      const result = await decomposeAssignment(msg.payload, env);
+      let accessToken: string | undefined;
+      try {
+        const tokenRaw = await chrome.storage.local.get('cadence_google_tokens');
+        const parsed = tokenRaw.cadence_google_tokens
+          ? (JSON.parse(tokenRaw.cadence_google_tokens as string) as {
+              access_token?: string;
+            })
+          : null;
+        accessToken = parsed?.access_token;
+      } catch {
+        accessToken = undefined;
+      }
+      const calibration = await loadCalibrationForAccessToken(accessToken);
+      return {
+        subtasks: calibrateSubtaskEstimates(result.subtasks, calibration),
+      };
     }
     case 'CADENCE_GET_GOOGLE_EVENTS': {
       const { accessToken, timeMin, timeMax } = msg.payload;
@@ -136,6 +211,8 @@ async function handleMessage(msg: CadenceMessage): Promise<unknown> {
       await chrome.storage.local.set({
         cadence_google_tokens: JSON.stringify({ access_token: tokens.access_token }),
       });
+      await fetchAndStoreGoogleIdentity(tokens.access_token);
+      await loadCalibrationForAccessToken(tokens.access_token);
       return { ok: true };
     }
     default:

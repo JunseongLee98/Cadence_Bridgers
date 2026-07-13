@@ -11,7 +11,45 @@ export interface DecomposeSubtask {
   title: string;
   description?: string;
   estimatedMinutes?: number;
+  /** AI-inferred measurable quantity for this step (e.g. 20). */
+  workAmount?: number;
+  /** AI-chosen unit label (e.g. "pages", "questions", "words"). */
+  workUnit?: string;
   order: number;
+}
+
+const WORK_UNIT_MAX_LEN = 40;
+const WORK_AMOUNT_MAX = 1_000_000;
+
+/** Normalize a freeform work unit label (trim, lowercase, length cap). */
+export function normalizeWorkUnit(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!normalized) return undefined;
+  return normalized.slice(0, WORK_UNIT_MAX_LEN);
+}
+
+/**
+ * Parse optional workAmount + workUnit from model output.
+ * Both must be valid together; otherwise both are omitted.
+ */
+export function sanitizeWorkFields(raw: {
+  workAmount?: unknown;
+  workUnit?: unknown;
+}): { workAmount?: number; workUnit?: string } {
+  const workUnit = normalizeWorkUnit(raw.workUnit);
+  let amount: number | undefined;
+  if (typeof raw.workAmount === 'number' && Number.isFinite(raw.workAmount)) {
+    amount = raw.workAmount;
+  } else if (typeof raw.workAmount === 'string' && raw.workAmount.trim()) {
+    const parsed = Number(raw.workAmount);
+    if (Number.isFinite(parsed)) amount = parsed;
+  }
+  if (amount === undefined || workUnit === undefined) return {};
+  if (amount <= 0) return {};
+  const workAmount = Math.min(WORK_AMOUNT_MAX, Math.round(amount * 100) / 100);
+  if (workAmount <= 0) return {};
+  return { workAmount, workUnit };
 }
 
 export interface DecomposeResult {
@@ -56,6 +94,8 @@ Guidelines:
 - Include a rough estimated duration in minutes for each subtask (e.g. 45, 60, 90). For large assignments, split work across multiple days.
 - Order the subtasks in a sensible sequence from 1..N.
 - Do NOT include calendar dates; just describe the work.
+- When the work is measurable, include workAmount (positive number) and workUnit (short freeform label you choose from the assignment, e.g. "pages", "questions", "words", "problem sets"). Do not invent a fixed global unit system—pick whatever unit fits that step.
+- Omit workAmount and workUnit when the step is not quantifiable (e.g. "brainstorm ideas", "review feedback").
 
 Return ONLY valid JSON with this shape (no markdown, no code fence):
 {
@@ -64,6 +104,8 @@ Return ONLY valid JSON with this shape (no markdown, no code fence):
       "title": "string",
       "description": "string",
       "estimatedMinutes": 60,
+      "workAmount": 20,
+      "workUnit": "pages",
       "order": 1
     }
   ]
@@ -203,10 +245,15 @@ export async function decomposeAssignment(
     if (typeof st.estimatedMinutes === 'number' && Number.isFinite(st.estimatedMinutes)) {
       estimatedMinutes = Math.max(15, Math.round(st.estimatedMinutes));
     }
+    const work = sanitizeWorkFields({
+      workAmount: st.workAmount,
+      workUnit: st.workUnit,
+    });
     cleaned.push({
       title,
       description,
       estimatedMinutes,
+      ...work,
       order: cleaned.length + 1,
     });
   }

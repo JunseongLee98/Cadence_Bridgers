@@ -139,6 +139,7 @@ async function fetchEventsForCalendar(
   const items = (data.items || []) as Array<{
     id?: string;
     summary?: string;
+    description?: string;
     start?: { dateTime?: string; date?: string };
     end?: { dateTime?: string; date?: string };
   }>;
@@ -149,11 +150,16 @@ async function fetchEventsForCalendar(
     const startRaw = event.start?.dateTime || event.start?.date;
     const endRaw = event.end?.dateTime || event.end?.date;
     const googleEventId = event.id || `${Date.now()}-${Math.random()}`;
+    const description =
+      typeof event.description === 'string' && event.description.trim()
+        ? event.description
+        : undefined;
 
     return {
       // Prefix so events from different calendars never collide in the UI merge.
       id: `google-${calendarId}-${googleEventId}`,
       title: event.summary || '(No title)',
+      ...(description ? { description } : {}),
       start: parseGoogleDate(startRaw),
       end: parseGoogleDate(endRaw),
       isScheduled: false,

@@ -17,6 +17,10 @@ export interface Task {
   procedureTitle?: string;
   /** AI procedure step description (telemetry category detail). */
   procedureDescription?: string;
+  /** AI-inferred measurable quantity for this step (e.g. 20 pages). */
+  workAmount?: number;
+  /** AI-chosen unit label (e.g. "pages", "questions", "words"). */
+  workUnit?: string;
 }
 
 export interface CalendarEvent {
@@ -39,6 +43,13 @@ export interface UserProfile {
   /** Secret token for the personal ICS subscription URL (server-synced). */
   calendarFeedToken?: string;
   createdAt: Date;
+}
+
+/** Google OpenID identity (no Cadence password; tied to Calendar OAuth). */
+export interface GoogleIdentity {
+  sub: string;
+  email?: string;
+  name?: string;
 }
 
 export interface InAppNotification {

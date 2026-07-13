@@ -302,11 +302,21 @@ export function CadencePanel(): React.ReactElement {
     setBusy(true);
     setError(null);
     try {
-      const { subtasks } = await cadenceRequest<{ subtasks: Array<{ title: string; description?: string; estimatedMinutes?: number; order: number }> }>({
+      const { subtasks } = await cadenceRequest<{
+        subtasks: Array<{
+          title: string;
+          description?: string;
+          estimatedMinutes?: number;
+          workAmount?: number;
+          workUnit?: string;
+          order: number;
+        }>;
+      }>({
         type: 'CADENCE_DECOMPOSE',
         payload: { title: aiTitle.trim(), description: aiDesc || undefined },
       });
       const ordered = [...subtasks].sort((a, b) => a.order - b.order);
+      const planId = uuidv4();
       const newTasks: Task[] = ordered.map((st) => ({
         id: uuidv4(),
         title: st.title,
@@ -315,6 +325,12 @@ export function CadencePanel(): React.ReactElement {
         priority: 'medium' as const,
         category: '',
         planStepOrder: st.order,
+        planId,
+        procedureTitle: st.title,
+        procedureDescription: st.description,
+        ...(st.workAmount !== undefined && st.workUnit
+          ? { workAmount: st.workAmount, workUnit: st.workUnit }
+          : {}),
         createdAt: new Date(),
         actualDurations: [],
       }));

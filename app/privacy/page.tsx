@@ -39,8 +39,16 @@ export default function PrivacyPage() {
         <li>
           <strong>Anonymous duration telemetry.</strong> When you complete a task and enter how long
           it took, Cadence may send an anonymous record (random device id, AI procedure step
-          title/description/order when applicable, estimated minutes, and actual minutes). This is
-          not linked to your Google account, email, or username.
+          title/description/order when applicable, estimated minutes, actual minutes, and when the
+          AI inferred a measurable work quantity for that step, the amount and unit such as pages or
+          questions). This is not linked to your Google account, email, or username.
+        </li>
+        <li>
+          <strong>Personalized learning profile (when signed in with Google).</strong> If you connect
+          Google, Cadence uses your Google account id to store a per-user learning profile that
+          tracks how your actual completion times compare with AI estimates (by work unit). This is
+          used only to tailor future duration suggestions for you. Population research telemetry
+          remains anonymous and separate.
         </li>
         <li>
           <strong>Technical data.</strong> Our hosting provider may automatically collect standard
@@ -55,8 +63,12 @@ export default function PrivacyPage() {
         <li>To maintain your session with Google Calendar after you authorize access.</li>
         <li>To publish your Cadence calendar feed when you use that feature.</li>
         <li>
-          To study anonymous task completion times by AI-broken-down procedure steps and improve
-          scheduling estimates.
+          To study anonymous task completion times by AI-broken-down procedure steps (including
+          AI-inferred work amounts and units when available) and improve scheduling estimates.
+        </li>
+        <li>
+          When you are signed in with Google, to personalize AI duration estimates for your account
+          based on your estimate-vs-actual history.
         </li>
         <li>To operate, secure, and improve the service.</li>
       </ul>

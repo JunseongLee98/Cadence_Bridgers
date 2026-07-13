@@ -4,6 +4,7 @@ import {
   type CompletionDurationSource,
   type CompletionTelemetryRecord,
 } from '@/lib/completion-telemetry-store';
+import { sanitizeWorkFields } from '@/lib/decompose-assignment';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -55,9 +56,14 @@ export async function POST(request: NextRequest) {
       Boolean(planId) ||
       planStepOrder !== undefined;
     const durationSource = asDurationSource(body.durationSource);
+    const work = sanitizeWorkFields({
+      workAmount: body.workAmount,
+      workUnit: body.workUnit,
+    });
+    const schemaVersion = work.workAmount !== undefined ? 2 : 1;
 
     const record: CompletionTelemetryRecord = {
-      schemaVersion: 1,
+      schemaVersion,
       anonymousSessionId,
       isAiBreakdown,
       actualMinutes: Math.round(actualMinutes),
@@ -71,6 +77,7 @@ export async function POST(request: NextRequest) {
       ...(estimatedMinutes !== undefined
         ? { estimatedMinutes: Math.round(estimatedMinutes) }
         : {}),
+      ...work,
     };
 
     await appendCompletionTelemetry(record);

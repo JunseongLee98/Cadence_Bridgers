@@ -18,6 +18,7 @@ describe('fetchGoogleCalendarEventsRest', () => {
           {
             id: 'evt1',
             summary: 'Meet',
+            description: 'Bring notes from Canvas',
             start: { dateTime: '2026-05-01T15:00:00.000Z' },
             end: { dateTime: '2026-05-01T16:00:00.000Z' },
           },
@@ -28,6 +29,7 @@ describe('fetchGoogleCalendarEventsRest', () => {
     const events = await fetchGoogleCalendarEventsRest('fake-token');
     expect(events.length).toBe(1);
     expect(events[0].title).toBe('Meet');
+    expect(events[0].description).toBe('Bring notes from Canvas');
     expect(events[0].start.toISOString()).toContain('2026-05-01');
   });
 

@@ -6,6 +6,9 @@ import {
 } from '@/lib/google-oauth-env';
 
 const SCOPES = [
+  'openid',
+  'email',
+  'profile',
   'https://www.googleapis.com/auth/calendar.readonly',
   'https://www.googleapis.com/auth/calendar.events',
   // Needed for Calendars.insert (creating the dedicated "Cadence" secondary calendar)

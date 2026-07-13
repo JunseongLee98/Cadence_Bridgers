@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTokensFromCode } from '@/lib/google-calendar';
+import { fetchGoogleUserInfo } from '@/lib/google-userinfo';
+import { getOrCreateLearningProfile } from '@/lib/learning-profile-store';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -20,9 +22,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const tokens = await getTokensFromCode(code);
-    
-    // Store tokens in a temporary session/cookie or pass via query params
-    // For simplicity, we'll pass via query params (in production, use secure cookies)
+
     const redirectUrl = new URL('/app', request.url);
     if (tokens.access_token) {
       redirectUrl.searchParams.set('access_token', tokens.access_token);
@@ -30,7 +30,22 @@ export async function GET(request: NextRequest) {
     if (tokens.refresh_token) {
       redirectUrl.searchParams.set('refresh_token', tokens.refresh_token);
     }
-    
+
+    if (tokens.access_token) {
+      try {
+        const user = await fetchGoogleUserInfo(tokens.access_token);
+        redirectUrl.searchParams.set('google_sub', user.sub);
+        if (user.email) redirectUrl.searchParams.set('google_email', user.email);
+        if (user.name) redirectUrl.searchParams.set('google_name', user.name);
+        await getOrCreateLearningProfile(user.sub, {
+          email: user.email,
+          displayName: user.name,
+        });
+      } catch (identityError) {
+        console.warn('Google userinfo / learning profile bootstrap failed', identityError);
+      }
+    }
+
     return NextResponse.redirect(redirectUrl);
   } catch (error) {
     const googleError =
@@ -56,4 +71,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

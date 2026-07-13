@@ -1,11 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 import { get, head, put } from '@vercel/blob';
+import { normalizeWorkUnit } from '@/lib/decompose-assignment';
 
 export type CompletionDurationSource = 'self_report' | 'scheduled_block' | 'estimate';
 
 export type CompletionTelemetryRecord = {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   anonymousSessionId: string;
   planId?: string;
   planStepOrder?: number;
@@ -15,8 +16,20 @@ export type CompletionTelemetryRecord = {
   estimatedMinutes?: number;
   actualMinutes: number;
   durationSource: CompletionDurationSource;
+  /** AI-inferred measurable quantity (schema v2+). */
+  workAmount?: number;
+  /** AI-chosen unit label, normalized (schema v2+). */
+  workUnit?: string;
   completedAt: string;
   receivedAt: string;
+};
+
+export type WorkUnitStats = {
+  workUnit: string;
+  sampleCount: number;
+  meanMinutesPerUnit: number;
+  medianMinutesPerUnit: number;
+  meanActualMinutes: number;
 };
 
 const DATA_DIR =
@@ -99,6 +112,47 @@ function assertServerStorageConfigured(): void {
   );
 }
 
+function parseJsonl(text: string): CompletionTelemetryRecord[] {
+  const records: CompletionTelemetryRecord[] = [];
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      records.push(JSON.parse(trimmed) as CompletionTelemetryRecord);
+    } catch {
+      // skip corrupt lines
+    }
+  }
+  return records;
+}
+
+async function loadRedisRecords(): Promise<CompletionTelemetryRecord[]> {
+  const { Redis } = await import('@upstash/redis');
+  const redis = Redis.fromEnv();
+  const rows = await redis.lrange(REDIS_KEY, 0, -1);
+  const records: CompletionTelemetryRecord[] = [];
+  for (const row of rows) {
+    if (typeof row === 'string') {
+      try {
+        records.push(JSON.parse(row) as CompletionTelemetryRecord);
+      } catch {
+        // skip
+      }
+      continue;
+    }
+    if (row && typeof row === 'object') {
+      records.push(row as CompletionTelemetryRecord);
+    }
+  }
+  return records;
+}
+
+function loadFileRecords(): CompletionTelemetryRecord[] {
+  const file = localFilePath();
+  if (!fs.existsSync(file)) return [];
+  return parseJsonl(fs.readFileSync(file, 'utf8'));
+}
+
 /** Append one anonymous completion record. */
 export async function appendCompletionTelemetry(
   record: CompletionTelemetryRecord
@@ -113,4 +167,65 @@ export async function appendCompletionTelemetry(
     return;
   }
   appendFile(record);
+}
+
+/** Load all stored completion records (Blob → Redis → local file). */
+export async function listCompletionTelemetry(): Promise<CompletionTelemetryRecord[]> {
+  assertServerStorageConfigured();
+  if (useBlobStore()) {
+    return parseJsonl(await loadBlobText());
+  }
+  if (useRedisStore()) {
+    return loadRedisRecords();
+  }
+  return loadFileRecords();
+}
+
+function median(sorted: number[]): number {
+  if (sorted.length === 0) return 0;
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) {
+    return (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+  return sorted[mid];
+}
+
+/** Aggregate mean/median minutes-per-unit by workUnit. */
+export function aggregateWorkUnitStats(
+  records: CompletionTelemetryRecord[]
+): WorkUnitStats[] {
+  const byUnit = new Map<string, { perUnit: number[]; actual: number[] }>();
+
+  for (const record of records) {
+    const unit = normalizeWorkUnit(record.workUnit);
+    const amount = record.workAmount;
+    if (!unit || amount === undefined || !(amount > 0)) continue;
+    if (!Number.isFinite(record.actualMinutes) || record.actualMinutes < 0) continue;
+
+    const perUnit = record.actualMinutes / amount;
+    if (!Number.isFinite(perUnit)) continue;
+
+    const bucket = byUnit.get(unit) ?? { perUnit: [], actual: [] };
+    bucket.perUnit.push(perUnit);
+    bucket.actual.push(record.actualMinutes);
+    byUnit.set(unit, bucket);
+  }
+
+  const stats: WorkUnitStats[] = [];
+  for (const [workUnit, bucket] of byUnit) {
+    const perSorted = [...bucket.perUnit].sort((a, b) => a - b);
+    const meanMinutesPerUnit =
+      bucket.perUnit.reduce((sum, v) => sum + v, 0) / bucket.perUnit.length;
+    const meanActualMinutes =
+      bucket.actual.reduce((sum, v) => sum + v, 0) / bucket.actual.length;
+    stats.push({
+      workUnit,
+      sampleCount: bucket.perUnit.length,
+      meanMinutesPerUnit: Math.round(meanMinutesPerUnit * 100) / 100,
+      medianMinutesPerUnit: Math.round(median(perSorted) * 100) / 100,
+      meanActualMinutes: Math.round(meanActualMinutes * 100) / 100,
+    });
+  }
+
+  return stats.sort((a, b) => a.workUnit.localeCompare(b.workUnit));
 }

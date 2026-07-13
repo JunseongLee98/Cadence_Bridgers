@@ -29,6 +29,14 @@ import { parseICSFileFromFile, parseICSFileFromFileAsTasks, fetchICSFromURL } fr
 import { formatMinutesToHoursMinutes } from '@/lib/time-utils';
 import { useI18n } from '@/lib/i18n/context';
 import type { AppLocale } from '@/lib/i18n/types';
+import {
+  calibrateSubtaskEstimates,
+  type CalibrationByUnit,
+} from '@/lib/estimate-calibration';
+import {
+  fetchLearningProfile,
+  postLearningCalibration,
+} from '@/lib/learning-client';
 
 function dedupeCalendarEventsById(events: CalendarEvent[]): CalendarEvent[] {
   const seen = new Set<string>();
@@ -239,6 +247,23 @@ export default function Home() {
       shouldPushGoogleAfterOAuth = true;
     }
 
+    const googleSub = urlParams.get('google_sub');
+    const googleEmail = urlParams.get('google_email');
+    const googleName = urlParams.get('google_name');
+    if (googleSub) {
+      storage.saveGoogleIdentity({
+        sub: googleSub,
+        ...(googleEmail ? { email: googleEmail } : {}),
+        ...(googleName ? { name: googleName } : {}),
+      });
+      if (googleName || googleEmail) {
+        storage.updateUserProfile({
+          username: googleName || googleEmail || 'Guest',
+        });
+      }
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
     // Load ICS subscriptions
     const rawSubscriptions = storage.getICSSubscriptions();
     // Ensure each subscription has a color assigned
@@ -347,6 +372,40 @@ export default function Home() {
       return null;
     }
   };
+
+  const getGoogleAccessTokenForLearning = async (): Promise<string | null> => {
+    const tokens = storage.getGoogleTokens();
+    if (!googleTokensIndicateConnection(tokens)) return null;
+    let accessToken = tokens?.access_token ?? null;
+    if (!accessToken) {
+      accessToken = await refreshGoogleAccessTokenClient();
+    }
+    return accessToken;
+  };
+
+  /** Sync per-user calibration from Google learning profile when signed in. */
+  const syncLearningProfile = async () => {
+    try {
+      const accessToken = await getGoogleAccessTokenForLearning();
+      if (!accessToken) return;
+      const profile = await fetchLearningProfile(accessToken);
+      if (profile?.googleSub) {
+        storage.saveGoogleIdentity({
+          sub: profile.googleSub,
+          ...(profile.email ? { email: profile.email } : {}),
+          ...(profile.displayName ? { name: profile.displayName } : {}),
+        });
+      }
+    } catch (err) {
+      console.warn('learning profile sync failed', err);
+    }
+  };
+
+  useEffect(() => {
+    if (!googleConnected) return;
+    void syncLearningProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when connection flips on
+  }, [googleConnected]);
 
   const fetchGoogleCalendarEvents = async () => {
     const tokens = storage.getGoogleTokens();
@@ -1255,7 +1314,7 @@ export default function Home() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            schemaVersion: 1,
+            schemaVersion: updatedTask.workAmount !== undefined ? 2 : 1,
             anonymousSessionId,
             planId: updatedTask.planId,
             planStepOrder: updatedTask.planStepOrder,
@@ -1267,6 +1326,12 @@ export default function Home() {
             estimatedMinutes: updatedTask.estimatedDuration,
             actualMinutes: actualDuration,
             durationSource,
+            ...(updatedTask.workAmount !== undefined && updatedTask.workUnit
+              ? {
+                  workAmount: updatedTask.workAmount,
+                  workUnit: updatedTask.workUnit,
+                }
+              : {}),
             completedAt: (updatedTask.completedAt ?? new Date()).toISOString(),
           }),
         }).catch((err) => {
@@ -1275,6 +1340,29 @@ export default function Home() {
       }
     } catch (err) {
       console.warn('completion telemetry failed', err);
+    }
+
+    // Per-user estimate calibration (local always; Google profile when signed in)
+    const estimatedMinutes = updatedTask.estimatedDuration;
+    if (estimatedMinutes && estimatedMinutes > 0) {
+      storage.recordLocalCalibrationFromCompletion({
+        actualMinutes: actualDuration,
+        estimatedMinutes,
+        workUnit: updatedTask.workUnit,
+      });
+      void (async () => {
+        try {
+          const accessToken = await getGoogleAccessTokenForLearning();
+          if (!accessToken) return;
+          await postLearningCalibration(accessToken, {
+            actualMinutes: actualDuration,
+            estimatedMinutes,
+            workUnit: updatedTask.workUnit,
+          });
+        } catch (err) {
+          console.warn('learning calibration failed', err);
+        }
+      })();
     }
   };
 
@@ -1442,7 +1530,22 @@ export default function Home() {
         throw new Error('No subtasks returned');
       }
 
-      const ordered = [...subtasks].sort(
+      let calibrationByUnit: CalibrationByUnit = storage.getLocalCalibration();
+      try {
+        const accessToken = await getGoogleAccessTokenForLearning();
+        if (accessToken) {
+          const profile = await fetchLearningProfile(accessToken);
+          if (profile?.calibrationByUnit) {
+            calibrationByUnit = profile.calibrationByUnit;
+          }
+        }
+      } catch {
+        // keep local calibration
+      }
+
+      const calibrated = calibrateSubtaskEstimates(subtasks, calibrationByUnit);
+
+      const ordered = [...calibrated].sort(
         (a: { order: number }, b: { order: number }) => a.order - b.order
       );
       const planId = uuidv4();
@@ -1450,7 +1553,14 @@ export default function Home() {
         ? parseLocalDateInput(formatDateToLocalISO(event.start))
         : undefined;
       const newTasks: Task[] = ordered.map(
-        (st: { title: string; description?: string; estimatedMinutes?: number; order: number }) => ({
+        (st: {
+          title: string;
+          description?: string;
+          estimatedMinutes?: number;
+          workAmount?: number;
+          workUnit?: string;
+          order: number;
+        }) => ({
           id: uuidv4(),
           title: st.title,
           description: st.description,
@@ -1462,6 +1572,9 @@ export default function Home() {
           planId,
           procedureTitle: st.title,
           procedureDescription: st.description,
+          ...(st.workAmount !== undefined && st.workUnit
+            ? { workAmount: st.workAmount, workUnit: st.workUnit }
+            : {}),
           createdAt: new Date(),
           actualDurations: [],
         })

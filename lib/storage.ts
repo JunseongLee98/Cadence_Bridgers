@@ -6,9 +6,15 @@ import {
   WorkSegment,
   InAppNotification,
   UserProfile,
+  GoogleIdentity,
 } from '@/types';
 import type { AppLocale } from '@/lib/i18n/types';
 import { LOCALE_STORAGE_KEY, isAppLocale } from '@/lib/i18n/types';
+import type { CalibrationByUnit } from '@/lib/estimate-calibration';
+import {
+  applyRatioToCalibrationMap,
+  estimateActualRatio,
+} from '@/lib/estimate-calibration';
 
 const TASKS_KEY = 'cadence_tasks';
 const EVENTS_KEY = 'cadence_events';
@@ -16,6 +22,8 @@ const GOOGLE_TOKENS_KEY = 'cadence_google_tokens';
 const GOOGLE_EVENTS_KEY = 'cadence_google_events';
 const GOOGLE_SELECTED_CALENDARS_KEY = 'cadence_google_selected_calendars';
 const GOOGLE_CALENDAR_COLORS_KEY = 'cadence_google_calendar_colors';
+const GOOGLE_IDENTITY_KEY = 'cadence_google_identity';
+const LOCAL_CALIBRATION_KEY = 'cadence_local_calibration';
 const ICS_SUBSCRIPTIONS_KEY = 'cadence_ics_subscriptions';
 const WORK_HOURS_KEY = 'cadence_work_hours';
 const BREAK_AFTER_EVENTS_KEY = 'cadence_break_after_events';
@@ -249,6 +257,79 @@ export const storage = {
     localStorage.removeItem(GOOGLE_EVENTS_KEY);
     localStorage.removeItem(GOOGLE_SELECTED_CALENDARS_KEY);
     localStorage.removeItem(GOOGLE_CALENDAR_COLORS_KEY);
+    localStorage.removeItem(GOOGLE_IDENTITY_KEY);
+  },
+
+  getGoogleIdentity(): GoogleIdentity | null {
+    if (typeof window === 'undefined') return null;
+    const data = localStorage.getItem(GOOGLE_IDENTITY_KEY);
+    if (!data) return null;
+    try {
+      const raw = JSON.parse(data) as GoogleIdentity;
+      if (!raw?.sub || typeof raw.sub !== 'string') return null;
+      return {
+        sub: raw.sub,
+        ...(typeof raw.email === 'string' ? { email: raw.email } : {}),
+        ...(typeof raw.name === 'string' ? { name: raw.name } : {}),
+      };
+    } catch {
+      return null;
+    }
+  },
+
+  saveGoogleIdentity(identity: GoogleIdentity): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(GOOGLE_IDENTITY_KEY, JSON.stringify(identity));
+  },
+
+  clearGoogleIdentity(): void {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(GOOGLE_IDENTITY_KEY);
+  },
+
+  getLocalCalibration(): CalibrationByUnit {
+    if (typeof window === 'undefined') return {};
+    const data = localStorage.getItem(LOCAL_CALIBRATION_KEY);
+    if (!data) return {};
+    try {
+      const raw = JSON.parse(data) as CalibrationByUnit;
+      if (!raw || typeof raw !== 'object') return {};
+      const out: CalibrationByUnit = {};
+      for (const [unit, factor] of Object.entries(raw)) {
+        if (typeof factor === 'number' && Number.isFinite(factor)) {
+          out[unit] = factor;
+        }
+      }
+      return out;
+    } catch {
+      return {};
+    }
+  },
+
+  saveLocalCalibration(calibrationByUnit: CalibrationByUnit): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(LOCAL_CALIBRATION_KEY, JSON.stringify(calibrationByUnit));
+  },
+
+  /**
+   * Update on-device calibration when actual vs estimate gap is large.
+   * Returns the updated map (whether or not a change occurred).
+   */
+  recordLocalCalibrationFromCompletion(input: {
+    actualMinutes: number;
+    estimatedMinutes: number;
+    workUnit?: string;
+  }): CalibrationByUnit {
+    const ratio = estimateActualRatio(input.actualMinutes, input.estimatedMinutes);
+    const current = this.getLocalCalibration();
+    if (ratio === undefined) return current;
+    const { next, updated } = applyRatioToCalibrationMap(
+      current,
+      input.workUnit,
+      ratio
+    );
+    if (updated) this.saveLocalCalibration(next);
+    return updated ? next : current;
   },
 
   /** Calendar IDs to read into Cadence (read-only). Empty = show none. */
