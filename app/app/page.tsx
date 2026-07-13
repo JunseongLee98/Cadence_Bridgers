@@ -39,6 +39,7 @@ import {
 } from '@/lib/learning-client';
 import { htmlToReadableText } from '@/lib/html-readable';
 import ReadableDescription from '@/components/ReadableDescription';
+import { sortActiveTasks, sortCompletedTasks } from '@/lib/task-sort';
 
 function dedupeCalendarEventsById(events: CalendarEvent[]): CalendarEvent[] {
   const seen = new Set<string>();
@@ -1218,6 +1219,7 @@ export default function Home() {
         title: input.title,
         description: htmlToReadableText(input.description) || undefined,
         dueDate: dueIso,
+        locale,
       }),
     });
     if (!res.ok) {
@@ -1725,8 +1727,8 @@ export default function Home() {
   };
 
   const incompleteTasksCount = tasks.filter(t => !t.completedAt).length;
-  const activeTasks = tasks.filter(task => !task.completedAt);
-  const completedTasks = tasks.filter(task => task.completedAt);
+  const activeTasks = sortActiveTasks(tasks.filter((task) => !task.completedAt));
+  const completedTasks = sortCompletedTasks(tasks.filter((task) => task.completedAt));
   const displayedTasks = taskSidebarTab === 'active' ? activeTasks : completedTasks;
 
   // Mini calendar display data

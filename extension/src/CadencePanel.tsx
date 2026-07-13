@@ -313,7 +313,11 @@ export function CadencePanel(): React.ReactElement {
         }>;
       }>({
         type: 'CADENCE_DECOMPOSE',
-        payload: { title: aiTitle.trim(), description: aiDesc || undefined },
+        payload: {
+          title: aiTitle.trim(),
+          description: aiDesc || undefined,
+          locale: navigator.language.toLowerCase().startsWith('ko') ? 'ko' : 'en',
+        },
       });
       const ordered = [...subtasks].sort((a, b) => a.order - b.order);
       const planId = uuidv4();

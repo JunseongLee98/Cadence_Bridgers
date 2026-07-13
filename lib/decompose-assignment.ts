@@ -5,6 +5,8 @@ export interface DecomposeInput {
   title: string;
   description?: string;
   dueDate?: string;
+  /** App UI locale — subtask titles/descriptions should be written in this language. */
+  locale?: 'en' | 'ko';
 }
 
 export interface DecomposeSubtask {
@@ -76,8 +78,30 @@ function getProvider(env: DecomposeEnv): 'groq' | 'ollama' | 'openai' {
   return 'ollama';
 }
 
+/** Language rule injected into the decompose prompt. */
+export function decomposeLanguageInstruction(locale?: string): string {
+  if (locale === 'ko') {
+    return [
+      '- Language: Write every subtask "title" and "description" in Korean (한국어).',
+      '- Keep JSON keys in English. workUnit may be Korean when that fits the assignment (e.g. "페이지", "문제").',
+      '- Do not translate the assignment into English; plan steps must be Korean.',
+    ].join('\n');
+  }
+  if (locale === 'en') {
+    return [
+      '- Language: Write every subtask "title" and "description" in English.',
+      '- Keep JSON keys in English. workUnit should be a short English label when possible.',
+    ].join('\n');
+  }
+  return [
+    '- Language: Write every subtask "title" and "description" in the same language as the assignment title/description.',
+    '- If the assignment is in Korean, use Korean; if in English, use English.',
+    '- Keep JSON keys in English.',
+  ].join('\n');
+}
+
 function buildUserPrompt(input: DecomposeInput): string {
-  const { title, description, dueDate } = input;
+  const { title, description, dueDate, locale } = input;
   return `
 You are an expert study-planning assistant for university students.
 
@@ -90,12 +114,13 @@ Assignment:
 
 Guidelines:
 - Output 3–10 concrete subtasks.
-- Make each subtask small and specific (e.g. "Read section 1.1 and take notes", "Draft outline", "Write introduction", "Create test cases", etc.).
+- Make each subtask small and specific (e.g. reading a section and taking notes, drafting an outline, writing an introduction, creating test cases).
 - Include a rough estimated duration in minutes for each subtask (e.g. 45, 60, 90). For large assignments, split work across multiple days.
 - Order the subtasks in a sensible sequence from 1..N.
 - Do NOT include calendar dates; just describe the work.
-- When the work is measurable, include workAmount (positive number) and workUnit (short freeform label you choose from the assignment, e.g. "pages", "questions", "words", "problem sets"). Do not invent a fixed global unit system—pick whatever unit fits that step.
-- Omit workAmount and workUnit when the step is not quantifiable (e.g. "brainstorm ideas", "review feedback").
+- When the work is measurable, include workAmount (positive number) and workUnit (short freeform label you choose from the assignment, e.g. pages/questions/words or the equivalent in the output language). Do not invent a fixed global unit system—pick whatever unit fits that step.
+- Omit workAmount and workUnit when the step is not quantifiable (e.g. brainstorming ideas, reviewing feedback).
+${decomposeLanguageInstruction(locale)}
 
 Return ONLY valid JSON with this shape (no markdown, no code fence):
 {

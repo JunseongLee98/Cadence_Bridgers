@@ -8,19 +8,22 @@ import { decomposeAssignment } from '@/lib/decompose-assignment';
  */
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { title, description, dueDate } = body as {
+  const { title, description, dueDate, locale } = body as {
     title?: string;
     description?: string;
     dueDate?: string;
+    locale?: string;
   };
 
   if (!title) {
     return NextResponse.json({ error: 'title is required' }, { status: 400 });
   }
 
+  const normalizedLocale = locale === 'ko' || locale === 'en' ? locale : undefined;
+
   try {
     const result = await decomposeAssignment(
-      { title, description, dueDate },
+      { title, description, dueDate, locale: normalizedLocale },
       {
         openaiApiKey: process.env.OPENAI_API_KEY,
         groqApiKey: process.env.GROQ_API_KEY,
