@@ -37,6 +37,8 @@ import {
   fetchLearningProfile,
   postLearningCalibration,
 } from '@/lib/learning-client';
+import { htmlToReadableText } from '@/lib/html-readable';
+import ReadableDescription from '@/components/ReadableDescription';
 
 function dedupeCalendarEventsById(events: CalendarEvent[]): CalendarEvent[] {
   const seen = new Set<string>();
@@ -1467,7 +1469,7 @@ export default function Home() {
     // Create task from event
     const taskData = {
       title: event.title,
-      description: event.description,
+      description: htmlToReadableText(event.description) || undefined,
       estimatedDuration: conversionDuration,
       priority: 'medium' as const,
       category: '',
@@ -1517,7 +1519,7 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: event.title,
-          description: event.description ?? undefined,
+          description: htmlToReadableText(event.description) || undefined,
           dueDate: event.start.toISOString(),
         }),
       });
@@ -2527,8 +2529,8 @@ export default function Home() {
                               expandedTaskId === task.id ? 'max-h-40' : 'max-h-4'
                             }`}
                           >
-                            <p className="text-xs leading-4 text-gray-500">
-                              {task.description}
+                            <p className="text-xs leading-4 text-gray-500 whitespace-pre-line">
+                              {htmlToReadableText(task.description)}
                             </p>
                           </div>
                         )}
@@ -2832,9 +2834,7 @@ export default function Home() {
                 <p className="text-sm font-medium text-gray-700 mb-1">Event:</p>
                 <p className="text-lg text-gray-900">{selectedEvent.title}</p>
                 {selectedEvent.description && (
-                  <p className="text-sm text-gray-600 mt-1 whitespace-pre-line break-words max-h-40 overflow-y-auto pr-1">
-                    {selectedEvent.description}
-                  </p>
+                  <ReadableDescription html={selectedEvent.description} />
                 )}
                 <div className="mt-2 text-xs text-gray-500">
                   <p>Date: {selectedEvent.start.toLocaleDateString()}</p>
