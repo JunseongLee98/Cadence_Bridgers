@@ -8,13 +8,13 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     return NextResponse.redirect(
-      new URL(`/?error=${encodeURIComponent(error)}`, request.url)
+      new URL(`/app?error=${encodeURIComponent(error)}`, request.url)
     );
   }
 
   if (!code) {
     return NextResponse.redirect(
-      new URL('/?error=missing_code', request.url)
+      new URL('/app?error=missing_code', request.url)
     );
   }
 
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     
     // Store tokens in a temporary session/cookie or pass via query params
     // For simplicity, we'll pass via query params (in production, use secure cookies)
-    const redirectUrl = new URL('/', request.url);
+    const redirectUrl = new URL('/app', request.url);
     if (tokens.access_token) {
       redirectUrl.searchParams.set('access_token', tokens.access_token);
     }
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       console.error('Error exchanging code for tokens:', error);
     }
     return NextResponse.redirect(
-      new URL('/?error=auth_failed', request.url)
+      new URL('/app?error=auth_failed', request.url)
     );
   }
 }

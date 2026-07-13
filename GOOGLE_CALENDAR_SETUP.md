@@ -25,6 +25,7 @@ This guide will help you set up Google Calendar integration for your Cadence app
      - User support email: your email
      - Developer contact: your email
      - Application home page: `https://www.bridgerscadence.com`
+       (public page that names the app **Cadence** and explains purpose + Google Calendar use; calendar UI lives at `/app`)
      - Privacy policy: `https://www.bridgerscadence.com/privacy`
      - Terms of service: `https://www.bridgerscadence.com/tos`
      - Authorized domains: `bridgerscadence.com`

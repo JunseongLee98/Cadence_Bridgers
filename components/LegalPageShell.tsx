@@ -25,14 +25,17 @@ export function LegalPageShell({
             </span>
           </Link>
           <nav className="flex flex-wrap items-center gap-3 text-sm text-white/80">
+            <Link href="/" className="underline-offset-2 hover:text-white hover:underline">
+              Home
+            </Link>
             <Link href="/privacy" className="underline-offset-2 hover:text-white hover:underline">
               Privacy
             </Link>
             <Link href="/tos" className="underline-offset-2 hover:text-white hover:underline">
               Terms
             </Link>
-            <Link href="/" className="underline-offset-2 hover:text-white hover:underline">
-              App
+            <Link href="/app" className="underline-offset-2 hover:text-white hover:underline">
+              Open Cadence
             </Link>
           </nav>
         </div>
