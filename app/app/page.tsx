@@ -131,6 +131,11 @@ export default function Home() {
     segments: [{ startHour: 9, endHour: 18 }],
   });
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'general' | 'calendar' | 'more'>('general');
+  const [calendarDestination, setCalendarDestination] = useState<'google' | 'apple' | 'outlook'>(
+    'google'
+  );
+  const [showCalendarAdvanced, setShowCalendarAdvanced] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
   const [breakAfterEvents, setBreakAfterEvents] = useState(5);
@@ -2030,6 +2035,8 @@ export default function Home() {
                     setTempBreakAfterEvents(breakAfterEvents);
                     setTempFocusMinutes(focusMinutes);
                     setTempSkipDurationPrompt(skipDurationPrompt);
+                    setSettingsTab('general');
+                    setShowCalendarAdvanced(false);
                     setShowSettingsDialog(true);
                   }}
                   className="h-9 w-9 flex items-center justify-center text-white hover:bg-white/15 transition-colors"
@@ -2442,6 +2449,8 @@ export default function Home() {
                   setTempBreakAfterEvents(breakAfterEvents);
                   setTempFocusMinutes(focusMinutes);
                   setTempSkipDurationPrompt(skipDurationPrompt);
+                  setSettingsTab('general');
+                  setShowCalendarAdvanced(false);
                   setShowSettingsDialog(true);
                   setMobileMenuOpen(false);
                 }}
@@ -3321,396 +3330,480 @@ export default function Home() {
 
       {showSettingsDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto border border-gray-200">
-            <h3 className="text-xl font-bold text-primary mb-1">{m.settings.title}</h3>
-            <p className="text-sm text-gray-600 mb-6">{m.settings.subtitle}</p>
-            
-            <div className="space-y-6">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto border border-gray-200">
+            <div className="flex items-start justify-between gap-3 mb-4">
               <div>
-                <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.common.languageLabel}</h4>
-                <select
-                  value={locale}
-                  onChange={(e) => setLocale(e.target.value as AppLocale)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
-                >
-                  <option value="en">{m.common.english}</option>
-                  <option value="ko">{m.common.korean}</option>
-                </select>
+                <h3 className="text-xl font-bold text-primary mb-1">{m.settings.title}</h3>
+                <p className="text-sm text-gray-600">{m.settings.subtitle}</p>
               </div>
-
-              {userProfile && (
-                <p className="text-xs text-gray-500">
-                  {t('settings.localProfile', { username: userProfile.username })}
-                </p>
-              )}
-
-              <div>
-                <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                  <Link2 size={16} />
-                  {m.settings.feedSection.title}
-                </h4>
-                <p className="text-xs text-gray-500 mb-2">
-                  {m.settings.feedSection.paragraph1}{' '}
-                  <strong>{m.settings.feedSection.paragraph2}</strong>
-                </p>
-                {devUsesPublicCadenceFeed && publicFeedDeployed === false && (
-                  <div className="mb-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-950">
-                    <strong>Google Calendar can&apos;t load your feed yet.</strong> The live site at{' '}
-                    www.bridgerscadence.com does not have the calendar-feed API deployed (we checked).
-                    Deploy the latest Cadence build to Vercel, connect <strong>Vercel Blob</strong> storage,
-                    then click <strong>Sync now</strong> and re-subscribe in Google Calendar.
-                  </div>
-                )}
-                {devUsesPublicCadenceFeed && calendarFeedSyncDiffersFromSubscription() && (
-                  <div className="mb-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950">
-                    Sync saves to <strong>localhost</strong>; your subscription link uses{' '}
-                    <strong>www.bridgerscadence.com</strong>. Use the live site (or configure Blob on
-                    Vercel) so Google Calendar sees the same data.
-                  </div>
-                )}
-                <div className="space-y-1.5 mb-3">
-                  <p className="text-[11px] font-semibold text-gray-700">{m.feed.googleConnectedTitle}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      disabled={googleSyncing}
-                      onClick={() =>
-                        googleConnected
-                          ? void pushGoogleCalendar(events, true)
-                          : void handleConnectGoogle()
-                      }
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-60"
-                    >
-                      <CalendarIcon size={13} />
-                      {googleSyncing
-                        ? m.feed.googleSyncing
-                        : googleConnected
-                          ? m.feed.googleSync
-                          : m.feed.googleConnect}
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-gray-500">
-                    {googleConnected ? m.feed.googlePushHelp : m.feed.googleConnectHelp}
-                  </p>
-                  {googleConnected && (
-                    <div className="flex flex-wrap items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => void openGoogleCalendarsDialog()}
-                        className="text-[11px] text-primary-700 underline hover:no-underline"
-                      >
-                        {m.feed.googleManageCalendars}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleReconnectGoogle}
-                        className="text-[11px] text-primary-700 underline hover:no-underline"
-                      >
-                        {m.feed.googleReconnectAction}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleDisconnectGoogle}
-                        className="text-[11px] text-gray-500 underline hover:no-underline"
-                      >
-                        {m.feed.googleDisconnect}
-                      </button>
-                    </div>
-                  )}
-                  {googlePushError && (
-                    <p className="text-[11px] text-red-600">
-                      {googlePushError}{' '}
-                      <button
-                        type="button"
-                        onClick={handleReconnectGoogle}
-                        className="underline hover:no-underline"
-                      >
-                        {m.feed.googleReconnectAction}
-                      </button>
-                    </p>
-                  )}
-                </div>
-                {calendarFeedUrl ? (
-                  <div className="space-y-2">
-                    <p className="text-xs text-gray-700">
-                      {m.feed.onFeed}{' '}
-                      <strong>
-                        {feedSyncedEventCount ?? feedPublishPreviewCount}{' '}
-                        {(feedSyncedEventCount ?? feedPublishPreviewCount) === 1
-                          ? m.feed.event
-                          : m.feed.events}
-                      </strong>
-                      {feedPublishPreviewCount === 0 && (
-                        <span className="text-amber-800"> {m.feed.addTaskHint}</span>
-                      )}
-                    </p>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        readOnly
-                        value={calendarFeedUrl}
-                        className="flex-1 min-w-0 px-2 py-1.5 border border-gray-300 rounded text-xs text-gray-700 bg-gray-50"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => void copyCalendarFeedLink()}
-                        className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
-                      >
-                        {feedLinkCopied ? m.common.copied : m.common.copy}
-                      </button>
-                    </div>
-                    <p className="text-[11px] text-gray-500">{m.feed.subscribeTitle}</p>
-                    <div className="flex flex-wrap gap-2">
-                      <a
-                        href={buildWebcalFeedUrl(calendarFeedUrl)}
-                        className="inline-block px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
-                      >
-                        {m.feed.appleAdd}
-                      </a>
-                      <a
-                        href={buildOutlookCalendarSubscribeUrl(calendarFeedUrl)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-block px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
-                      >
-                        {m.feed.outlookAdd}
-                      </a>
-                    </div>
-                    {feedSyncError && (
-                      <p className="text-xs text-red-600">{feedSyncError}</p>
-                    )}
-                    {feedSyncError?.includes('not configured on Vercel') && (
-                      <p className="text-xs text-gray-600 mt-1">
-                        In Vercel: Project → Storage → create <strong>Blob</strong> (or Upstash Redis),
-                        redeploy, then try Sync again.
-                      </p>
-                    )}
-                    <div className="flex flex-wrap gap-3 items-center">
-                      <button
-                        type="button"
-                        disabled={feedSyncing}
-                        onClick={() => void manualSyncCalendarFeed()}
-                        className="text-xs font-medium text-primary-700 underline hover:no-underline disabled:opacity-60"
-                      >
-                        {feedSyncing ? m.settings.syncing : m.settings.syncNow}
-                      </button>
-                      {calendarFeedUrl && (
-                        <a
-                          href={calendarFeedUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs text-gray-700 underline hover:no-underline"
-                        >
-                          {m.settings.previewFeed}
-                        </a>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => void rotateCalendarFeedLink()}
-                        className="text-xs text-gray-600 underline hover:no-underline"
-                      >
-                        {m.settings.generateNewLink}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-500">{m.settings.loadingFeedLink}</p>
-                )}
-              </div>
-
-              {/* Working Hours */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                  <Clock size={16} />
-                  {m.settings.workingHours}
-                </h4>
-                <p className="text-xs text-gray-500 mb-2">{m.settings.workingHoursHint}</p>
-                <div className="space-y-3">
-                  {tempWorkHours.segments.map((segment, index) => (
-                    <div key={index} className="flex items-end gap-2">
-                      <div className="flex-1">
-                        <label className="block text-xs font-medium text-gray-600 mb-1">{m.settings.start}</label>
-                        <select
-                          value={segment.startHour}
-                          onChange={(e) => {
-                            const value = parseInt(e.target.value);
-                            setTempWorkHours({
-                              segments: tempWorkHours.segments.map((s, i) =>
-                                i === index ? { ...s, startHour: value } : s
-                              ),
-                            });
-                          }}
-                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                        >
-                          {Array.from({ length: 24 }, (_, i) => i).map((hour) => {
-                            const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-                            const ampm = hour < 12 ? 'AM' : 'PM';
-                            return (
-                              <option key={hour} value={hour}>
-                                {displayHour}:00 {ampm}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-                      <div className="flex-1">
-                        <label className="block text-xs font-medium text-gray-600 mb-1">{m.settings.end}</label>
-                        <select
-                          value={segment.endHour}
-                          onChange={(e) => {
-                            const value = parseInt(e.target.value);
-                            setTempWorkHours({
-                              segments: tempWorkHours.segments.map((s, i) =>
-                                i === index ? { ...s, endHour: value } : s
-                              ),
-                            });
-                          }}
-                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
-                        >
-                          {Array.from({ length: 24 }, (_, i) => i).map((hour) => {
-                            const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-                            const ampm = hour < 12 ? 'AM' : 'PM';
-                            return (
-                              <option key={hour} value={hour}>
-                                {displayHour}:00 {ampm}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-                      {tempWorkHours.segments.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setTempWorkHours({
-                              segments: tempWorkHours.segments.filter((_, i) => i !== index),
-                            });
-                          }}
-                          className="px-2 py-1 text-xs text-red-600 hover:text-red-700"
-                        >
-                          {m.settings.remove}
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const fallbackSegment = { startHour: 9, endHour: 18 };
-                      setTempWorkHours({
-                        segments: [
-                          ...tempWorkHours.segments,
-                          fallbackSegment,
-                        ],
-                      });
-                    }}
-                    className="text-xs text-primary-600 hover:text-primary-700"
-                  >
-                    {m.settings.addWorkSegment}
-                  </button>
-                </div>
-                {!isTempWorkHoursValid && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {m.settings.workHoursInvalid}
-                  </p>
-                )}
-              </div>
-
-              {/* Break after events */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.settings.breakAfter}</h4>
-                <p className="text-xs text-gray-500 mb-2">{m.settings.breakAfterHint}</p>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="number"
-                    value={tempBreakAfterEvents}
-                    onChange={(e) => setTempBreakAfterEvents(Math.max(0, parseInt(e.target.value) || 0))}
-                    min={0}
-                    max={120}
-                    className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
-                  />
-                  <span className="text-sm text-gray-600">{m.common.minutes}</span>
-                </div>
-              </div>
-
-              {/* Focus hours */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.settings.focusDuration}</h4>
-                <p className="text-xs text-gray-500 mb-2">{m.settings.focusDurationHint}</p>
-                <select
-                  value={tempFocusMinutes}
-                  onChange={(e) => setTempFocusMinutes(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
-                >
-                  {[30, 45, 50, 60, 75, 90, 120, 150, 180].map((mins) => (
-                    <option key={mins} value={mins}>
-                      {mins < 60 ? `${mins} minutes` : mins === 60 ? '1 hour' : `${mins / 60} hours`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Skip duration prompt */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-800 mb-2">
-                  {m.settings.skipDurationPrompt}
-                </h4>
-                <p className="text-xs text-gray-500 mb-2">{m.settings.skipDurationPromptHint}</p>
-                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={tempSkipDurationPrompt}
-                    onChange={(e) => setTempSkipDurationPrompt(e.target.checked)}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                  />
-                  {m.settings.skipDurationPrompt}
-                </label>
-              </div>
-
-              {/* Tutorial */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.settings.tutorial}</h4>
-                <p className="text-xs text-gray-500 mb-2">{m.settings.tutorialHint}</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSettingsDialog(false);
-                    startTutorial();
-                  }}
-                  className="replay-btn w-full px-4 py-2 rounded-lg text-sm font-medium border transition-colors"
-                >
-                  {m.settings.replayTutorial}
-                </button>
-              </div>
-
-              {/* Appearance */}
-            <div>
-              <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.settings.appearance}</h4>
-              <p className="text-xs text-gray-500 mb-2">
-                {locale === 'ko' ? '라이트/다크 모드 전환' : 'Toggle between light and dark mode'}
-              </p>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-700">
-                  {darkMode ? m.settings.darkMode : m.settings.lightMode}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() => setDarkMode(!darkMode)}
-                  className={`theme-toggle relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    darkMode ? 'active' : ''
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      darkMode ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSettingsDialog(false);
+                  setTempWorkHours(workHours);
+                  setTempBreakAfterEvents(breakAfterEvents);
+                  setTempFocusMinutes(focusMinutes);
+                  setTempSkipDurationPrompt(skipDurationPrompt);
+                }}
+                className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
+                title={m.common.close}
+              >
+                <X size={18} />
+              </button>
             </div>
 
+            <div className="mb-5 grid grid-cols-3 gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1">
+              {(
+                [
+                  ['general', m.settings.tabGeneral],
+                  ['calendar', m.settings.tabCalendar],
+                  ['more', m.settings.tabMore],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setSettingsTab(id)}
+                  className={`rounded-md px-2 py-2 text-xs font-medium transition-colors ${
+                    settingsTab === id
+                      ? 'bg-white text-primary shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-6">
+              {settingsTab === 'general' && (
+                <>
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                      <Clock size={16} />
+                      {m.settings.workingHours}
+                    </h4>
+                    <p className="text-xs text-gray-500 mb-2">{m.settings.workingHoursHint}</p>
+                    <div className="space-y-3">
+                      {tempWorkHours.segments.map((segment, index) => (
+                        <div key={index} className="flex items-end gap-2">
+                          <div className="flex-1">
+                            <label className="block text-xs font-medium text-gray-600 mb-1">{m.settings.start}</label>
+                            <select
+                              value={segment.startHour}
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value);
+                                setTempWorkHours({
+                                  segments: tempWorkHours.segments.map((s, i) =>
+                                    i === index ? { ...s, startHour: value } : s
+                                  ),
+                                });
+                              }}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                            >
+                              {Array.from({ length: 24 }, (_, i) => i).map((hour) => {
+                                const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                                const ampm = hour < 12 ? 'AM' : 'PM';
+                                return (
+                                  <option key={hour} value={hour}>
+                                    {displayHour}:00 {ampm}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                          </div>
+                          <div className="flex-1">
+                            <label className="block text-xs font-medium text-gray-600 mb-1">{m.settings.end}</label>
+                            <select
+                              value={segment.endHour}
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value);
+                                setTempWorkHours({
+                                  segments: tempWorkHours.segments.map((s, i) =>
+                                    i === index ? { ...s, endHour: value } : s
+                                  ),
+                                });
+                              }}
+                              className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                            >
+                              {Array.from({ length: 24 }, (_, i) => i).map((hour) => {
+                                const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                                const ampm = hour < 12 ? 'AM' : 'PM';
+                                return (
+                                  <option key={hour} value={hour}>
+                                    {displayHour}:00 {ampm}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                          </div>
+                          {tempWorkHours.segments.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTempWorkHours({
+                                  segments: tempWorkHours.segments.filter((_, i) => i !== index),
+                                });
+                              }}
+                              className="px-2 py-1 text-xs text-red-600 hover:text-red-700"
+                            >
+                              {m.settings.remove}
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTempWorkHours({
+                            segments: [...tempWorkHours.segments, { startHour: 9, endHour: 18 }],
+                          });
+                        }}
+                        className="text-xs text-primary-600 hover:text-primary-700"
+                      >
+                        {m.settings.addWorkSegment}
+                      </button>
+                    </div>
+                    {!isTempWorkHoursValid && (
+                      <p className="text-xs text-red-600 mt-1">{m.settings.workHoursInvalid}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.settings.breakAfter}</h4>
+                    <p className="text-xs text-gray-500 mb-2">{m.settings.breakAfterHint}</p>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        value={tempBreakAfterEvents}
+                        onChange={(e) =>
+                          setTempBreakAfterEvents(Math.max(0, parseInt(e.target.value) || 0))
+                        }
+                        min={0}
+                        max={120}
+                        className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                      />
+                      <span className="text-sm text-gray-600">{m.common.minutes}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.settings.focusDuration}</h4>
+                    <p className="text-xs text-gray-500 mb-2">{m.settings.focusDurationHint}</p>
+                    <select
+                      value={tempFocusMinutes}
+                      onChange={(e) => setTempFocusMinutes(parseInt(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                    >
+                      {[30, 45, 50, 60, 75, 90, 120, 150, 180].map((mins) => (
+                        <option key={mins} value={mins}>
+                          {mins < 60
+                            ? `${mins} minutes`
+                            : mins === 60
+                              ? '1 hour'
+                              : `${mins / 60} hours`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800 mb-2">
+                      {m.settings.skipDurationPrompt}
+                    </h4>
+                    <p className="text-xs text-gray-500 mb-2">{m.settings.skipDurationPromptHint}</p>
+                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={tempSkipDurationPrompt}
+                        onChange={(e) => setTempSkipDurationPrompt(e.target.checked)}
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      {m.settings.skipDurationPrompt}
+                    </label>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.settings.appearance}</h4>
+                    <p className="text-xs text-gray-500 mb-2">{m.settings.appearanceHint}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-700">
+                        {darkMode ? m.settings.darkMode : m.settings.lightMode}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setDarkMode(!darkMode)}
+                        className={`theme-toggle relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          darkMode ? 'active' : ''
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            darkMode ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {settingsTab === 'calendar' && (
+                <>
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800 mb-1 flex items-center gap-2">
+                      <Link2 size={16} />
+                      {m.settings.calendarDestination}
+                    </h4>
+                    <p className="text-xs text-gray-500 mb-3">{m.settings.calendarDestinationHint}</p>
+                    <div className="grid grid-cols-3 gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1 mb-4">
+                      {(
+                        [
+                          ['google', 'Google'],
+                          ['apple', 'Apple'],
+                          ['outlook', 'Outlook'],
+                        ] as const
+                      ).map(([id, label]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setCalendarDestination(id)}
+                          className={`rounded-md px-2 py-2 text-xs font-medium transition-colors ${
+                            calendarDestination === id
+                              ? 'bg-white text-primary shadow-sm'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {calendarDestination === 'google' && (
+                      <div className="space-y-2 rounded-lg border border-gray-200 p-3">
+                        <p className="text-xs text-gray-500">{m.settings.calendarGoogleHint}</p>
+                        <button
+                          type="button"
+                          disabled={googleSyncing}
+                          onClick={() =>
+                            googleConnected
+                              ? void pushGoogleCalendar(events, true)
+                              : void handleConnectGoogle()
+                          }
+                          className="inline-flex items-center gap-1 px-3 py-2 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-60"
+                        >
+                          <CalendarIcon size={13} />
+                          {googleSyncing
+                            ? m.feed.googleSyncing
+                            : googleConnected
+                              ? m.feed.googleSync
+                              : m.feed.googleConnect}
+                        </button>
+                        {googleConnected && (
+                          <div className="flex flex-wrap items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => void openGoogleCalendarsDialog()}
+                              className="text-[11px] text-primary-700 underline hover:no-underline"
+                            >
+                              {m.feed.googleManageCalendars}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleReconnectGoogle}
+                              className="text-[11px] text-primary-700 underline hover:no-underline"
+                            >
+                              {m.feed.googleReconnectAction}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleDisconnectGoogle}
+                              className="text-[11px] text-gray-500 underline hover:no-underline"
+                            >
+                              {m.feed.googleDisconnect}
+                            </button>
+                          </div>
+                        )}
+                        {googlePushError && (
+                          <p className="text-[11px] text-red-600">
+                            {googlePushError}{' '}
+                            <button
+                              type="button"
+                              onClick={handleReconnectGoogle}
+                              className="underline hover:no-underline"
+                            >
+                              {m.feed.googleReconnectAction}
+                            </button>
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {calendarDestination === 'apple' && (
+                      <div className="space-y-2 rounded-lg border border-gray-200 p-3">
+                        <p className="text-xs text-gray-500">{m.settings.calendarAppleHint}</p>
+                        {calendarFeedUrl ? (
+                          <a
+                            href={buildWebcalFeedUrl(calendarFeedUrl)}
+                            className="inline-flex items-center px-3 py-2 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
+                          >
+                            {m.feed.appleAdd}
+                          </a>
+                        ) : (
+                          <p className="text-xs text-gray-500">{m.settings.loadingFeedLink}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {calendarDestination === 'outlook' && (
+                      <div className="space-y-2 rounded-lg border border-gray-200 p-3">
+                        <p className="text-xs text-gray-500">{m.settings.calendarOutlookHint}</p>
+                        {calendarFeedUrl ? (
+                          <a
+                            href={buildOutlookCalendarSubscribeUrl(calendarFeedUrl)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center px-3 py-2 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
+                          >
+                            {m.feed.outlookAdd}
+                          </a>
+                        ) : (
+                          <p className="text-xs text-gray-500">{m.settings.loadingFeedLink}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-lg border border-gray-200">
+                    <button
+                      type="button"
+                      onClick={() => setShowCalendarAdvanced((v) => !v)}
+                      className="w-full flex items-center justify-between px-3 py-2.5 text-left"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{m.settings.calendarAdvanced}</p>
+                        <p className="text-xs text-gray-500">{m.settings.calendarAdvancedHint}</p>
+                      </div>
+                      {showCalendarAdvanced ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    </button>
+                    {showCalendarAdvanced && (
+                      <div className="border-t border-gray-200 px-3 py-3 space-y-3">
+                        <p className="text-xs text-gray-500">
+                          {m.settings.feedSection.paragraph1}{' '}
+                          {m.settings.feedSection.paragraph2}
+                        </p>
+                        {devUsesPublicCadenceFeed && publicFeedDeployed === false && (
+                          <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-950">
+                            <strong>Google Calendar can&apos;t load your feed yet.</strong> Deploy
+                            the latest Cadence build and connect Vercel Blob, then Sync now.
+                          </div>
+                        )}
+                        {devUsesPublicCadenceFeed && calendarFeedSyncDiffersFromSubscription() && (
+                          <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950">
+                            Sync saves to <strong>localhost</strong>; subscription uses{' '}
+                            <strong>www.bridgerscadence.com</strong>.
+                          </div>
+                        )}
+                        {calendarFeedUrl ? (
+                          <>
+                            <p className="text-xs text-gray-700">
+                              {m.feed.onFeed}{' '}
+                              <strong>
+                                {feedSyncedEventCount ?? feedPublishPreviewCount}{' '}
+                                {(feedSyncedEventCount ?? feedPublishPreviewCount) === 1
+                                  ? m.feed.event
+                                  : m.feed.events}
+                              </strong>
+                            </p>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                readOnly
+                                value={calendarFeedUrl}
+                                className="flex-1 min-w-0 px-2 py-1.5 border border-gray-300 rounded text-xs text-gray-700 bg-gray-50"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => void copyCalendarFeedLink()}
+                                className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50"
+                              >
+                                {feedLinkCopied ? m.common.copied : m.common.copy}
+                              </button>
+                            </div>
+                            {feedSyncError && (
+                              <p className="text-xs text-red-600">{feedSyncError}</p>
+                            )}
+                            <div className="flex flex-wrap gap-3 items-center">
+                              <button
+                                type="button"
+                                disabled={feedSyncing}
+                                onClick={() => void manualSyncCalendarFeed()}
+                                className="text-xs font-medium text-primary-700 underline hover:no-underline disabled:opacity-60"
+                              >
+                                {feedSyncing ? m.settings.syncing : m.settings.syncNow}
+                              </button>
+                              <a
+                                href={calendarFeedUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs text-gray-700 underline hover:no-underline"
+                              >
+                                {m.settings.previewFeed}
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => void rotateCalendarFeedLink()}
+                                className="text-xs text-gray-600 underline hover:no-underline"
+                              >
+                                {m.settings.generateNewLink}
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <p className="text-xs text-gray-500">{m.settings.loadingFeedLink}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {settingsTab === 'more' && (
+                <>
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.common.languageLabel}</h4>
+                    <select
+                      value={locale}
+                      onChange={(e) => setLocale(e.target.value as AppLocale)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value="en">{m.common.english}</option>
+                      <option value="ko">{m.common.korean}</option>
+                    </select>
+                  </div>
+
+                  {userProfile && (
+                    <p className="text-xs text-gray-500">
+                      {t('settings.localProfile', { username: userProfile.username })}
+                    </p>
+                  )}
+
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.settings.tutorial}</h4>
+                    <p className="text-xs text-gray-500 mb-2">{m.settings.tutorialHint}</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSettingsDialog(false);
+                        startTutorial();
+                      }}
+                      className="replay-btn w-full px-4 py-2 rounded-lg text-sm font-medium border transition-colors"
+                    >
+                      {m.settings.replayTutorial}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="flex gap-3 mt-6 pt-4 border-t border-gray-200">

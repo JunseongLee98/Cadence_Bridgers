@@ -111,14 +111,23 @@ export const ko = {
   },
   settings: {
     title: '설정',
-    subtitle: '일정 배치 및 캘린더 동작을 설정합니다',
+    subtitle: '일정 배치와 캘린더 연결',
+    tabGeneral: '일반',
+    tabCalendar: '캘린더',
+    tabMore: '더보기',
     localProfile: '이 기기: {username}',
+    calendarDestination: '어디에 표시할까요?',
+    calendarDestinationHint: '하나만 선택하세요. 해당 옵션의 단계만 표시됩니다.',
+    calendarGoogleHint:
+      'Google 사용자에게 권장: 한 번 연결하면 실시간 동기화(몇 초 단위)가 됩니다.',
+    calendarAppleHint: 'Apple 캘린더에서 Cadence 피드를 구독합니다.',
+    calendarOutlookHint: 'Outlook에서 Cadence 피드를 구독합니다.',
+    calendarAdvanced: '고급 피드 옵션',
+    calendarAdvancedHint: '구독 URL 복사, 동기화, 미리보기, 링크 재생성',
     feedSection: {
-      title: 'Google / Apple 캘린더에 구독',
-      paragraph1:
-        '이 링크를 캘린더 구독으로 추가하세요. 앱 내 캘린더의 Cadence 예약 블록만 게시됩니다(Google/ICS 가져오기는 제외).',
-      paragraph2:
-        'Google은 URL 구독을 느리게 갱신합니다(Apple에서 파일을 받은 것처럼 즉시 반영되지 않고 몇 시간 걸릴 수 있음).',
+      title: '캘린더 동기화',
+      paragraph1: 'Cadence가 예약한 블록만 게시됩니다(Google/ICS 가져오기 제외).',
+      paragraph2: 'URL 구독(Apple/Outlook)은 캘린더 앱의 갱신 주기에 따릅니다.',
     },
     syncNow: '지금 동기화',
     syncing: '동기화 중…',
@@ -143,6 +152,7 @@ export const ko = {
     skipDurationPromptHint:
       '할 일 완료 시 소요 시간 질문을 건너뛰고 AI/제안 시간(또는 예정 블록)을 사용합니다.',
     appearance: '화면',
+    appearanceHint: '라이트/다크 모드 전환',
     darkMode: '다크 모드',
     lightMode: '라이트 모드',
     tutorial: '튜토리얼',

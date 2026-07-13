@@ -110,14 +110,28 @@ export const en = {
   },
   settings: {
     title: 'Settings',
-    subtitle: 'Configure scheduling and calendar behavior',
+    subtitle: 'Scheduling preferences and calendar connections',
+    tabGeneral: 'General',
+    tabCalendar: 'Calendar',
+    tabMore: 'More',
     localProfile: 'This device: {username}',
+    calendarDestination: 'Where should Cadence appear?',
+    calendarDestinationHint: 'Pick one. Only that option’s steps are shown.',
+    calendarGoogleHint:
+      'Best for Google users: connect once for live sync (seconds, not hours).',
+    calendarAppleHint:
+      'Opens Apple Calendar with a subscription to your Cadence feed.',
+    calendarOutlookHint:
+      'Opens Outlook with a subscription to your Cadence feed.',
+    calendarAdvanced: 'Advanced feed options',
+    calendarAdvancedHint:
+      'Raw subscription URL, sync, preview, and regenerate link.',
     feedSection: {
-      title: 'Subscribe in Google / Apple Calendar',
+      title: 'Calendar sync',
       paragraph1:
-        'Add this link as a calendar subscription. Only Cadence-scheduled blocks on your in-app calendar are published (not Google/ICS imports).',
+        'Only Cadence-scheduled blocks are published (not Google/ICS imports).',
       paragraph2:
-        'Google refreshes URL subscriptions slowly (often hours, not instantly like a downloaded file in Apple Calendar).',
+        'URL subscriptions (Apple/Outlook) refresh on the calendar app’s schedule.',
     },
     syncNow: 'Sync now',
     syncing: 'Syncing…',
@@ -143,6 +157,7 @@ export const en = {
     skipDurationPromptHint:
       'When completing a task, skip the duration question and use the AI/suggested estimate (or scheduled block) instead.',
     appearance: 'Appearance',
+    appearanceHint: 'Toggle between light and dark mode',
     darkMode: 'Dark Mode',
     lightMode: 'Light Mode',
     tutorial: 'Tutorial',
