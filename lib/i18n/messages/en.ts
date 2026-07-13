@@ -90,6 +90,9 @@ export const en = {
     pickColor: 'Pick a color',
     custom: 'Custom',
     remove: 'Remove',
+    googleCalendars: 'Google calendars',
+    googleCalendarsHelp:
+      'Choose which Google calendars to show, and pick a color for each.',
   },
   addTask: {
     title: 'Add Task',

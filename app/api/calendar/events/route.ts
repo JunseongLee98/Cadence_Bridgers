@@ -7,12 +7,31 @@ export async function GET(request: NextRequest) {
   const timeMin = searchParams.get('timeMin');
   const timeMax = searchParams.get('timeMax');
   const calendarIdsParam = searchParams.get('calendarIds');
-  const calendarIds = calendarIdsParam
-    ? calendarIdsParam
-        .split(',')
-        .map((id) => id.trim())
-        .filter(Boolean)
-    : undefined;
+  // null = omit (default primary); "" or list = explicit selection (possibly empty)
+  const calendarIds =
+    calendarIdsParam === null
+      ? undefined
+      : calendarIdsParam
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean);
+  let colorsByCalendarId: Record<string, string> | undefined;
+  const colorsParam = searchParams.get('calendarColors');
+  if (colorsParam) {
+    try {
+      const parsed = JSON.parse(colorsParam) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        colorsByCalendarId = {};
+        for (const [id, color] of Object.entries(parsed as Record<string, unknown>)) {
+          if (typeof color === 'string' && color.trim()) {
+            colorsByCalendarId[id] = color.trim();
+          }
+        }
+      }
+    } catch {
+      colorsByCalendarId = undefined;
+    }
+  }
 
   if (!accessToken) {
     return NextResponse.json(
@@ -26,7 +45,8 @@ export async function GET(request: NextRequest) {
       accessToken,
       timeMin ? new Date(timeMin) : undefined,
       timeMax ? new Date(timeMax) : undefined,
-      calendarIds
+      calendarIds,
+      colorsByCalendarId
     );
 
     return NextResponse.json({ events });

@@ -165,13 +165,15 @@ async function fetchEventsForCalendar(
 
 /**
  * Fetch events via Google Calendar API REST (no googleapis).
- * Defaults to the primary calendar when calendarIds is empty/omitted.
+ * Pass an empty calendarIds array to fetch nothing.
+ * When calendarIds is undefined/omitted, defaults to primary.
  */
 export async function fetchGoogleCalendarEventsRest(
   accessToken: string,
   timeMin?: Date,
   timeMax?: Date,
-  calendarIds?: string[]
+  calendarIds?: string[],
+  colorsByCalendarId?: Record<string, string>
 ): Promise<CalendarEvent[]> {
   const now = new Date();
   const minTime = timeMin || now;
@@ -180,12 +182,22 @@ export async function fetchGoogleCalendarEventsRest(
     new Date(now.getTime() + SCHEDULE_MAX_HORIZON_DAYS * 24 * 60 * 60 * 1000);
 
   const ids =
-    calendarIds && calendarIds.length > 0
-      ? Array.from(new Set(calendarIds.map((id) => id.trim()).filter(Boolean)))
-      : ['primary'];
+    calendarIds === undefined
+      ? ['primary']
+      : Array.from(new Set(calendarIds.map((id) => id.trim()).filter(Boolean)));
+
+  if (ids.length === 0) return [];
 
   const results = await Promise.all(
-    ids.map((id) => fetchEventsForCalendar(accessToken, id, minTime, maxTime))
+    ids.map((id) =>
+      fetchEventsForCalendar(
+        accessToken,
+        id,
+        minTime,
+        maxTime,
+        colorsByCalendarId?.[id]
+      )
+    )
   );
 
   return results.flat().sort((a, b) => a.start.getTime() - b.start.getTime());

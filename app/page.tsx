@@ -95,6 +95,7 @@ export default function Home() {
     }>
   >([]);
   const [selectedGoogleCalendarIds, setSelectedGoogleCalendarIds] = useState<string[]>(['primary']);
+  const [googleCalendarColors, setGoogleCalendarColors] = useState<Record<string, string>>({});
   const [isLoadingGoogleCalendars, setIsLoadingGoogleCalendars] = useState(false);
   const [isImportingICS, setIsImportingICS] = useState(false);
   const [icsSubscribedEvents, setICSSubscribedEvents] = useState<CalendarEvent[]>([]);
@@ -192,6 +193,7 @@ export default function Home() {
     // Check for Google Calendar connection
     const tokens = storage.getGoogleTokens();
     setSelectedGoogleCalendarIds(storage.getGoogleSelectedCalendarIds());
+    setGoogleCalendarColors(storage.getGoogleCalendarColors());
     if (googleTokensIndicateConnection(tokens)) {
       setGoogleConnected(true);
       if (tokens?.access_token) {
@@ -362,11 +364,14 @@ export default function Home() {
 
       const selectedIds = storage.getGoogleSelectedCalendarIds();
       setSelectedGoogleCalendarIds(selectedIds);
+      const colors = storage.getGoogleCalendarColors();
+      setGoogleCalendarColors(colors);
       const calendarIdsParam = encodeURIComponent(selectedIds.join(','));
+      const calendarColorsParam = encodeURIComponent(JSON.stringify(colors));
 
       const fetchEvents = (token: string) =>
         fetch(
-          `/api/calendar/events?access_token=${encodeURIComponent(token)}&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&calendarIds=${calendarIdsParam}`
+          `/api/calendar/events?access_token=${encodeURIComponent(token)}&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&calendarIds=${calendarIdsParam}&calendarColors=${calendarColorsParam}`
         );
 
       let response = await fetchEvents(accessToken);
@@ -444,6 +449,7 @@ export default function Home() {
     setGooglePushError(null);
     setGooglePushedCount(null);
     setSelectedGoogleCalendarIds(['primary']);
+    setGoogleCalendarColors({});
     setShowGoogleCalendarsDialog(false);
   };
 
@@ -455,13 +461,9 @@ export default function Home() {
     void handleConnectGoogle();
   };
 
-  const openGoogleCalendarsDialog = async () => {
-    if (!googleConnected) {
-      void handleConnectGoogle();
-      return;
-    }
+  const loadGoogleCalendarList = async (): Promise<boolean> => {
+    if (!googleTokensIndicateConnection(storage.getGoogleTokens())) return false;
 
-    setShowGoogleCalendarsDialog(true);
     setIsLoadingGoogleCalendars(true);
     try {
       let accessToken = storage.getGoogleTokens()?.access_token;
@@ -470,8 +472,7 @@ export default function Home() {
       }
       if (!accessToken) {
         setGooglePushError(m.feed.googleReconnect);
-        setShowGoogleCalendarsDialog(false);
-        return;
+        return false;
       }
 
       const fetchList = (token: string) =>
@@ -491,8 +492,7 @@ export default function Home() {
           handleDisconnectGoogle();
           setGooglePushError(m.feed.googleReconnect);
         }
-        setShowGoogleCalendarsDialog(false);
-        return;
+        return false;
       }
 
       const data = await response.json();
@@ -509,15 +509,63 @@ export default function Home() {
       const valid = normalized.filter((id) =>
         calendars.some((c: { id: string }) => c.id === id)
       );
-      setSelectedGoogleCalendarIds(
-        valid.length > 0 ? valid : primary?.id ? [primary.id] : ['primary']
-      );
+      const nextIds =
+        valid.length > 0 ? valid : primary?.id ? [primary.id] : ['primary'];
+      setSelectedGoogleCalendarIds(nextIds);
+      storage.saveGoogleSelectedCalendarIds(nextIds);
+
+      // Seed colors from Google when the user hasn't picked one yet.
+      const colors = { ...storage.getGoogleCalendarColors() };
+      let colorsChanged = false;
+      for (const cal of calendars as Array<{
+        id: string;
+        backgroundColor?: string;
+      }>) {
+        if (!colors[cal.id] && cal.backgroundColor) {
+          colors[cal.id] = cal.backgroundColor;
+          colorsChanged = true;
+        }
+      }
+      if (colorsChanged) {
+        storage.saveGoogleCalendarColors(colors);
+      }
+      setGoogleCalendarColors(colors);
+      return true;
     } catch (error) {
       console.error('Error listing Google calendars:', error);
-      setShowGoogleCalendarsDialog(false);
+      return false;
     } finally {
       setIsLoadingGoogleCalendars(false);
     }
+  };
+
+  const openGoogleCalendarsDialog = async () => {
+    if (!googleConnected) {
+      void handleConnectGoogle();
+      return;
+    }
+    setShowGoogleCalendarsDialog(true);
+    const ok = await loadGoogleCalendarList();
+    if (!ok) setShowGoogleCalendarsDialog(false);
+  };
+
+  const openSubscriptionDialog = () => {
+    const next = !showSubscriptionDialog;
+    setShowSubscriptionDialog(next);
+    if (next && googleConnected) {
+      void loadGoogleCalendarList();
+    }
+  };
+
+  const toggleGoogleCalendarEnabled = (calendarId: string) => {
+    setSelectedGoogleCalendarIds((prev) => {
+      const next = prev.includes(calendarId)
+        ? prev.filter((id) => id !== calendarId)
+        : [...prev, calendarId];
+      storage.saveGoogleSelectedCalendarIds(next);
+      void fetchGoogleCalendarEvents();
+      return next;
+    });
   };
 
   const toggleGoogleCalendarSelection = (calendarId: string) => {
@@ -538,6 +586,20 @@ export default function Home() {
     setShowGoogleCalendarsDialog(false);
     void fetchGoogleCalendarEvents();
   };
+
+  const handleSetGoogleCalendarColor = (calendarId: string, color: string) => {
+    setOpenColorMenuId(null);
+    const next = storage.setGoogleCalendarColor(calendarId, color);
+    setGoogleCalendarColors(next);
+    if (selectedGoogleCalendarIds.includes(calendarId)) {
+      void fetchGoogleCalendarEvents();
+    }
+  };
+
+  const resolveGoogleCalendarColor = (cal: {
+    id: string;
+    backgroundColor?: string;
+  }) => googleCalendarColors[cal.id] || cal.backgroundColor || '#4285f4';
 
   // Handle ICS file import
   const handleImportICS = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1653,7 +1715,7 @@ export default function Home() {
               {/* Subscribe */}
               <div className="header-control-group flex items-center rounded-lg bg-white/10 border border-white/25 overflow-hidden shrink-0">
                 <button
-                  onClick={() => setShowSubscriptionDialog(!showSubscriptionDialog)}
+                  onClick={openSubscriptionDialog}
                   className={`h-9 px-2.5 xl:px-3 flex items-center justify-center gap-1.5 text-sm xl:text-base font-medium transition-colors ${
                     showSubscriptionDialog
                       ? 'bg-white/10 text-white'
@@ -1716,6 +1778,152 @@ export default function Home() {
                   </h3>
 
                   <div className="space-y-3">
+                    {/* Google calendars (when connected) */}
+                    {googleConnected && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="text-sm font-semibold text-primary">
+                            {m.subscription.googleCalendars}
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={() => void loadGoogleCalendarList()}
+                            disabled={isLoadingGoogleCalendars}
+                            className="text-xs px-2 py-1 text-primary-600 hover:bg-primary-50/10 rounded transition-colors disabled:opacity-50"
+                          >
+                            {isLoadingGoogleCalendars
+                              ? m.subscription.refreshing
+                              : m.subscription.refreshAll}
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          {m.subscription.googleCalendarsHelp}
+                        </p>
+
+                        {isLoadingGoogleCalendars && googleCalendarList.length === 0 ? (
+                          <p className="text-xs text-gray-500">
+                            {m.feed.googleManageCalendarsLoading}
+                          </p>
+                        ) : googleCalendarList.length === 0 ? (
+                          <p className="text-xs text-gray-500">
+                            {m.feed.googleManageCalendarsEmpty}
+                          </p>
+                        ) : (
+                          <div className="space-y-2 max-h-56 overflow-y-auto overflow-x-visible pr-0.5">
+                            {googleCalendarList.map((cal) => {
+                              const enabled = selectedGoogleCalendarIds.includes(cal.id);
+                              const color = resolveGoogleCalendarColor(cal);
+                              const menuId = `google:${cal.id}`;
+                              return (
+                                <div
+                                  key={cal.id}
+                                  className="relative flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2"
+                                >
+                                  <label className="min-w-0 flex items-center gap-2 cursor-pointer flex-1">
+                                    <input
+                                      type="checkbox"
+                                      checked={enabled}
+                                      onChange={() => toggleGoogleCalendarEnabled(cal.id)}
+                                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                    />
+                                    <span
+                                      className="h-4 w-4 flex-shrink-0 rounded-full border border-gray-300"
+                                      style={{ backgroundColor: color }}
+                                    />
+                                    <div className="min-w-0">
+                                      <p className="truncate text-sm font-medium text-gray-700">
+                                        {cal.summary}
+                                        {cal.primary ? (
+                                          <span className="ml-1 text-[11px] text-gray-500">
+                                            ({m.feed.googleManageCalendarsPrimary})
+                                          </span>
+                                        ) : null}
+                                      </p>
+                                    </div>
+                                  </label>
+
+                                  <div
+                                    ref={
+                                      openColorMenuId === menuId
+                                        ? subscriptionColorMenuRef
+                                        : undefined
+                                    }
+                                    className="flex items-center gap-1 ml-2 relative flex-shrink-0"
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setOpenColorMenuId(
+                                          openColorMenuId === menuId ? null : menuId
+                                        )
+                                      }
+                                      className="px-2 py-1 text-xs text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+                                      title={m.subscription.pickColor}
+                                    >
+                                      <span
+                                        className="w-3.5 h-3.5 rounded border border-gray-300"
+                                        style={{ backgroundColor: color }}
+                                      />
+                                      {m.subscription.color}
+                                    </button>
+
+                                    {openColorMenuId === menuId && (
+                                      <div className="absolute right-0 top-full mt-1 z-[999] bg-white border border-gray-200 rounded-lg shadow-lg p-2 min-w-[180px]">
+                                        <p className="text-xs font-medium text-gray-600 mb-2">
+                                          {m.subscription.pickColor}
+                                        </p>
+                                        <div className="grid grid-cols-6 gap-1 mb-2">
+                                          {ICS_SUBSCRIPTION_COLORS.map((swatch) => (
+                                            <button
+                                              key={swatch}
+                                              type="button"
+                                              onClick={() =>
+                                                handleSetGoogleCalendarColor(cal.id, swatch)
+                                              }
+                                              className={`w-6 h-6 rounded border-2 transition-colors ${
+                                                color === swatch
+                                                  ? 'border-primary'
+                                                  : 'border-gray-200 hover:border-gray-400'
+                                              }`}
+                                              style={{ backgroundColor: swatch }}
+                                              title={swatch}
+                                            />
+                                          ))}
+                                        </div>
+                                        <div className="flex items-center gap-2 border-t border-gray-100 pt-2">
+                                          <input
+                                            type="color"
+                                            value={color.startsWith('#') ? color : '#4285f4'}
+                                            onChange={(e) =>
+                                              handleSetGoogleCalendarColor(
+                                                cal.id,
+                                                e.target.value
+                                              )
+                                            }
+                                            className="w-8 h-8 cursor-pointer rounded border border-gray-300"
+                                            title="Custom color"
+                                          />
+                                          <span className="text-xs text-gray-500">
+                                            {m.subscription.custom}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-3 pt-1">
+                          <div className="h-px flex-1 bg-gray-200" />
+                          <span className="text-xs text-gray-400">{m.subscription.orUrl}</span>
+                          <div className="h-px flex-1 bg-gray-200" />
+                        </div>
+                      </div>
+                    )}
+
                     {/* Import ICS File */}
                     <button
                       type="button"
@@ -1729,11 +1937,13 @@ export default function Home() {
                       {isImportingICS ? m.nav.importing : m.nav.importIcsFile}
                     </button>
 
-                    <div className="flex items-center gap-3">
-                      <div className="h-px flex-1 bg-gray-200" />
-                      <span className="text-xs text-gray-400">{m.subscription.orUrl}</span>
-                      <div className="h-px flex-1 bg-gray-200" />
-                    </div>
+                    {!googleConnected && (
+                      <div className="flex items-center gap-3">
+                        <div className="h-px flex-1 bg-gray-200" />
+                        <span className="text-xs text-gray-400">{m.subscription.orUrl}</span>
+                        <div className="h-px flex-1 bg-gray-200" />
+                      </div>
+                    )}
 
                     <div>
                       <label className="block text-sm font-medium text-primary mb-1">
@@ -1927,6 +2137,7 @@ export default function Home() {
               <button
                 onClick={() => {
                   setShowSubscriptionDialog(true);
+                  if (googleConnected) void loadGoogleCalendarList();
                   setTasksDropdownOpen(false);
                   setMobileMenuOpen(false);
                 }}
@@ -2558,7 +2769,7 @@ export default function Home() {
                       <span
                         className="inline-block w-3 h-3 rounded-full shrink-0"
                         style={{
-                          backgroundColor: cal.backgroundColor || '#4285f4',
+                          backgroundColor: resolveGoogleCalendarColor(cal),
                         }}
                       />
                       <span className="text-sm text-gray-800 flex-1 min-w-0 truncate">
@@ -3201,6 +3412,7 @@ export default function Home() {
                   onClick={() => {
                     setShowTutorial(false);
                     setShowSubscriptionDialog(true);
+                    if (googleConnected) void loadGoogleCalendarList();
                   }}
                   className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors"
                 >

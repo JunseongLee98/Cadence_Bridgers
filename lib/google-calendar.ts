@@ -70,10 +70,17 @@ export async function fetchGoogleCalendarEvents(
   accessToken: string,
   timeMin?: Date,
   timeMax?: Date,
-  calendarIds?: string[]
+  calendarIds?: string[],
+  colorsByCalendarId?: Record<string, string>
 ): Promise<CalendarEvent[]> {
   try {
-    return await fetchGoogleCalendarEventsRest(accessToken, timeMin, timeMax, calendarIds);
+    return await fetchGoogleCalendarEventsRest(
+      accessToken,
+      timeMin,
+      timeMax,
+      calendarIds,
+      colorsByCalendarId
+    );
   } catch (error) {
     console.error('Error fetching Google Calendar events:', error);
     throw error;

@@ -15,6 +15,7 @@ const EVENTS_KEY = 'cadence_events';
 const GOOGLE_TOKENS_KEY = 'cadence_google_tokens';
 const GOOGLE_EVENTS_KEY = 'cadence_google_events';
 const GOOGLE_SELECTED_CALENDARS_KEY = 'cadence_google_selected_calendars';
+const GOOGLE_CALENDAR_COLORS_KEY = 'cadence_google_calendar_colors';
 const ICS_SUBSCRIPTIONS_KEY = 'cadence_ics_subscriptions';
 const WORK_HOURS_KEY = 'cadence_work_hours';
 const BREAK_AFTER_EVENTS_KEY = 'cadence_break_after_events';
@@ -240,9 +241,10 @@ export const storage = {
     localStorage.removeItem(GOOGLE_TOKENS_KEY);
     localStorage.removeItem(GOOGLE_EVENTS_KEY);
     localStorage.removeItem(GOOGLE_SELECTED_CALENDARS_KEY);
+    localStorage.removeItem(GOOGLE_CALENDAR_COLORS_KEY);
   },
 
-  /** Calendar IDs to read into Cadence (read-only). Defaults to primary. */
+  /** Calendar IDs to read into Cadence (read-only). Empty = show none. */
   getGoogleSelectedCalendarIds(): string[] {
     if (typeof window === 'undefined') return ['primary'];
     const data = localStorage.getItem(GOOGLE_SELECTED_CALENDARS_KEY);
@@ -250,11 +252,14 @@ export const storage = {
     try {
       const parsed = JSON.parse(data);
       if (!Array.isArray(parsed)) return ['primary'];
-      const ids = parsed
-        .filter((id): id is string => typeof id === 'string')
-        .map((id) => id.trim())
-        .filter(Boolean);
-      return ids.length > 0 ? Array.from(new Set(ids)) : ['primary'];
+      return Array.from(
+        new Set(
+          parsed
+            .filter((id): id is string => typeof id === 'string')
+            .map((id) => id.trim())
+            .filter(Boolean)
+        )
+      );
     } catch {
       return ['primary'];
     }
@@ -270,10 +275,35 @@ export const storage = {
           .filter(Boolean)
       )
     );
-    localStorage.setItem(
-      GOOGLE_SELECTED_CALENDARS_KEY,
-      JSON.stringify(cleaned.length > 0 ? cleaned : ['primary'])
-    );
+    localStorage.setItem(GOOGLE_SELECTED_CALENDARS_KEY, JSON.stringify(cleaned));
+  },
+
+  getGoogleCalendarColors(): Record<string, string> {
+    if (typeof window === 'undefined') return {};
+    const data = localStorage.getItem(GOOGLE_CALENDAR_COLORS_KEY);
+    if (!data) return {};
+    try {
+      const parsed = JSON.parse(data);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+      const out: Record<string, string> = {};
+      for (const [id, color] of Object.entries(parsed as Record<string, unknown>)) {
+        if (typeof color === 'string' && color.trim()) out[id] = color.trim();
+      }
+      return out;
+    } catch {
+      return {};
+    }
+  },
+
+  saveGoogleCalendarColors(colors: Record<string, string>): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(GOOGLE_CALENDAR_COLORS_KEY, JSON.stringify(colors));
+  },
+
+  setGoogleCalendarColor(calendarId: string, color: string): Record<string, string> {
+    const next = { ...this.getGoogleCalendarColors(), [calendarId]: color };
+    this.saveGoogleCalendarColors(next);
+    return next;
   },
 
   // ICS Calendar Subscriptions

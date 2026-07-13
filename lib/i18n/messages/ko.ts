@@ -89,6 +89,9 @@ export const ko = {
     pickColor: '색상 선택',
     custom: '사용자 지정',
     remove: '제거',
+    googleCalendars: 'Google 캘린더',
+    googleCalendarsHelp:
+      '표시할 Google 캘린더를 선택하고 각 캘린더의 색상을 고르세요.',
   },
   addTask: {
     title: '할 일 추가',
