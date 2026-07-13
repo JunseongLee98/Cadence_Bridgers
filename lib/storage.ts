@@ -14,6 +14,7 @@ const TASKS_KEY = 'cadence_tasks';
 const EVENTS_KEY = 'cadence_events';
 const GOOGLE_TOKENS_KEY = 'cadence_google_tokens';
 const GOOGLE_EVENTS_KEY = 'cadence_google_events';
+const GOOGLE_SELECTED_CALENDARS_KEY = 'cadence_google_selected_calendars';
 const ICS_SUBSCRIPTIONS_KEY = 'cadence_ics_subscriptions';
 const WORK_HOURS_KEY = 'cadence_work_hours';
 const BREAK_AFTER_EVENTS_KEY = 'cadence_break_after_events';
@@ -238,6 +239,41 @@ export const storage = {
     if (typeof window === 'undefined') return;
     localStorage.removeItem(GOOGLE_TOKENS_KEY);
     localStorage.removeItem(GOOGLE_EVENTS_KEY);
+    localStorage.removeItem(GOOGLE_SELECTED_CALENDARS_KEY);
+  },
+
+  /** Calendar IDs to read into Cadence (read-only). Defaults to primary. */
+  getGoogleSelectedCalendarIds(): string[] {
+    if (typeof window === 'undefined') return ['primary'];
+    const data = localStorage.getItem(GOOGLE_SELECTED_CALENDARS_KEY);
+    if (!data) return ['primary'];
+    try {
+      const parsed = JSON.parse(data);
+      if (!Array.isArray(parsed)) return ['primary'];
+      const ids = parsed
+        .filter((id): id is string => typeof id === 'string')
+        .map((id) => id.trim())
+        .filter(Boolean);
+      return ids.length > 0 ? Array.from(new Set(ids)) : ['primary'];
+    } catch {
+      return ['primary'];
+    }
+  },
+
+  saveGoogleSelectedCalendarIds(ids: string[]): void {
+    if (typeof window === 'undefined') return;
+    const cleaned = Array.from(
+      new Set(
+        ids
+          .filter((id): id is string => typeof id === 'string')
+          .map((id) => id.trim())
+          .filter(Boolean)
+      )
+    );
+    localStorage.setItem(
+      GOOGLE_SELECTED_CALENDARS_KEY,
+      JSON.stringify(cleaned.length > 0 ? cleaned : ['primary'])
+    );
   },
 
   // ICS Calendar Subscriptions

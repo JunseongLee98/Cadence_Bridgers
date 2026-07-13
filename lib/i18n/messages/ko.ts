@@ -167,6 +167,15 @@ export const ko = {
     googleSynced: 'Google 캘린더에 동기화되었습니다.',
     googleReconnectAction: 'Google 다시 연결',
     googleDisconnect: '연결 해제',
+    googleManageCalendars: '캘린더 관리',
+    googleManageCalendarsTitle: 'Google 캘린더 선택',
+    googleManageCalendarsHelp:
+      'Cadence에 표시할 캘린더를 선택하세요(읽기 전용). 기본값은 기본 캘린더입니다.',
+    googleManageCalendarsLoading: '캘린더 불러오는 중…',
+    googleManageCalendarsEmpty: '이 Google 계정에서 캘린더를 찾지 못했습니다.',
+    googleManageCalendarsSave: '저장',
+    googleManageCalendarsCancel: '취소',
+    googleManageCalendarsPrimary: '기본',
     googleHelp:
       'Google: 아래 Google 캘린더에 추가를 사용하거나(또는 다른 캘린더 → URL에서 https 링크). Apple: 파일 → 새 캘린더 구독.',
     googleEmptyHelp1:

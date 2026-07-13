@@ -168,6 +168,15 @@ export const en = {
     googleSynced: 'Synced to Google Calendar.',
     googleReconnectAction: 'Reconnect Google',
     googleDisconnect: 'Disconnect',
+    googleManageCalendars: 'Manage calendars',
+    googleManageCalendarsTitle: 'Choose Google calendars',
+    googleManageCalendarsHelp:
+      'Select which calendars to show in Cadence (read-only). Primary is selected by default.',
+    googleManageCalendarsLoading: 'Loading calendars…',
+    googleManageCalendarsEmpty: 'No calendars found for this Google account.',
+    googleManageCalendarsSave: 'Save',
+    googleManageCalendarsCancel: 'Cancel',
+    googleManageCalendarsPrimary: 'Primary',
     googleHelp:
       'Google: use Add to Google Calendar below (or Other calendars → From URL with the https link). Apple: File → New Calendar Subscription.',
     googleEmptyHelp1:

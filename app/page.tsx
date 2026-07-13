@@ -85,6 +85,17 @@ export default function Home() {
   const [googleConnected, setGoogleConnected] = useState(false);
   const [googleEvents, setGoogleEvents] = useState<CalendarEvent[]>([]);
   const [isLoadingGoogleEvents, setIsLoadingGoogleEvents] = useState(false);
+  const [showGoogleCalendarsDialog, setShowGoogleCalendarsDialog] = useState(false);
+  const [googleCalendarList, setGoogleCalendarList] = useState<
+    Array<{
+      id: string;
+      summary: string;
+      primary?: boolean;
+      backgroundColor?: string;
+    }>
+  >([]);
+  const [selectedGoogleCalendarIds, setSelectedGoogleCalendarIds] = useState<string[]>(['primary']);
+  const [isLoadingGoogleCalendars, setIsLoadingGoogleCalendars] = useState(false);
   const [isImportingICS, setIsImportingICS] = useState(false);
   const [icsSubscribedEvents, setICSSubscribedEvents] = useState<CalendarEvent[]>([]);
   const [icsSubscriptions, setICSSubscriptions] = useState<
@@ -180,6 +191,7 @@ export default function Home() {
 
     // Check for Google Calendar connection
     const tokens = storage.getGoogleTokens();
+    setSelectedGoogleCalendarIds(storage.getGoogleSelectedCalendarIds());
     if (googleTokensIndicateConnection(tokens)) {
       setGoogleConnected(true);
       if (tokens?.access_token) {
@@ -348,9 +360,13 @@ export default function Home() {
         now.getTime() + SCHEDULE_MAX_HORIZON_DAYS * 24 * 60 * 60 * 1000
       ).toISOString();
 
+      const selectedIds = storage.getGoogleSelectedCalendarIds();
+      setSelectedGoogleCalendarIds(selectedIds);
+      const calendarIdsParam = encodeURIComponent(selectedIds.join(','));
+
       const fetchEvents = (token: string) =>
         fetch(
-          `/api/calendar/events?access_token=${encodeURIComponent(token)}&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`
+          `/api/calendar/events?access_token=${encodeURIComponent(token)}&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&calendarIds=${calendarIdsParam}`
         );
 
       let response = await fetchEvents(accessToken);
@@ -427,6 +443,8 @@ export default function Home() {
     setGoogleEvents([]);
     setGooglePushError(null);
     setGooglePushedCount(null);
+    setSelectedGoogleCalendarIds(['primary']);
+    setShowGoogleCalendarsDialog(false);
   };
 
   // Force a fresh OAuth consent (needed after the write scope was added, so the
@@ -435,6 +453,90 @@ export default function Home() {
     storage.clearGoogleTokens();
     setGoogleConnected(false);
     void handleConnectGoogle();
+  };
+
+  const openGoogleCalendarsDialog = async () => {
+    if (!googleConnected) {
+      void handleConnectGoogle();
+      return;
+    }
+
+    setShowGoogleCalendarsDialog(true);
+    setIsLoadingGoogleCalendars(true);
+    try {
+      let accessToken = storage.getGoogleTokens()?.access_token;
+      if (!accessToken) {
+        accessToken = (await refreshGoogleAccessTokenClient()) ?? undefined;
+      }
+      if (!accessToken) {
+        setGooglePushError(m.feed.googleReconnect);
+        setShowGoogleCalendarsDialog(false);
+        return;
+      }
+
+      const fetchList = (token: string) =>
+        fetch(`/api/google/calendars?access_token=${encodeURIComponent(token)}`);
+
+      let response = await fetchList(accessToken);
+      if (response.status === 401) {
+        const refreshed = await refreshGoogleAccessTokenClient();
+        if (refreshed) {
+          accessToken = refreshed;
+          response = await fetchList(refreshed);
+        }
+      }
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          handleDisconnectGoogle();
+          setGooglePushError(m.feed.googleReconnect);
+        }
+        setShowGoogleCalendarsDialog(false);
+        return;
+      }
+
+      const data = await response.json();
+      const calendars = Array.isArray(data.calendars) ? data.calendars : [];
+      setGoogleCalendarList(calendars);
+
+      const saved = storage.getGoogleSelectedCalendarIds();
+      const primary = calendars.find(
+        (c: { primary?: boolean }) => c.primary
+      ) as { id: string } | undefined;
+      const normalized = saved.map((id) =>
+        id === 'primary' && primary?.id ? primary.id : id
+      );
+      const valid = normalized.filter((id) =>
+        calendars.some((c: { id: string }) => c.id === id)
+      );
+      setSelectedGoogleCalendarIds(
+        valid.length > 0 ? valid : primary?.id ? [primary.id] : ['primary']
+      );
+    } catch (error) {
+      console.error('Error listing Google calendars:', error);
+      setShowGoogleCalendarsDialog(false);
+    } finally {
+      setIsLoadingGoogleCalendars(false);
+    }
+  };
+
+  const toggleGoogleCalendarSelection = (calendarId: string) => {
+    setSelectedGoogleCalendarIds((prev) =>
+      prev.includes(calendarId)
+        ? prev.filter((id) => id !== calendarId)
+        : [...prev, calendarId]
+    );
+  };
+
+  const saveGoogleCalendarSelection = () => {
+    const ids =
+      selectedGoogleCalendarIds.length > 0
+        ? selectedGoogleCalendarIds
+        : ['primary'];
+    storage.saveGoogleSelectedCalendarIds(ids);
+    setSelectedGoogleCalendarIds(ids);
+    setShowGoogleCalendarsDialog(false);
+    void fetchGoogleCalendarEvents();
   };
 
   // Handle ICS file import
@@ -2426,6 +2528,74 @@ export default function Home() {
       )}
 
       {/* Work Hours Settings Dialog (standalone - kept for any direct links) */}
+      {showGoogleCalendarsDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 max-h-[80vh] flex flex-col">
+            <h3 className="text-xl font-bold text-gray-800 mb-2">
+              {m.feed.googleManageCalendarsTitle}
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">{m.feed.googleManageCalendarsHelp}</p>
+
+            <div className="flex-1 overflow-y-auto space-y-2 mb-4">
+              {isLoadingGoogleCalendars ? (
+                <p className="text-sm text-gray-500">{m.feed.googleManageCalendarsLoading}</p>
+              ) : googleCalendarList.length === 0 ? (
+                <p className="text-sm text-gray-500">{m.feed.googleManageCalendarsEmpty}</p>
+              ) : (
+                googleCalendarList.map((cal) => {
+                  const checked = selectedGoogleCalendarIds.includes(cal.id);
+                  return (
+                    <label
+                      key={cal.id}
+                      className="flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleGoogleCalendarSelection(cal.id)}
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span
+                        className="inline-block w-3 h-3 rounded-full shrink-0"
+                        style={{
+                          backgroundColor: cal.backgroundColor || '#4285f4',
+                        }}
+                      />
+                      <span className="text-sm text-gray-800 flex-1 min-w-0 truncate">
+                        {cal.summary}
+                        {cal.primary ? (
+                          <span className="ml-1 text-[11px] text-gray-500">
+                            ({m.feed.googleManageCalendarsPrimary})
+                          </span>
+                        ) : null}
+                      </span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowGoogleCalendarsDialog(false)}
+                className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
+              >
+                {m.feed.googleManageCalendarsCancel}
+              </button>
+              <button
+                type="button"
+                disabled={isLoadingGoogleCalendars || selectedGoogleCalendarIds.length === 0}
+                onClick={saveGoogleCalendarSelection}
+                className="px-3 py-1.5 text-sm font-medium rounded-lg bg-primary text-white hover:opacity-90 disabled:opacity-60"
+              >
+                {m.feed.googleManageCalendarsSave}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showWorkHoursDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 ">
@@ -2636,6 +2806,13 @@ export default function Home() {
                   </p>
                   {googleConnected && (
                     <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => void openGoogleCalendarsDialog()}
+                        className="text-[11px] text-primary-700 underline hover:no-underline"
+                      >
+                        {m.feed.googleManageCalendars}
+                      </button>
                       <button
                         type="button"
                         onClick={handleReconnectGoogle}

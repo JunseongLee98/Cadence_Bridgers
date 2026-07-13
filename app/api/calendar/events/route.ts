@@ -6,6 +6,13 @@ export async function GET(request: NextRequest) {
   const accessToken = searchParams.get('access_token');
   const timeMin = searchParams.get('timeMin');
   const timeMax = searchParams.get('timeMax');
+  const calendarIdsParam = searchParams.get('calendarIds');
+  const calendarIds = calendarIdsParam
+    ? calendarIdsParam
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean)
+    : undefined;
 
   if (!accessToken) {
     return NextResponse.json(
@@ -18,7 +25,8 @@ export async function GET(request: NextRequest) {
     const events = await fetchGoogleCalendarEvents(
       accessToken,
       timeMin ? new Date(timeMin) : undefined,
-      timeMax ? new Date(timeMax) : undefined
+      timeMax ? new Date(timeMax) : undefined,
+      calendarIds
     );
 
     return NextResponse.json({ events });
@@ -26,8 +34,7 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching events:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to fetch calendar events' },
-      { status: error.response?.status || 500 }
+      { status: error.response?.status || error.status || 500 }
     );
   }
 }
-
