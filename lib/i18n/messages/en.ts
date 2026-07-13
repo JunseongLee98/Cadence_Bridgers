@@ -17,25 +17,6 @@ export const en = {
     english: 'English',
     korean: 'Korean',
   },
-  login: {
-    logoAlt: 'Cadence',
-    welcomeTitle: 'Welcome to Cadence',
-    welcomeSubtitle:
-      'Sign in with your name and email to save your profile and calendar subscription.',
-    usernameLabel: 'Username',
-    usernamePlaceholder: 'Your name',
-    emailLabel: 'Email',
-    emailPlaceholder: 'you@school.edu',
-    continue: 'Continue',
-    continuing: 'Continuing…',
-    skipForNow: 'Skip for now',
-    skipHint:
-      'Uses a guest profile on this device. Clear site data to reset your local profile.',
-    errorNameRequired: 'Please enter your name.',
-    errorInvalidEmail: 'Please enter a valid email address.',
-    errorVerification: 'Could not send verification email.',
-    errorGeneric: 'Something went wrong. Please try again.',
-  },
   nav: {
     today: 'Today',
     previous: 'Previous',
@@ -116,7 +97,7 @@ export const en = {
   settings: {
     title: 'Settings',
     subtitle: 'Configure scheduling and calendar behavior',
-    signedInAs: 'Signed in as {username} ({email})',
+    localProfile: 'This device: {username}',
     feedSection: {
       title: 'Subscribe in Google / Apple Calendar',
       paragraph1:

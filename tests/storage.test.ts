@@ -107,12 +107,10 @@ describe('storage (browser API mocked)', () => {
   it('round-trips user profile', () => {
     storage.saveUserProfile({
       username: 'Alex',
-      email: 'alex@example.com',
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
     });
     const loaded = storage.getUserProfile();
     expect(loaded?.username).toBe('Alex');
-    expect(loaded?.email).toBe('alex@example.com');
     const updated = storage.updateUserProfile({ username: 'Alexa' });
     expect(updated?.username).toBe('Alexa');
   });

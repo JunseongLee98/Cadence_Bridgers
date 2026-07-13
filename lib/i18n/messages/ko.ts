@@ -17,24 +17,6 @@ export const ko = {
     english: '영어',
     korean: '한국어',
   },
-  login: {
-    logoAlt: 'Cadence',
-    welcomeTitle: 'Cadence에 오신 것을 환영합니다',
-    welcomeSubtitle: '이름과 이메일로 로그인하면 프로필과 캘린더 구독이 저장됩니다.',
-    usernameLabel: '사용자 이름',
-    usernamePlaceholder: '이름',
-    emailLabel: '이메일',
-    emailPlaceholder: 'you@school.edu',
-    continue: '계속',
-    continuing: '처리 중…',
-    skipForNow: '나중에 하기',
-    skipHint:
-      '이 기기에서 게스트 프로필을 사용합니다. 로컬 프로필을 초기화하려면 사이트 데이터를 지우세요.',
-    errorNameRequired: '이름을 입력해 주세요.',
-    errorInvalidEmail: '올바른 이메일 주소를 입력해 주세요.',
-    errorVerification: '인증 이메일을 보내지 못했습니다.',
-    errorGeneric: '문제가 발생했습니다. 다시 시도해 주세요.',
-  },
   nav: {
     today: '오늘',
     previous: '이전',
@@ -116,7 +98,7 @@ export const ko = {
   settings: {
     title: '설정',
     subtitle: '일정 배치 및 캘린더 동작을 설정합니다',
-    signedInAs: '{username}({email})으로 로그인됨',
+    localProfile: '이 기기: {username}',
     feedSection: {
       title: 'Google / Apple 캘린더에 구독',
       paragraph1:

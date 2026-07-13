@@ -4,8 +4,6 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Task, CalendarEvent, InAppNotification, UserProfile } from '@/types';
 import { storage } from '@/lib/storage';
-// Email delivery (disabled via lib/email-features.ts — keep import for re-enable)
-import { sendEmailNotificationsForUser } from '@/lib/notify-by-email';
 import { syncCalendarFeedToServer } from '@/lib/sync-calendar-feed';
 import {
   buildCalendarFeedUrl,
@@ -918,7 +916,7 @@ export default function Home() {
     if (refreshed && refreshed.calendarFeedToken !== userProfile.calendarFeedToken) {
       setUserProfile(refreshed);
     }
-  }, [authReady, userProfile?.calendarFeedToken, userProfile?.email, publicFeedDeployed]);
+  }, [authReady, userProfile?.calendarFeedToken, publicFeedDeployed]);
 
   useEffect(() => {
     if (!authReady || !userProfile || !initialAppDataLoadedRef.current) return;
@@ -995,19 +993,13 @@ export default function Home() {
     setNotifications((prev) => {
       const seen = new Set(prev.map((n) => n.id));
       const merged = [...prev];
-      const added: InAppNotification[] = [];
       for (const n of next) {
         if (!seen.has(n.id)) {
           merged.push(n);
-          added.push(n);
           seen.add(n.id);
         }
       }
       merged.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-      const user = storage.getUserProfile();
-      if (user && added.length > 0) {
-        void sendEmailNotificationsForUser(user, added);
-      }
       return merged;
     });
   };
@@ -1578,7 +1570,6 @@ export default function Home() {
     <main className="h-screen flex flex-col bg-white">
       {/* Header with dropdowns */}
       <header>
-        {/* EMAIL_FEATURES_ENABLED: resend verification banner + Settings email toggles (see git history) */}
         <div className="header-bar relative bg-primary-dark px-4 py-2.5 mx-3 sm:mx-4 xl:mx-6 mt-3 rounded-lg border dark:border-white/5">
           <div className="grid grid-cols-[145px_1fr_auto] lg:grid-cols-[145px_minmax(130px,1fr)_320px_minmax(190px,1fr)_auto] items-center gap-3 xl:gap-4">
             {/* Logo */}
@@ -2960,10 +2951,7 @@ export default function Home() {
 
               {userProfile && (
                 <p className="text-xs text-gray-500">
-                  {t('settings.signedInAs', {
-                    username: userProfile.username,
-                    email: userProfile.email,
-                  })}
+                  {t('settings.localProfile', { username: userProfile.username })}
                 </p>
               )}
 

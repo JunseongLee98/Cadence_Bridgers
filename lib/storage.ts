@@ -139,16 +139,13 @@ export const storage = {
     const data = localStorage.getItem(USER_PROFILE_KEY);
     if (!data) return null;
     try {
-      const raw = JSON.parse(data) as UserProfile & { createdAt: string };
-      if (!raw?.username || !raw?.email) return null;
+      const raw = JSON.parse(data) as UserProfile & {
+        createdAt: string;
+        email?: string;
+      };
+      if (!raw?.username) return null;
       return {
         username: raw.username,
-        email: raw.email,
-        emailVerified: raw.emailVerified === undefined ? undefined : Boolean(raw.emailVerified),
-        emailNotificationsEnabled:
-          raw.emailNotificationsEnabled === undefined
-            ? undefined
-            : raw.emailNotificationsEnabled !== false,
         calendarFeedToken:
           typeof raw.calendarFeedToken === 'string' ? raw.calendarFeedToken : undefined,
         createdAt: new Date(raw.createdAt),
@@ -163,13 +160,12 @@ export const storage = {
     localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(profile));
   },
 
-  /** Create a default on-device profile when none exists (no /login screen). */
+  /** Create a default on-device profile when none exists (no login screen). */
   ensureUserProfile(): UserProfile {
     const existing = this.getUserProfile();
     if (existing) return existing;
     const profile: UserProfile = {
       username: 'Guest',
-      email: 'guest@local.cadence',
       createdAt: new Date(),
     };
     this.saveUserProfile(profile);
@@ -183,7 +179,6 @@ export const storage = {
       ...current,
       ...patch,
       username: patch.username ?? current.username,
-      email: patch.email ?? current.email,
     };
     this.saveUserProfile(next);
     return next;
