@@ -1201,6 +1201,14 @@ export default function Home() {
   const getInferredCompletionMinutes = (
     taskId: string
   ): { minutes: number; source: 'scheduled_block' | 'estimate' } => {
+    const task = tasks.find((t) => t.id === taskId);
+    // Prefer AI / task estimate when available (especially for AI-broken-down steps).
+    if (task?.estimatedDuration && task.estimatedDuration > 0) {
+      return {
+        minutes: Math.max(1, Math.round(task.estimatedDuration)),
+        source: 'estimate',
+      };
+    }
     const linked = events.filter((e) => e.taskId === taskId);
     if (linked.length > 0) {
       const totalMs = linked.reduce(
@@ -1210,11 +1218,15 @@ export default function Home() {
       const minutes = Math.max(1, Math.round(totalMs / (1000 * 60)));
       return { minutes, source: 'scheduled_block' };
     }
+    return { minutes: 60, source: 'estimate' };
+  };
+
+  const getSuggestedCompletionMinutes = (taskId: string): number => {
     const task = tasks.find((t) => t.id === taskId);
-    return {
-      minutes: Math.max(1, task?.estimatedDuration ?? 60),
-      source: 'estimate',
-    };
+    if (task?.estimatedDuration && task.estimatedDuration > 0) {
+      return Math.max(1, Math.round(task.estimatedDuration));
+    }
+    return getInferredCompletionMinutes(taskId).minutes;
   };
 
   const handleCompleteTask = (
@@ -1272,15 +1284,9 @@ export default function Home() {
       handleCompleteTask(taskId, inferred.minutes, inferred.source);
       return;
     }
-    const task = tasks.find((t) => t.id === taskId);
-    const inferred = getInferredCompletionMinutes(taskId);
     setCompletingTaskId(taskId);
-    setCompletionDurationInput(String(inferred.minutes));
+    setCompletionDurationInput(String(getSuggestedCompletionMinutes(taskId)));
     setCompletionDontAskAgain(false);
-    // Prefer estimatedDuration as default when present
-    if (task?.estimatedDuration) {
-      setCompletionDurationInput(String(task.estimatedDuration));
-    }
   };
 
   const submitCompletionWithReport = () => {
@@ -3044,6 +3050,18 @@ export default function Home() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {m.tasks.promptActualMinutes}
             </label>
+            {(() => {
+              const task = tasks.find((t) => t.id === completingTaskId);
+              const suggested = getSuggestedCompletionMinutes(completingTaskId);
+              const isAi = Boolean(task?.planId || task?.planStepOrder !== undefined);
+              return (
+                <p className="text-xs text-primary-700 mb-2">
+                  {isAi
+                    ? t('tasks.aiSuggestedMinutes', { minutes: suggested })
+                    : t('tasks.suggestedMinutes', { minutes: suggested })}
+                </p>
+              );
+            })()}
             <input
               type="number"
               min={1}
