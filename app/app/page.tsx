@@ -68,6 +68,22 @@ export default function Home() {
   const [googleSyncing, setGoogleSyncing] = useState(false);
   const [googlePushError, setGooglePushError] = useState<string | null>(null);
   const [googlePushedCount, setGooglePushedCount] = useState<number | null>(null);
+  const [appleConnected, setAppleConnected] = useState(false);
+  const [appleEvents, setAppleEvents] = useState<CalendarEvent[]>([]);
+  const [appleSyncing, setAppleSyncing] = useState(false);
+  const [applePushError, setApplePushError] = useState<string | null>(null);
+  const [showAppleConnectDialog, setShowAppleConnectDialog] = useState(false);
+  const [appleConnectId, setAppleConnectId] = useState('');
+  const [appleConnectPassword, setAppleConnectPassword] = useState('');
+  const [appleConnecting, setAppleConnecting] = useState(false);
+  const [showAppleCalendarsDialog, setShowAppleCalendarsDialog] = useState(false);
+  const [appleCalendarList, setAppleCalendarList] = useState<
+    Array<{ url: string; displayName: string; calendarColor?: string }>
+  >([]);
+  const [selectedAppleCalendarUrls, setSelectedAppleCalendarUrls] = useState<string[]>([]);
+  const [appleCalendarColors, setAppleCalendarColors] = useState<Record<string, string>>({});
+  const [isLoadingAppleCalendars, setIsLoadingAppleCalendars] = useState(false);
+  const [isLoadingAppleEvents, setIsLoadingAppleEvents] = useState(false);
   const [publicFeedDeployed, setPublicFeedDeployed] = useState<boolean | null>(null);
   const initialAppDataLoadedRef = useRef(false);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -119,6 +135,8 @@ export default function Home() {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [showEventDialog, setShowEventDialog] = useState(false);
   const [isDecomposingEvent, setIsDecomposingEvent] = useState(false);
+  const [isDecomposingNewTask, setIsDecomposingNewTask] = useState(false);
+  const [breakDownNewTaskWithAi, setBreakDownNewTaskWithAi] = useState(true);
   const [conversionDuration, setConversionDuration] = useState(60); // Default duration in minutes
   const [workHours, setWorkHours] = useState<{ segments: { startHour: number; endHour: number }[] }>({
     segments: [{ startHour: 9, endHour: 18 }],
@@ -216,6 +234,15 @@ export default function Home() {
       if (tokens?.access_token) {
         fetchGoogleCalendarEvents();
       }
+    }
+
+    // Apple / iCloud CalDAV connection (token only — password stays server-side)
+    const appleToken = storage.getAppleConnectionToken();
+    setSelectedAppleCalendarUrls(storage.getAppleSelectedCalendarUrls());
+    setAppleCalendarColors(storage.getAppleCalendarColors());
+    if (appleToken) {
+      setAppleConnected(true);
+      void fetchAppleCalendarEvents();
     }
 
     // Handle OAuth callback from URL query params
@@ -664,6 +691,272 @@ export default function Home() {
     }
   };
 
+  const fetchAppleCalendarEvents = async () => {
+    const connectionToken = storage.getAppleConnectionToken();
+    if (!connectionToken) return;
+
+    setIsLoadingAppleEvents(true);
+    try {
+      const now = new Date();
+      const timeMin = now.toISOString();
+      const timeMax = new Date(
+        now.getTime() + SCHEDULE_MAX_HORIZON_DAYS * 24 * 60 * 60 * 1000
+      ).toISOString();
+
+      const selectedUrls = storage.getAppleSelectedCalendarUrls();
+      setSelectedAppleCalendarUrls(selectedUrls);
+      const colors = storage.getAppleCalendarColors();
+      setAppleCalendarColors(colors);
+      const calendarUrlsParam = encodeURIComponent(selectedUrls.join(','));
+      const calendarColorsParam = encodeURIComponent(JSON.stringify(colors));
+
+      const response = await fetch(
+        `/api/apple/events?connectionToken=${encodeURIComponent(connectionToken)}&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&calendarUrls=${calendarUrlsParam}&calendarColors=${calendarColorsParam}`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const fetchedEvents = (Array.isArray(data.events) ? data.events : []).map(
+          (event: CalendarEvent) => ({
+            ...event,
+            start: new Date(event.start),
+            end: new Date(event.end),
+          })
+        );
+        setAppleEvents(fetchedEvents);
+        setApplePushError(null);
+      } else if (response.status === 401) {
+        handleDisconnectApple();
+        setApplePushError(m.feed.appleReconnect);
+      }
+    } catch (error) {
+      console.error('Error fetching Apple Calendar events:', error);
+    } finally {
+      setIsLoadingAppleEvents(false);
+    }
+  };
+
+  const handleConnectAppleSubmit = async () => {
+    const appleId = appleConnectId.trim();
+    const appSpecificPassword = appleConnectPassword.trim();
+    if (!appleId || !appSpecificPassword) {
+      setApplePushError(m.feed.appleConnectFailed);
+      return;
+    }
+
+    setAppleConnecting(true);
+    setApplePushError(null);
+    try {
+      const res = await fetch('/api/apple/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appleId, appSpecificPassword }),
+      });
+      const data = await res.json().catch(() => ({} as Record<string, unknown>));
+      if (!res.ok) {
+        setApplePushError(
+          typeof data.error === 'string' ? data.error : m.feed.appleConnectFailed
+        );
+        return;
+      }
+
+      const connectionToken =
+        typeof data.connectionToken === 'string' ? data.connectionToken : '';
+      if (!connectionToken) {
+        setApplePushError(m.feed.appleConnectFailed);
+        return;
+      }
+
+      storage.saveAppleConnectionToken(connectionToken);
+      const calendars = Array.isArray(data.calendars) ? data.calendars : [];
+      setAppleCalendarList(
+        calendars.map((c: { url: string; displayName: string; calendarColor?: string }) => ({
+          url: c.url,
+          displayName: c.displayName,
+          calendarColor: c.calendarColor,
+        }))
+      );
+
+      const urls = calendars
+        .map((c: { url?: string }) => (typeof c.url === 'string' ? c.url : ''))
+        .filter(Boolean);
+      const previous = storage.getAppleSelectedCalendarUrls();
+      const validPrev = previous.filter((u) => urls.includes(u));
+      const nextUrls = validPrev.length > 0 ? validPrev : urls.slice(0, 1);
+      storage.saveAppleSelectedCalendarUrls(nextUrls);
+      setSelectedAppleCalendarUrls(nextUrls);
+
+      const colors = { ...storage.getAppleCalendarColors() };
+      let colorsChanged = false;
+      for (const cal of calendars as Array<{ url: string; calendarColor?: string }>) {
+        if (!colors[cal.url] && cal.calendarColor) {
+          colors[cal.url] = cal.calendarColor;
+          colorsChanged = true;
+        }
+      }
+      if (colorsChanged) storage.saveAppleCalendarColors(colors);
+      setAppleCalendarColors(colors);
+
+      setAppleConnected(true);
+      setShowAppleConnectDialog(false);
+      setAppleConnectPassword('');
+      void fetchAppleCalendarEvents();
+      void pushAppleCalendar(storage.getEvents(), false);
+    } catch {
+      setApplePushError(m.feed.appleConnectFailed);
+    } finally {
+      setAppleConnecting(false);
+    }
+  };
+
+  const handleDisconnectApple = () => {
+    const token = storage.getAppleConnectionToken();
+    if (token) {
+      void fetch('/api/apple/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectionToken: token }),
+      }).catch(() => {});
+    }
+    storage.clearAppleConnection();
+    setAppleConnected(false);
+    setAppleEvents([]);
+    setApplePushError(null);
+    setSelectedAppleCalendarUrls([]);
+    setAppleCalendarColors({});
+    setShowAppleCalendarsDialog(false);
+    setShowAppleConnectDialog(false);
+  };
+
+  const handleReconnectApple = () => {
+    handleDisconnectApple();
+    setShowAppleConnectDialog(true);
+  };
+
+  const loadAppleCalendarList = async (): Promise<boolean> => {
+    const connectionToken = storage.getAppleConnectionToken();
+    if (!connectionToken) return false;
+
+    setIsLoadingAppleCalendars(true);
+    try {
+      const response = await fetch(
+        `/api/apple/calendars?connectionToken=${encodeURIComponent(connectionToken)}`
+      );
+      if (!response.ok) {
+        if (response.status === 401) {
+          handleDisconnectApple();
+          setApplePushError(m.feed.appleReconnect);
+        }
+        return false;
+      }
+
+      const data = await response.json();
+      const calendars = Array.isArray(data.calendars) ? data.calendars : [];
+      setAppleCalendarList(
+        calendars.map((c: { url: string; displayName: string; calendarColor?: string }) => ({
+          url: c.url,
+          displayName: c.displayName,
+          calendarColor: c.calendarColor,
+        }))
+      );
+
+      const saved = storage.getAppleSelectedCalendarUrls();
+      const valid = saved.filter((u) =>
+        calendars.some((c: { url: string }) => c.url === u)
+      );
+      const nextUrls =
+        valid.length > 0
+          ? valid
+          : calendars[0]?.url
+            ? [calendars[0].url as string]
+            : [];
+      setSelectedAppleCalendarUrls(nextUrls);
+      storage.saveAppleSelectedCalendarUrls(nextUrls);
+
+      const colors = { ...storage.getAppleCalendarColors() };
+      let colorsChanged = false;
+      for (const cal of calendars as Array<{ url: string; calendarColor?: string }>) {
+        if (!colors[cal.url] && cal.calendarColor) {
+          colors[cal.url] = cal.calendarColor;
+          colorsChanged = true;
+        }
+      }
+      if (colorsChanged) storage.saveAppleCalendarColors(colors);
+      setAppleCalendarColors(colors);
+      return true;
+    } catch (error) {
+      console.error('Error listing Apple calendars:', error);
+      return false;
+    } finally {
+      setIsLoadingAppleCalendars(false);
+    }
+  };
+
+  const openAppleCalendarsDialog = async () => {
+    if (!appleConnected) {
+      setShowAppleConnectDialog(true);
+      return;
+    }
+    setShowAppleCalendarsDialog(true);
+    const ok = await loadAppleCalendarList();
+    if (!ok) setShowAppleCalendarsDialog(false);
+  };
+
+  const toggleAppleCalendarSelection = (calendarUrl: string) => {
+    setSelectedAppleCalendarUrls((prev) =>
+      prev.includes(calendarUrl)
+        ? prev.filter((u) => u !== calendarUrl)
+        : [...prev, calendarUrl]
+    );
+  };
+
+  const saveAppleCalendarSelection = () => {
+    storage.saveAppleSelectedCalendarUrls(selectedAppleCalendarUrls);
+    setShowAppleCalendarsDialog(false);
+    void fetchAppleCalendarEvents();
+  };
+
+  const resolveAppleCalendarColor = (cal: {
+    url: string;
+    calendarColor?: string;
+  }): string => {
+    return appleCalendarColors[cal.url] || cal.calendarColor || '#5ac8fa';
+  };
+
+  const pushAppleCalendar = async (eventsList: CalendarEvent[], manual = false) => {
+    if (!initialAppDataLoadedRef.current) return;
+    const connectionToken = storage.getAppleConnectionToken();
+    if (!connectionToken) return;
+
+    if (manual) setAppleSyncing(true);
+    try {
+      const res = await fetch('/api/apple/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          connectionToken,
+          calendarUrl: storage.getAppleWriteCalendarUrl() ?? undefined,
+          events: serializeFeedEvents(eventsList),
+        }),
+      });
+      const data = await res.json().catch(() => ({} as Record<string, unknown>));
+      if (res.ok) {
+        if (typeof data.calendarUrl === 'string') {
+          storage.saveAppleWriteCalendarUrl(data.calendarUrl);
+        }
+        setApplePushError(null);
+      } else if (res.status === 401) {
+        setApplePushError(m.feed.appleReconnect);
+      } else {
+        setApplePushError((data.error as string) ?? m.feed.applePushFailed);
+      }
+    } catch {
+      setApplePushError(m.feed.applePushFailed);
+    } finally {
+      if (manual) setAppleSyncing(false);
+    }
+  };
+
   const resolveGoogleCalendarColor = (cal: {
     id: string;
     backgroundColor?: string;
@@ -730,7 +1023,7 @@ export default function Home() {
       } else {
         // Add each imported task
         for (const taskData of importedTasks) {
-          await handleAddTask(taskData);
+          await handleAddTask(taskData, { useAiBreakdown: false });
         }
         alert(`Successfully imported ${importedTasks.length} task(s) from ${file.name}`);
       }
@@ -1010,12 +1303,25 @@ export default function Home() {
     return () => window.clearTimeout(timer);
   }, [events, authReady, googleConnected]);
 
+  useEffect(() => {
+    if (!authReady || !initialAppDataLoadedRef.current || !appleConnected) return;
+    const timer = window.setTimeout(() => {
+      void pushAppleCalendar(events);
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [events, authReady, appleConnected]);
+
   // Merge all events for display. Cadence (local) events must come **last** so react-big-calendar
   // paints them above Google/ICS when times overlap; otherwise task blocks sit underneath and look missing.
   const allEvents = useMemo(() => {
-    const localEvents = events.filter(e => !e.id.startsWith('google-') && !e.id.startsWith('ics-sub-'));
-    return [...googleEvents, ...icsSubscribedEvents, ...localEvents];
-  }, [events, googleEvents, icsSubscribedEvents]);
+    const localEvents = events.filter(
+      (e) =>
+        !e.id.startsWith('google-') &&
+        !e.id.startsWith('ics-sub-') &&
+        !e.id.startsWith('apple-')
+    );
+    return [...googleEvents, ...appleEvents, ...icsSubscribedEvents, ...localEvents];
+  }, [events, googleEvents, appleEvents, icsSubscribedEvents]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -1107,14 +1413,58 @@ export default function Home() {
     await runCalendarFeedSync(token, events, userProfile.username);
   };
 
-  const handleAddTask = async (taskData: {
-    title: string;
-    description?: string;
-    estimatedDuration?: number;
-    priority: 'low' | 'medium' | 'high';
-    category?: string;
-    dueDate?: string;
-  }) => {
+  const handleAddTask = async (
+    taskData: {
+      title: string;
+      description?: string;
+      estimatedDuration?: number;
+      priority: 'low' | 'medium' | 'high';
+      category?: string;
+      dueDate?: string;
+    },
+    options?: { useAiBreakdown?: boolean }
+  ) => {
+    const description = taskData.description?.trim() || undefined;
+    const useAi =
+      options?.useAiBreakdown ??
+      (breakDownNewTaskWithAi && Boolean(description));
+
+    if (useAi) {
+      setIsDecomposingNewTask(true);
+      try {
+        const newTasks = await createTasksFromAiBreakdown({
+          title: taskData.title,
+          description,
+          dueDate: taskData.dueDate,
+          priority: taskData.priority,
+          category: taskData.category,
+        });
+
+        setTasks((prev) => [...prev, ...newTasks]);
+        setNewTask({
+          title: '',
+          description: '',
+          estimatedDuration: 60,
+          priority: 'medium',
+          category: '',
+          dueDate: undefined,
+        });
+        setIsAddingTask(false);
+        setShowAddTaskDialog(false);
+        setTaskDurationMode('preset');
+
+        if (autoScheduleNewTask) {
+          scheduleTasks(newTasks);
+        }
+      } catch (e) {
+        console.error(e);
+        alert(e instanceof Error ? e.message : m.addTask.aiFailed);
+      } finally {
+        setIsDecomposingNewTask(false);
+      }
+      return;
+    }
+
     const newTask: Task = {
       title: taskData.title,
       description: taskData.description,
@@ -1146,18 +1496,102 @@ export default function Home() {
     }
   };
 
-  // Schedule a single new task immediately
-  const scheduleNewTask = (task: Task) => {
-    if (task.completedAt) {
-      return; // Don't schedule completed tasks
+  const createTasksFromAiBreakdown = async (input: {
+    title: string;
+    description?: string;
+    dueDate?: string | Date;
+    priority?: 'low' | 'medium' | 'high';
+    category?: string;
+  }): Promise<Task[]> => {
+    const dueIso =
+      input.dueDate instanceof Date
+        ? input.dueDate.toISOString()
+        : typeof input.dueDate === 'string' && input.dueDate
+          ? input.dueDate
+          : undefined;
+
+    const res = await fetch('/api/assignments/decompose', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: input.title,
+        description: htmlToReadableText(input.description) || undefined,
+        dueDate: dueIso,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Request failed: ${res.status}`);
     }
+    const { subtasks } = await res.json();
+    if (!Array.isArray(subtasks) || subtasks.length === 0) {
+      throw new Error('No subtasks returned');
+    }
+
+    let calibrationByUnit: CalibrationByUnit = storage.getLocalCalibration();
+    try {
+      const accessToken = await getGoogleAccessTokenForLearning();
+      if (accessToken) {
+        const profile = await fetchLearningProfile(accessToken);
+        if (profile?.calibrationByUnit) {
+          calibrationByUnit = profile.calibrationByUnit;
+        }
+      }
+    } catch {
+      // keep local calibration
+    }
+
+    const calibrated = calibrateSubtaskEstimates(subtasks, calibrationByUnit);
+    const ordered = [...calibrated].sort(
+      (a: { order: number }, b: { order: number }) => a.order - b.order
+    );
+    const planId = uuidv4();
+    const assignmentDue = dueIso
+      ? parseLocalDateInput(
+          dueIso.includes('T')
+            ? formatDateToLocalISO(new Date(dueIso))
+            : dueIso.slice(0, 10)
+        )
+      : undefined;
+
+    return ordered.map(
+      (st: {
+        title: string;
+        description?: string;
+        estimatedMinutes?: number;
+        workAmount?: number;
+        workUnit?: string;
+        order: number;
+      }) => ({
+        id: uuidv4(),
+        title: st.title,
+        description: st.description,
+        estimatedDuration: st.estimatedMinutes ?? 60,
+        priority: input.priority ?? ('medium' as const),
+        category: input.category ?? '',
+        dueDate: assignmentDue,
+        planStepOrder: st.order,
+        planId,
+        procedureTitle: st.title,
+        procedureDescription: st.description,
+        ...(st.workAmount !== undefined && st.workUnit
+          ? { workAmount: st.workAmount, workUnit: st.workUnit }
+          : {}),
+        createdAt: new Date(),
+        actualDurations: [],
+      })
+    );
+  };
+
+  const scheduleTasks = (tasksToSchedule: Task[]) => {
+    const incomplete = tasksToSchedule.filter((t) => !t.completedAt);
+    if (incomplete.length === 0) return;
 
     const startDate = new Date();
     startDate.setHours(0, 0, 0, 0);
-    const endDate = CalendarAIAgent.computeScheduleEndDate([task], startDate);
+    const endDate = CalendarAIAgent.computeScheduleEndDate(incomplete, startDate);
 
-    // Use functional update with refs to ensure we have the latest state
-    setEvents(prevEvents => {
+    setEvents((prevEvents) => {
       const allExistingEvents = dedupeCalendarEventsById([
         ...prevEvents,
         ...googleEventsRef.current,
@@ -1173,7 +1607,7 @@ export default function Home() {
       const breakMinutes = storage.getBreakAfterEvents();
       const focusMinutes = storage.getFocusMinutes();
       const scheduledEvents = CalendarAIAgent.distributeTasks(
-        [task],
+        incomplete,
         allExistingEvents,
         startDate,
         endDate,
@@ -1188,9 +1622,14 @@ export default function Home() {
         pushCalendarFeedSync(next);
         return next;
       }
-      
+
       return prevEvents;
     });
+  };
+
+  // Schedule a single new task immediately
+  const scheduleNewTask = (task: Task) => {
+    scheduleTasks([task]);
   };
 
   // Auto-distribute tasks function (for manual distribution)
@@ -1514,109 +1953,22 @@ export default function Home() {
   const handleBreakDownWithAI = async (event: CalendarEvent) => {
     setIsDecomposingEvent(true);
     try {
-      const res = await fetch('/api/assignments/decompose', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: event.title,
-          description: htmlToReadableText(event.description) || undefined,
-          dueDate: event.start.toISOString(),
-        }),
+      const newTasks = await createTasksFromAiBreakdown({
+        title: event.title,
+        description: event.description,
+        dueDate: event.start,
+        priority: 'medium',
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Request failed: ${res.status}`);
-      }
-      const { subtasks } = await res.json();
-      if (!Array.isArray(subtasks) || subtasks.length === 0) {
-        throw new Error('No subtasks returned');
-      }
 
-      let calibrationByUnit: CalibrationByUnit = storage.getLocalCalibration();
-      try {
-        const accessToken = await getGoogleAccessTokenForLearning();
-        if (accessToken) {
-          const profile = await fetchLearningProfile(accessToken);
-          if (profile?.calibrationByUnit) {
-            calibrationByUnit = profile.calibrationByUnit;
-          }
-        }
-      } catch {
-        // keep local calibration
-      }
-
-      const calibrated = calibrateSubtaskEstimates(subtasks, calibrationByUnit);
-
-      const ordered = [...calibrated].sort(
-        (a: { order: number }, b: { order: number }) => a.order - b.order
-      );
-      const planId = uuidv4();
-      const assignmentDue = event.start
-        ? parseLocalDateInput(formatDateToLocalISO(event.start))
-        : undefined;
-      const newTasks: Task[] = ordered.map(
-        (st: {
-          title: string;
-          description?: string;
-          estimatedMinutes?: number;
-          workAmount?: number;
-          workUnit?: string;
-          order: number;
-        }) => ({
-          id: uuidv4(),
-          title: st.title,
-          description: st.description,
-          estimatedDuration: st.estimatedMinutes ?? 60,
-          priority: 'medium' as const,
-          category: '',
-          dueDate: assignmentDue,
-          planStepOrder: st.order,
-          planId,
-          procedureTitle: st.title,
-          procedureDescription: st.description,
-          ...(st.workAmount !== undefined && st.workUnit
-            ? { workAmount: st.workAmount, workUnit: st.workUnit }
-            : {}),
-          createdAt: new Date(),
-          actualDurations: [],
-        })
-      );
-
-      const startDate = new Date();
-      startDate.setHours(0, 0, 0, 0);
-      const endDate = CalendarAIAgent.computeScheduleEndDate(newTasks, startDate);
-      const allExistingEvents = dedupeCalendarEventsById([
-        ...events,
-        ...googleEventsRef.current,
-        ...icsSubscribedEventsRef.current,
-      ]);
-      const segments =
-        workHours.segments.length > 0 &&
-        workHours.segments.some((s) => s.startHour < s.endHour)
-          ? workHours.segments
-          : storage.getWorkHours().segments;
-      const breakMinutes = storage.getBreakAfterEvents();
-      const focusMinutes = storage.getFocusMinutes();
-      const scheduledEvents = CalendarAIAgent.distributeTasks(
-        newTasks,
-        allExistingEvents,
-        startDate,
-        endDate,
-        segments,
-        breakMinutes,
-        focusMinutes
-      );
-
-      setTasks(prev => [...prev, ...newTasks]);
-      enqueueCadenceNotificationsForEvents(scheduledEvents);
-      setEvents(prev => [...prev, ...scheduledEvents]);
+      scheduleTasks(newTasks);
+      setTasks((prev) => [...prev, ...newTasks]);
 
       setShowEventDialog(false);
       setSelectedEvent(null);
       if (confirm(`${newTasks.length} subtasks created and scheduled. Remove this event from the calendar?`)) {
-        setEvents(prevEvents => prevEvents.filter(e => e.id !== event.id));
-        setGoogleEvents(prevEvents => prevEvents.filter(e => e.id !== event.id));
-        setICSSubscribedEvents(prevEvents => prevEvents.filter(e => e.id !== event.id));
+        setEvents((prevEvents) => prevEvents.filter((e) => e.id !== event.id));
+        setGoogleEvents((prevEvents) => prevEvents.filter((e) => e.id !== event.id));
+        setICSSubscribedEvents((prevEvents) => prevEvents.filter((e) => e.id !== event.id));
       }
     } catch (e) {
       console.error(e);
@@ -2670,8 +3022,8 @@ export default function Home() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (newTask.title.trim()) {
-                  handleAddTask(newTask);
+                if (newTask.title.trim() && !isDecomposingNewTask) {
+                  void handleAddTask(newTask);
                 }
               }}
               className="space-y-4"
@@ -2685,14 +3037,50 @@ export default function Home() {
                   placeholder={m.addTask.taskTitle}
                   required
                   autoFocus
+                  disabled={isDecomposingNewTask}
                 />
-                <textarea
-                  value={newTask.description}
-                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder={m.addTask.description}
-                  rows={3}
-                />
+                <div>
+                  <textarea
+                    value={newTask.description}
+                    onChange={(e) => {
+                      const description = e.target.value;
+                      setNewTask({ ...newTask, description });
+                      if (description.trim() && !breakDownNewTaskWithAi) {
+                        setBreakDownNewTaskWithAi(true);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder={m.addTask.description}
+                    rows={3}
+                    disabled={isDecomposingNewTask}
+                  />
+                  <p className="mt-1 text-[11px] text-gray-500">{m.addTask.descriptionHint}</p>
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">{m.addTask.breakDownAi}</p>
+                    <p className="text-xs text-gray-500">{m.addTask.breakDownAiHint}</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isDecomposingNewTask || !newTask.description?.trim()}
+                    onClick={() => setBreakDownNewTaskWithAi((prev) => !prev)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
+                      breakDownNewTaskWithAi && newTask.description?.trim()
+                        ? 'bg-primary-light'
+                        : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        breakDownNewTaskWithAi && newTask.description?.trim()
+                          ? 'translate-x-6'
+                          : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
 
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -2722,7 +3110,11 @@ export default function Home() {
                           const minutes = parseInt(value, 10) || 60;
                           setNewTask({ ...newTask, estimatedDuration: minutes });
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:opacity-60"
+                        disabled={
+                          isDecomposingNewTask ||
+                          (breakDownNewTaskWithAi && Boolean(newTask.description?.trim()))
+                        }
                       >
                         {[30, 45, 60, 90, 120, 150, 180, 240, 300, 360, 480, 600].map((mins) => (
                           <option key={mins} value={mins}>
@@ -2731,7 +3123,8 @@ export default function Home() {
                         ))}
                         <option value="custom">Custom (hours)</option>
                       </select>
-                      {taskDurationMode === 'custom' && (
+                      {taskDurationMode === 'custom' &&
+                        !(breakDownNewTaskWithAi && newTask.description?.trim()) && (
                         <div className="flex items-center gap-2">
                           <input
                             type="number"
@@ -2764,6 +3157,7 @@ export default function Home() {
                       onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value || undefined })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                       min={formatDateToLocalISO(new Date())}
+                      disabled={isDecomposingNewTask}
                     />
                   </div>
                   <div>
@@ -2774,6 +3168,7 @@ export default function Home() {
                         setNewTask({ ...newTask, priority: e.target.value as 'low' | 'medium' | 'high' })
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      disabled={isDecomposingNewTask}
                     >
                       <option value="low">Low</option>
                       <option value="medium">Medium</option>
@@ -2791,8 +3186,9 @@ export default function Home() {
                 
                 <button
                   type="button"
+                  disabled={isDecomposingNewTask}
                   onClick={() => setAutoScheduleNewTask(prev => !prev)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
                     autoScheduleNewTask ? 'bg-primary-light' : 'bg-gray-300'
                   }`}
                 >
@@ -2807,14 +3203,16 @@ export default function Home() {
               <div className="flex gap-3 pt-2">
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-colors"
+                  disabled={isDecomposingNewTask || !newTask.title.trim()}
+                  className="flex-1 px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-colors disabled:opacity-60"
                 >
-                  {m.addTask.addTaskBtn}
+                  {isDecomposingNewTask ? m.addTask.breakingDown : m.addTask.addTaskBtn}
                 </button>
                 <button
                   type="button"
+                  disabled={isDecomposingNewTask}
                   onClick={() => setShowAddTaskDialog(false)}
-                  className="cancel-btn px-4 py-2 text-primary rounded-lg border transition-colors"
+                  className="cancel-btn px-4 py-2 text-primary rounded-lg border transition-colors disabled:opacity-60"
                 >
                   {m.common.cancel}
                 </button>
@@ -3017,6 +3415,126 @@ export default function Home() {
                 className="px-3 py-1.5 text-sm font-medium rounded-lg bg-primary text-white hover:opacity-90 disabled:opacity-60"
               >
                 {m.feed.googleManageCalendarsSave}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAppleConnectDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold text-gray-800 mb-2">{m.feed.appleConnectTitle}</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {m.feed.appleConnectGuide}{' '}
+              <a
+                href="https://account.apple.com/account/manage/section/security"
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary-700 underline"
+              >
+                account.apple.com
+              </a>
+            </p>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              {m.feed.appleIdLabel}
+            </label>
+            <input
+              type="email"
+              autoComplete="username"
+              value={appleConnectId}
+              onChange={(e) => setAppleConnectId(e.target.value)}
+              className="w-full mb-3 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            />
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              {m.feed.applePasswordLabel}
+            </label>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={appleConnectPassword}
+              onChange={(e) => setAppleConnectPassword(e.target.value)}
+              className="w-full mb-4 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAppleConnectDialog(false);
+                  setAppleConnectPassword('');
+                }}
+                className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
+              >
+                {m.feed.appleConnectCancel}
+              </button>
+              <button
+                type="button"
+                disabled={appleConnecting || !appleConnectId.trim() || !appleConnectPassword.trim()}
+                onClick={() => void handleConnectAppleSubmit()}
+                className="px-3 py-1.5 text-sm font-medium rounded-lg bg-primary text-white hover:opacity-90 disabled:opacity-60"
+              >
+                {appleConnecting ? m.feed.appleConnecting : m.feed.appleConnectSubmit}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAppleCalendarsDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 max-h-[80vh] flex flex-col">
+            <h3 className="text-xl font-bold text-gray-800 mb-2">
+              {m.feed.appleManageCalendarsTitle}
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">{m.feed.appleManageCalendarsHelp}</p>
+
+            <div className="flex-1 overflow-y-auto space-y-2 mb-4">
+              {isLoadingAppleCalendars ? (
+                <p className="text-sm text-gray-500">{m.feed.appleManageCalendarsLoading}</p>
+              ) : appleCalendarList.length === 0 ? (
+                <p className="text-sm text-gray-500">{m.feed.appleManageCalendarsEmpty}</p>
+              ) : (
+                appleCalendarList.map((cal) => {
+                  const checked = selectedAppleCalendarUrls.includes(cal.url);
+                  return (
+                    <label
+                      key={cal.url}
+                      className="flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleAppleCalendarSelection(cal.url)}
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span
+                        className="inline-block w-3 h-3 rounded-full shrink-0"
+                        style={{ backgroundColor: resolveAppleCalendarColor(cal) }}
+                      />
+                      <span className="text-sm text-gray-800 flex-1 min-w-0 truncate">
+                        {cal.displayName}
+                      </span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAppleCalendarsDialog(false)}
+                className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
+              >
+                {m.feed.appleManageCalendarsCancel}
+              </button>
+              <button
+                type="button"
+                disabled={isLoadingAppleCalendars || selectedAppleCalendarUrls.length === 0}
+                onClick={saveAppleCalendarSelection}
+                className="px-3 py-1.5 text-sm font-medium rounded-lg bg-primary text-white hover:opacity-90 disabled:opacity-60"
+              >
+                {m.feed.appleManageCalendarsSave}
               </button>
             </div>
           </div>
@@ -3331,6 +3849,68 @@ export default function Home() {
                         className="underline hover:no-underline"
                       >
                         {m.feed.googleReconnectAction}
+                      </button>
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1.5 mb-3">
+                  <p className="text-[11px] font-semibold text-gray-700">{m.feed.appleConnectedTitle}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={appleSyncing || appleConnecting}
+                      onClick={() =>
+                        appleConnected
+                          ? void pushAppleCalendar(events, true)
+                          : setShowAppleConnectDialog(true)
+                      }
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-60"
+                    >
+                      <CalendarIcon size={13} />
+                      {appleSyncing
+                        ? m.feed.appleSyncing
+                        : appleConnected
+                          ? m.feed.appleSync
+                          : m.feed.appleConnect}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-gray-500">
+                    {appleConnected ? m.feed.applePushHelp : m.feed.appleConnectHelp}
+                  </p>
+                  {appleConnected && (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => void openAppleCalendarsDialog()}
+                        className="text-[11px] text-primary-700 underline hover:no-underline"
+                      >
+                        {m.feed.appleManageCalendars}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleReconnectApple}
+                        className="text-[11px] text-primary-700 underline hover:no-underline"
+                      >
+                        {m.feed.appleReconnectAction}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDisconnectApple}
+                        className="text-[11px] text-gray-500 underline hover:no-underline"
+                      >
+                        {m.feed.appleDisconnect}
+                      </button>
+                    </div>
+                  )}
+                  {applePushError && (
+                    <p className="text-[11px] text-red-600">
+                      {applePushError}{' '}
+                      <button
+                        type="button"
+                        onClick={handleReconnectApple}
+                        className="underline hover:no-underline"
+                      >
+                        {m.feed.appleReconnectAction}
                       </button>
                     </p>
                   )}
@@ -3696,11 +4276,15 @@ export default function Home() {
             </div>
 
             <div className="flex flex-wrap gap-2 mt-4">
-              {tutorialStep === 0 && (
+              {(tutorialStep === 0 || tutorialStep === 1) && (
                 <button
                   type="button"
                   onClick={() => {
                     setShowTutorial(false);
+                    setTempWorkHours(workHours);
+                    setTempBreakAfterEvents(breakAfterEvents);
+                    setTempFocusMinutes(focusMinutes);
+                    setTempSkipDurationPrompt(skipDurationPrompt);
                     setShowSettingsDialog(true);
                   }}
                   className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors"

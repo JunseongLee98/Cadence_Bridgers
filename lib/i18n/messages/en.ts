@@ -86,9 +86,16 @@ export const en = {
     title: 'Add Task',
     taskTitle: 'Task title *',
     description: 'Description',
+    descriptionHint:
+      'Add details (pages, chapters, requirements). With AI breakdown on, Cadence turns this into scheduled steps.',
+    breakDownAi: 'Break down with AI',
+    breakDownAiHint:
+      'Uses your description to create ordered subtasks with time estimates, then schedules them when auto-schedule is on.',
+    breakingDown: 'Breaking down with AI…',
     scheduleAuto: 'Schedule automatically',
     scheduleAutoHint: 'Cadence will split this task into focus-sized blocks and place them on your calendar.',
     addTaskBtn: 'Add Task',
+    aiFailed: 'AI breakdown failed. The task was not added. Check your AI API key or try again.',
   },
   eventDialog: {
     convertTitle: 'Convert Event to Task',
@@ -171,6 +178,36 @@ export const en = {
     googleManageCalendarsSave: 'Save',
     googleManageCalendarsCancel: 'Cancel',
     googleManageCalendarsPrimary: 'Primary',
+    appleConnect: 'Connect Apple Calendar',
+    appleSync: 'Sync to Apple Calendar',
+    appleSyncing: 'Syncing to Apple…',
+    appleConnectedTitle: 'Apple Calendar (CalDAV live sync)',
+    applePushHelp:
+      'Connected — Cadence tasks sync into your Cadence Apple calendar. Uses an app-specific password stored encrypted on the server.',
+    appleConnectHelp:
+      'Connect with an Apple ID app-specific password for two-way sync (read calendars + push Cadence tasks). Or use Add to Apple Calendar below for one-way subscribe.',
+    appleConnectTitle: 'Connect Apple / iCloud Calendar',
+    appleConnectGuide:
+      'Create an app-specific password at account.apple.com → Sign-In and Security → App-Specific Passwords (requires 2FA). Paste it below — never use your real Apple password.',
+    appleIdLabel: 'Apple ID email',
+    applePasswordLabel: 'App-specific password',
+    appleConnectSubmit: 'Connect',
+    appleConnectCancel: 'Cancel',
+    appleConnecting: 'Connecting…',
+    appleConnectFailed: 'Failed to connect Apple Calendar.',
+    appleReconnect: 'Apple Calendar credentials expired — reconnect with a new app-specific password.',
+    applePushFailed: 'Failed to update Apple Calendar.',
+    appleSynced: 'Synced to Apple Calendar.',
+    appleReconnectAction: 'Reconnect Apple',
+    appleDisconnect: 'Disconnect',
+    appleManageCalendars: 'Manage calendars',
+    appleManageCalendarsTitle: 'Choose Apple calendars',
+    appleManageCalendarsHelp:
+      'Select which iCloud calendars to show in Cadence (read-only). Cadence tasks are written to a dedicated Cadence calendar when possible.',
+    appleManageCalendarsLoading: 'Loading calendars…',
+    appleManageCalendarsEmpty: 'No calendars found for this Apple account.',
+    appleManageCalendarsSave: 'Save',
+    appleManageCalendarsCancel: 'Cancel',
     googleHelp:
       'Google: use Add to Google Calendar below (or Other calendars → From URL with the https link). Apple: File → New Calendar Subscription.',
     googleEmptyHelp1:
@@ -185,22 +222,22 @@ export const en = {
   },
   tutorial: {
     welcome: 'Welcome to Cadence',
-    subtitle: 'A quick walkthrough to get your schedule working',
+    subtitle: 'A short setup so auto-scheduling matches how you actually work',
     step1Title: 'Step 1: Set your working hours',
     step1Body:
-      'Cadence only schedules tasks inside your work blocks (Mon–Fri). Add multiple segments if you work split shifts.',
-    step2Title: 'Step 2: Connect calendars',
+      'Cadence only places tasks on weekdays (Mon–Fri), inside the work blocks in Settings. Add more than one segment if you work split shifts.',
+    step2Title: 'Step 2: Bring in your calendars',
     step2Body:
-      'Use Subscribe for public ICS feeds or Google Calendar embed links. All-day placeholders (like Canvas due dates) won’t block scheduling.',
+      'In Settings, connect Google or Apple/iCloud for live sync — Cadence tasks push out within seconds, and you can choose which calendars to show. Use Subscribe to import a public ICS feed or ICS file. Timed events block free slots; all-day items (like Canvas due dates) do not.',
     step3Title: 'Step 3: Add a task',
     step3Body:
-      'Create a manual task with an estimated duration and due date. Cadence will split it into focus-sized chunks and distribute it across available days.',
-    step4Title: 'Step 4: Understand priority',
+      'Add a title, estimated duration, optional due date, and priority. Leave Schedule automatically on — Cadence splits longer work into focus-sized chunks and fills free weekday slots up to the due date (or about two weeks ahead if there is no due date).',
+    step4Title: 'Step 4: Priority and completion',
     step4Body:
-      'High priority tends to claim earlier slots. Medium/Low will still schedule fully, but may be placed around higher-priority work.',
+      'Higher-priority tasks are scheduled first and tend to get earlier slots. When you complete a task, report how long it took so future estimates improve.',
     readyTitle: 'You’re ready',
     readyBody:
-      'Tip: if your schedule looks too “chunky”, adjust Focus Duration in Settings.',
+      'Tips: adjust Focus Duration and Break After in Settings if blocks feel too short or packed. Google/Apple live sync updates quickly; ICS URL subscriptions refresh more slowly.',
     openSettings: 'Open Settings',
     openSubscribe: 'Open Subscribe',
     openAddTask: 'Open Add Task',

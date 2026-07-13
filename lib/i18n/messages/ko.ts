@@ -86,10 +86,17 @@ export const ko = {
     title: '할 일 추가',
     taskTitle: '할 일 제목 *',
     description: '설명',
+    descriptionHint:
+      '세부 내용(페이지, 챕터, 요구사항)을 적으세요. AI 세부 단계가 켜져 있으면 일정 가능한 단계로 나눕니다.',
+    breakDownAi: 'AI로 세부 단계 나누기',
+    breakDownAiHint:
+      '설명을 바탕으로 순서 있는 하위 할 일과 예상 시간을 만든 뒤, 자동 배치가 켜져 있으면 캘린더에 넣습니다.',
+    breakingDown: 'AI로 나누는 중…',
     scheduleAuto: '자동 일정 배치',
     scheduleAutoHint:
       'Cadence가 이 할 일을 집중 시간 단위로 나누어 캘린더에 배치합니다.',
     addTaskBtn: '할 일 추가',
+    aiFailed: 'AI 분해에 실패했습니다. 할 일이 추가되지 않았습니다. AI API 키를 확인하거나 다시 시도하세요.',
   },
   eventDialog: {
     convertTitle: '일정을 할 일로 변환',
@@ -171,6 +178,37 @@ export const ko = {
     googleManageCalendarsSave: '저장',
     googleManageCalendarsCancel: '취소',
     googleManageCalendarsPrimary: '기본',
+    appleConnect: 'Apple 캘린더 연결',
+    appleSync: 'Apple 캘린더에 동기화',
+    appleSyncing: 'Apple에 동기화 중…',
+    appleConnectedTitle: 'Apple 캘린더 (CalDAV 실시간 동기화)',
+    applePushHelp:
+      '연결됨 — Cadence 작업이 Apple의 Cadence 캘린더로 동기화됩니다. 앱 전용 비밀번호는 서버에 암호화되어 저장됩니다.',
+    appleConnectHelp:
+      'Apple ID 앱 전용 비밀번호로 양방향 동기화(캘린더 읽기 + Cadence 작업 푸시)를 연결하세요. 단방향 구독만 필요하면 아래 Apple 캘린더에 추가를 사용하세요.',
+    appleConnectTitle: 'Apple / iCloud 캘린더 연결',
+    appleConnectGuide:
+      'account.apple.com → 로그인 및 보안 → 앱 전용 비밀번호에서 비밀번호를 만드세요(2단계 인증 필요). 아래에 붙여 넣으세요 — 실제 Apple 비밀번호는 사용하지 마세요.',
+    appleIdLabel: 'Apple ID 이메일',
+    applePasswordLabel: '앱 전용 비밀번호',
+    appleConnectSubmit: '연결',
+    appleConnectCancel: '취소',
+    appleConnecting: '연결 중…',
+    appleConnectFailed: 'Apple 캘린더 연결에 실패했습니다.',
+    appleReconnect:
+      'Apple 캘린더 자격 증명이 만료되었습니다 — 새 앱 전용 비밀번호로 다시 연결하세요.',
+    applePushFailed: 'Apple 캘린더 업데이트에 실패했습니다.',
+    appleSynced: 'Apple 캘린더에 동기화되었습니다.',
+    appleReconnectAction: 'Apple 다시 연결',
+    appleDisconnect: '연결 해제',
+    appleManageCalendars: '캘린더 관리',
+    appleManageCalendarsTitle: 'Apple 캘린더 선택',
+    appleManageCalendarsHelp:
+      'Cadence에 표시할 iCloud 캘린더를 선택하세요(읽기 전용). 가능하면 Cadence 전용 캘린더에 작업을 씁니다.',
+    appleManageCalendarsLoading: '캘린더 불러오는 중…',
+    appleManageCalendarsEmpty: '이 Apple 계정에서 캘린더를 찾지 못했습니다.',
+    appleManageCalendarsSave: '저장',
+    appleManageCalendarsCancel: '취소',
     googleHelp:
       'Google: 아래 Google 캘린더에 추가를 사용하거나(또는 다른 캘린더 → URL에서 https 링크). Apple: 파일 → 새 캘린더 구독.',
     googleEmptyHelp1:
@@ -185,22 +223,22 @@ export const ko = {
   },
   tutorial: {
     welcome: 'Cadence에 오신 것을 환영합니다',
-    subtitle: '일정을 쓰기 위한 빠른 안내입니다',
+    subtitle: '자동 일정이 실제로 쓰이는 방식에 맞게 짧게 설정합니다',
     step1Title: '1단계: 근무 시간 설정',
     step1Body:
-      'Cadence는 근무 블록(월–금) 안에서만 할 일을 배치합니다. 분할 근무라면 구간을 여러 개 추가하세요.',
-    step2Title: '2단계: 캘린더 연결',
+      'Cadence는 평일(월–금)에만, 설정의 근무 블록 안에서 할 일을 배치합니다. 분할 근무라면 구간을 여러 개 추가하세요.',
+    step2Title: '2단계: 캘린더 가져오기',
     step2Body:
-      '공개 ICS 피드나 Google 캘린더 임베드 링크는 구독을 사용하세요. 종일 일정(예: Canvas 마감)은 일정 배치를 막지 않습니다.',
+      '설정에서 Google 또는 Apple/iCloud를 연결하면 실시간 동기화가 됩니다 — Cadence 작업이 몇 초 안에 반영되고, 표시할 캘린더도 고를 수 있습니다. 공개 ICS 피드나 ICS 파일은 구독으로 가져오세요. 시간이 있는 일정은 빈 칸을 막고, 종일 일정(예: Canvas 마감)은 막지 않습니다.',
     step3Title: '3단계: 할 일 추가',
     step3Body:
-      '예상 소요 시간과 마감일이 있는 할 일을 만드세요. Cadence가 집중 단위로 나누어 가능한 날에 배치합니다.',
-    step4Title: '4단계: 우선순위 이해',
+      '제목, 예상 소요 시간, (선택) 마감일, 우선순위를 입력하세요. 자동 일정을 켠 채로 두면 Cadence가 긴 작업을 집중 단위로 나누고, 마감일까지(마감이 없으면 약 2주) 평일의 빈 시간에 배치합니다.',
+    step4Title: '4단계: 우선순위와 완료',
     step4Body:
-      '높은 우선순위는 더 이른 시간대를 선점하는 경향이 있습니다. 보통/낮음도 모두 배치되지만 높은 우선순위 주변에 배치될 수 있습니다.',
+      '우선순위가 높은 할 일이 먼저 배치되고 더 이른 시간을 받는 경향이 있습니다. 완료할 때 실제 소요 시간을 알려 주면 이후 예상 시간이 더 정확해집니다.',
     readyTitle: '준비 완료',
     readyBody:
-      '팁: 일정이 너무 잘게 쪼개져 보이면 설정에서 집중 시간을 조절해 보세요.',
+      '팁: 블록이 너무 잘게 쪼개지거나 빽빽하면 설정에서 집중 시간과 일정 후 휴식을 조절하세요. Google/Apple 실시간 동기화는 빠르고, ICS URL 구독은 더 느리게 갱신됩니다.',
     openSettings: '설정 열기',
     openSubscribe: '구독 열기',
     openAddTask: '할 일 추가 열기',

@@ -23,6 +23,10 @@ const GOOGLE_EVENTS_KEY = 'cadence_google_events';
 const GOOGLE_SELECTED_CALENDARS_KEY = 'cadence_google_selected_calendars';
 const GOOGLE_CALENDAR_COLORS_KEY = 'cadence_google_calendar_colors';
 const GOOGLE_IDENTITY_KEY = 'cadence_google_identity';
+const APPLE_CONNECTION_TOKEN_KEY = 'cadence_apple_connection_token';
+const APPLE_SELECTED_CALENDARS_KEY = 'cadence_apple_selected_calendars';
+const APPLE_CALENDAR_COLORS_KEY = 'cadence_apple_calendar_colors';
+const APPLE_WRITE_CALENDAR_URL_KEY = 'cadence_apple_write_calendar_url';
 const LOCAL_CALIBRATION_KEY = 'cadence_local_calibration';
 const ICS_SUBSCRIPTIONS_KEY = 'cadence_ics_subscriptions';
 const WORK_HOURS_KEY = 'cadence_work_hours';
@@ -391,6 +395,98 @@ export const storage = {
   setGoogleCalendarColor(calendarId: string, color: string): Record<string, string> {
     const next = { ...this.getGoogleCalendarColors(), [calendarId]: color };
     this.saveGoogleCalendarColors(next);
+    return next;
+  },
+
+  // Apple / iCloud CalDAV (connection token only — never store app-specific password)
+  getAppleConnectionToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    const token = localStorage.getItem(APPLE_CONNECTION_TOKEN_KEY);
+    return token && token.trim() ? token.trim() : null;
+  },
+
+  saveAppleConnectionToken(token: string): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(APPLE_CONNECTION_TOKEN_KEY, token.trim());
+  },
+
+  getAppleWriteCalendarUrl(): string | null {
+    if (typeof window === 'undefined') return null;
+    const url = localStorage.getItem(APPLE_WRITE_CALENDAR_URL_KEY);
+    return url && url.trim() ? url.trim() : null;
+  },
+
+  saveAppleWriteCalendarUrl(url: string): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(APPLE_WRITE_CALENDAR_URL_KEY, url.trim());
+  },
+
+  clearAppleConnection(): void {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(APPLE_CONNECTION_TOKEN_KEY);
+    localStorage.removeItem(APPLE_SELECTED_CALENDARS_KEY);
+    localStorage.removeItem(APPLE_CALENDAR_COLORS_KEY);
+    localStorage.removeItem(APPLE_WRITE_CALENDAR_URL_KEY);
+  },
+
+  getAppleSelectedCalendarUrls(): string[] {
+    if (typeof window === 'undefined') return [];
+    const data = localStorage.getItem(APPLE_SELECTED_CALENDARS_KEY);
+    if (!data) return [];
+    try {
+      const parsed = JSON.parse(data);
+      if (!Array.isArray(parsed)) return [];
+      return Array.from(
+        new Set(
+          parsed
+            .filter((id): id is string => typeof id === 'string')
+            .map((id) => id.trim())
+            .filter(Boolean)
+        )
+      );
+    } catch {
+      return [];
+    }
+  },
+
+  saveAppleSelectedCalendarUrls(urls: string[]): void {
+    if (typeof window === 'undefined') return;
+    const cleaned = Array.from(
+      new Set(
+        urls
+          .filter((id): id is string => typeof id === 'string')
+          .map((id) => id.trim())
+          .filter(Boolean)
+      )
+    );
+    localStorage.setItem(APPLE_SELECTED_CALENDARS_KEY, JSON.stringify(cleaned));
+  },
+
+  getAppleCalendarColors(): Record<string, string> {
+    if (typeof window === 'undefined') return {};
+    const data = localStorage.getItem(APPLE_CALENDAR_COLORS_KEY);
+    if (!data) return {};
+    try {
+      const parsed = JSON.parse(data);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+      const out: Record<string, string> = {};
+      for (const [id, color] of Object.entries(parsed as Record<string, unknown>)) {
+        if (typeof color === 'string' && color.trim()) out[id] = color.trim();
+      }
+      return out;
+    } catch {
+      return {};
+    }
+  },
+
+  saveAppleCalendarColors(colors: Record<string, string>): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(APPLE_CALENDAR_COLORS_KEY, JSON.stringify(colors));
+  },
+
+  setAppleCalendarColor(calendarUrl: string, color: string): Record<string, string> {
+    const next = { ...this.getAppleCalendarColors(), [calendarUrl]: color };
+    this.saveAppleCalendarColors(next);
     return next;
   },
 
