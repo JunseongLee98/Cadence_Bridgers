@@ -10,10 +10,11 @@ import { SCHEDULE_MAX_HORIZON_DAYS } from '@/lib/schedule-constants';
  *   (b) preferring days with lower load for that task, and (c) enforcing a per-day cap derived
  *   from totalMinutes / weekdayCount (relaxed only when nothing fits).
  * - AI breakdown steps (planStepOrder): scheduled strictly step-by-step in order; later steps
- *   never occur before earlier steps. Placement prefers the calendar week of `startDate` and
- *   spreads load across weekdays before spilling to the next week. Chunks never start on or after
- *   the task due date (end of that local calendar day). If a step cannot be placed at all,
- *   remaining steps are skipped.
+ *   never occur before earlier steps. Placement prefers the calendar week of `startDate`, and
+ *   spreads plan load across weekdays through the due date (soft per-day cap from
+ *   totalPlanMinutes / weekdayCount) so early packing does not leave the day before due empty.
+ *   Chunks never start on or after the task due date (end of that local calendar day). If a step
+ *   cannot be placed at all, remaining steps are skipped.
  */
 export class CalendarAIAgent {
   /** Heuristic: treat these as non-blocking all-day placeholders (Canvas due dates, holidays, etc). */
@@ -499,6 +500,49 @@ export class CalendarAIAgent {
     planAnchorWeekEndEx.setDate(planAnchorWeekEndEx.getDate() + 7);
     const planWeekLoads = new Map<string, number>();
 
+    // Soft per-day cap for the whole AI plan so steps spread through weekdays up to due
+    // (e.g. Fri due still gets Thu work) instead of packing Mon–Wed only.
+    let planSpreadWeekdays: string[] = [];
+    let planMaxPerDay: number | null = null;
+    if (planChunks.length > 0) {
+      const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startMid = new Date(
+        startDate.getFullYear(),
+        startDate.getMonth(),
+        startDate.getDate()
+      );
+      const planStart = startMid.getTime() > todayMid.getTime() ? startMid : todayMid;
+      let latestPlanDue: Date | null = null;
+      let totalPlanMinutes = 0;
+      const seenPlanTasks = new Set<string>();
+      for (const { task } of planChunks) {
+        if (!seenPlanTasks.has(task.id)) {
+          seenPlanTasks.add(task.id);
+          totalPlanMinutes += this.calculateTaskDuration(task);
+        }
+        const d = this.getTaskDueDeadline(task);
+        if (d && (!latestPlanDue || d.getTime() > latestPlanDue.getTime())) {
+          latestPlanDue = d;
+        }
+      }
+      const lastInstant = latestPlanDue
+        ? new Date(Math.min(endDate.getTime(), latestPlanDue.getTime()))
+        : endDate;
+      const planEnd = new Date(
+        lastInstant.getFullYear(),
+        lastInstant.getMonth(),
+        lastInstant.getDate()
+      );
+      planSpreadWeekdays = this.listWeekdayKeysBetweenInclusive(planStart, planEnd);
+      if (planSpreadWeekdays.length === 0) {
+        planSpreadWeekdays = [this.localDayKey(planStart)];
+      }
+      planMaxPerDay = Math.max(
+        15,
+        Math.ceil(totalPlanMinutes / Math.max(1, planSpreadWeekdays.length))
+      );
+    }
+
     const scheduledEvents: CalendarEvent[] = [];
     let scheduleIdSeq = 0;
     const nextId = (taskId: string, partIndex: number, slotIdx: number, tag: string) =>
@@ -513,6 +557,7 @@ export class CalendarAIAgent {
     /** Plan-step tasks that received at least one scheduled block (any chunk). */
     const planTasksWithScheduledTime = new Set<string>();
     let skipRemainingPlanSteps = false;
+    let planDayRr = 0;
 
     const getDayLoads = (taskId: string): Map<string, number> => {
       let m = loadsByTask.get(taskId);
@@ -588,9 +633,11 @@ export class CalendarAIAgent {
       while (remaining >= 15) {
         const rr = rrByTask.get(task.id) ?? 0;
         const prefDay =
-          !usesPlanOrder && weekdayCycle && weekdayCycle.length > 0
-            ? weekdayCycle[rr % weekdayCycle.length]
-            : null;
+          usesPlanOrder && planSpreadWeekdays.length > 0
+            ? planSpreadWeekdays[planDayRr % planSpreadWeekdays.length]
+            : !usesPlanOrder && weekdayCycle && weekdayCycle.length > 0
+              ? weekdayCycle[rr % weekdayCycle.length]
+              : null;
 
         type Cand = {
           i: number;
@@ -626,15 +673,57 @@ export class CalendarAIAgent {
             continue;
           }
 
+          const dayKey = this.localDayKey(effStart);
+          const load = usesPlanOrder
+            ? planWeekLoads.get(dayKey) ?? 0
+            : dayLoads.get(dayKey) ?? 0;
+          const onPref = prefDay !== null && dayKey === prefDay;
+
+          if (usesPlanOrder && planMaxPerDay != null) {
+            const room = Math.max(0, planMaxPerDay - load);
+            const useFull = Math.min(remaining, avail);
+            if (useFull < 15) {
+              continue;
+            }
+            if (room >= 15) {
+              let use = Math.min(useFull, room);
+              const leftover = remaining - use;
+              // Absorb sub-15 remnants so soft caps don't drop minutes.
+              if (leftover > 0 && leftover < 15) {
+                use = useFull;
+              }
+              if (use >= 15) {
+                cands.push({
+                  i,
+                  use,
+                  start: effStart,
+                  end: new Date(effStart.getTime() + use * 60 * 1000),
+                  dayKey,
+                  load,
+                  onPref,
+                  withinCap: true,
+                });
+              }
+            } else {
+              candsRelaxed.push({
+                i,
+                use: useFull,
+                start: effStart,
+                end: new Date(effStart.getTime() + useFull * 60 * 1000),
+                dayKey,
+                load,
+                onPref,
+                withinCap: false,
+              });
+            }
+            continue;
+          }
+
           const use = Math.min(remaining, avail);
           if (use < 15) {
             continue;
           }
-
-          const dayKey = this.localDayKey(effStart);
-          const load = dayLoads.get(dayKey) ?? 0;
-          const onPref = prefDay !== null && dayKey === prefDay;
-          const withinCap = !usesPlanOrder && maxPerDay != null ? load + use <= maxPerDay : true;
+          const withinCap = maxPerDay != null ? load + use <= maxPerDay : true;
           const row: Cand = {
             i,
             use,
@@ -645,7 +734,6 @@ export class CalendarAIAgent {
             onPref,
             withinCap,
           };
-          // First pass prefers spreading (cap), second pass relaxes if nothing fits.
           if (withinCap) {
             cands.push(row);
           } else {
@@ -680,6 +768,9 @@ export class CalendarAIAgent {
             pool = inAnchorWeek;
           }
           pool.sort((a, b) => {
+            if (a.onPref !== b.onPref) {
+              return a.onPref ? -1 : 1;
+            }
             const wa = planWeekLoads.get(a.dayKey) ?? 0;
             const wb = planWeekLoads.get(b.dayKey) ?? 0;
             if (wa !== wb) {
@@ -701,6 +792,9 @@ export class CalendarAIAgent {
 
         const best = pool[0];
         rrByTask.set(task.id, (rrByTask.get(task.id) ?? 0) + 1);
+        if (usesPlanOrder && planSpreadWeekdays.length > 0) {
+          planDayRr += 1;
+        }
 
         const slotRow = emptySlots[best.i];
         placeFrag += 1;

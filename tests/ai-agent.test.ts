@@ -524,6 +524,51 @@ describe('CalendarAIAgent.distributeTasks', () => {
     expect(ids.has('partial-2')).toBe(true);
   });
 
+  it('spreads AI plan steps through Thursday when due is Friday', () => {
+    // Regression: modest plans packed Mon–Wed only and left Thursday empty.
+    vi.setSystemTime(new Date(2026, 3, 13, 9, 0, 0, 0));
+    const start = new Date(2026, 3, 13, 0, 0, 0, 0);
+    const end = new Date(2026, 3, 20, 23, 59, 59, 999);
+    const due = new Date(2026, 3, 17, 0, 0, 0, 0); // Friday
+
+    const steps = [1, 2, 3].map((order) =>
+      baseTask({
+        id: `spread-${order}`,
+        title: `Step ${order}`,
+        estimatedDuration: 60,
+        actualDurations: [],
+        dueDate: due,
+        planStepOrder: order,
+        planId: 'spread-plan',
+      })
+    );
+
+    const events = CalendarAIAgent.distributeTasks(
+      steps,
+      [],
+      start,
+      end,
+      [{ startHour: 9, endHour: 18 }],
+      5,
+      50
+    );
+
+    const days = new Set(events.map((e) => e.start.getDay()));
+    expect(days.has(4)).toBe(true); // Thursday
+    // Still strictly ordered across steps
+    const first1 = Math.min(
+      ...events.filter((e) => e.taskId === 'spread-1').map((e) => e.start.getTime())
+    );
+    const first2 = Math.min(
+      ...events.filter((e) => e.taskId === 'spread-2').map((e) => e.start.getTime())
+    );
+    const first3 = Math.min(
+      ...events.filter((e) => e.taskId === 'spread-3').map((e) => e.start.getTime())
+    );
+    expect(first1).toBeLessThan(first2);
+    expect(first2).toBeLessThan(first3);
+  });
+
   it('respects due date cap', () => {
     vi.setSystemTime(new Date(2026, 3, 13, 9, 0, 0, 0));
     const start = new Date(2026, 3, 13, 0, 0, 0, 0);
