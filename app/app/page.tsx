@@ -125,6 +125,11 @@ export default function Home() {
   const [tempBreakAfterEvents, setTempBreakAfterEvents] = useState(5);
   const [focusMinutes, setFocusMinutes] = useState(50);
   const [tempFocusMinutes, setTempFocusMinutes] = useState(50);
+  const [skipDurationPrompt, setSkipDurationPrompt] = useState(false);
+  const [tempSkipDurationPrompt, setTempSkipDurationPrompt] = useState(false);
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+  const [completionDurationInput, setCompletionDurationInput] = useState('');
+  const [completionDontAskAgain, setCompletionDontAskAgain] = useState(false);
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
   const [taskDurationMode, setTaskDurationMode] = useState<'preset' | 'custom'>('preset');
   const [taskDurationCustomHours, setTaskDurationCustomHours] = useState(1);
@@ -188,6 +193,9 @@ export default function Home() {
     setTempBreakAfterEvents(storage.getBreakAfterEvents());
     setFocusMinutes(storage.getFocusMinutes());
     setTempFocusMinutes(storage.getFocusMinutes());
+    const skipDuration = storage.getSkipDurationPrompt();
+    setSkipDurationPrompt(skipDuration);
+    setTempSkipDurationPrompt(skipDuration);
 
     // Check for Google Calendar connection
     const tokens = storage.getGoogleTokens();
@@ -1190,7 +1198,30 @@ export default function Home() {
     });
   };
 
-  const handleCompleteTask = (taskId: string, actualDuration: number) => {
+  const getInferredCompletionMinutes = (
+    taskId: string
+  ): { minutes: number; source: 'scheduled_block' | 'estimate' } => {
+    const linked = events.filter((e) => e.taskId === taskId);
+    if (linked.length > 0) {
+      const totalMs = linked.reduce(
+        (sum, e) => sum + Math.max(0, e.end.getTime() - e.start.getTime()),
+        0
+      );
+      const minutes = Math.max(1, Math.round(totalMs / (1000 * 60)));
+      return { minutes, source: 'scheduled_block' };
+    }
+    const task = tasks.find((t) => t.id === taskId);
+    return {
+      minutes: Math.max(1, task?.estimatedDuration ?? 60),
+      source: 'estimate',
+    };
+  };
+
+  const handleCompleteTask = (
+    taskId: string,
+    actualDuration: number,
+    durationSource: 'self_report' | 'scheduled_block' | 'estimate' = 'self_report'
+  ) => {
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
     const updatedTask = CalendarAIAgent.recordTaskCompletion(task, actualDuration);
@@ -1200,6 +1231,79 @@ export default function Home() {
       pushCalendarFeedSync(next);
       return next;
     });
+    setCompletingTaskId(null);
+    setCompletionDurationInput('');
+    setCompletionDontAskAgain(false);
+
+    // Anonymous duration telemetry (never block completion on failure)
+    try {
+      const anonymousSessionId = storage.getOrCreateAnonymousSessionId();
+      if (anonymousSessionId) {
+        void fetch('/api/telemetry/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            schemaVersion: 1,
+            anonymousSessionId,
+            planId: updatedTask.planId,
+            planStepOrder: updatedTask.planStepOrder,
+            isAiBreakdown: Boolean(
+              updatedTask.planId || updatedTask.planStepOrder !== undefined
+            ),
+            procedureTitle: updatedTask.procedureTitle ?? updatedTask.title,
+            procedureDescription: updatedTask.procedureDescription ?? updatedTask.description,
+            estimatedMinutes: updatedTask.estimatedDuration,
+            actualMinutes: actualDuration,
+            durationSource,
+            completedAt: (updatedTask.completedAt ?? new Date()).toISOString(),
+          }),
+        }).catch((err) => {
+          console.warn('completion telemetry failed', err);
+        });
+      }
+    } catch (err) {
+      console.warn('completion telemetry failed', err);
+    }
+  };
+
+  const requestCompleteTask = (taskId: string) => {
+    if (skipDurationPrompt || storage.getSkipDurationPrompt()) {
+      const inferred = getInferredCompletionMinutes(taskId);
+      handleCompleteTask(taskId, inferred.minutes, inferred.source);
+      return;
+    }
+    const task = tasks.find((t) => t.id === taskId);
+    const inferred = getInferredCompletionMinutes(taskId);
+    setCompletingTaskId(taskId);
+    setCompletionDurationInput(String(inferred.minutes));
+    setCompletionDontAskAgain(false);
+    // Prefer estimatedDuration as default when present
+    if (task?.estimatedDuration) {
+      setCompletionDurationInput(String(task.estimatedDuration));
+    }
+  };
+
+  const submitCompletionWithReport = () => {
+    if (!completingTaskId) return;
+    const parsed = parseInt(completionDurationInput, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) return;
+    if (completionDontAskAgain) {
+      storage.saveSkipDurationPrompt(true);
+      setSkipDurationPrompt(true);
+      setTempSkipDurationPrompt(true);
+    }
+    handleCompleteTask(completingTaskId, parsed, 'self_report');
+  };
+
+  const skipCompletionQuestionnaire = () => {
+    if (!completingTaskId) return;
+    if (completionDontAskAgain) {
+      storage.saveSkipDurationPrompt(true);
+      setSkipDurationPrompt(true);
+      setTempSkipDurationPrompt(true);
+    }
+    const inferred = getInferredCompletionMinutes(completingTaskId);
+    handleCompleteTask(completingTaskId, inferred.minutes, inferred.source);
   };
 
   const handleScheduleTasks = (scheduledEvents: CalendarEvent[]) => {
@@ -1335,6 +1439,7 @@ export default function Home() {
       const ordered = [...subtasks].sort(
         (a: { order: number }, b: { order: number }) => a.order - b.order
       );
+      const planId = uuidv4();
       const assignmentDue = event.start
         ? parseLocalDateInput(formatDateToLocalISO(event.start))
         : undefined;
@@ -1344,10 +1449,13 @@ export default function Home() {
           title: st.title,
           description: st.description,
           estimatedDuration: st.estimatedMinutes ?? 60,
-          priority: 'medium',
+          priority: 'medium' as const,
           category: '',
           dueDate: assignmentDue,
           planStepOrder: st.order,
+          planId,
+          procedureTitle: st.title,
+          procedureDescription: st.description,
           createdAt: new Date(),
           actualDurations: [],
         })
@@ -1752,6 +1860,7 @@ export default function Home() {
                     setTempWorkHours(workHours);
                     setTempBreakAfterEvents(breakAfterEvents);
                     setTempFocusMinutes(focusMinutes);
+                    setTempSkipDurationPrompt(skipDurationPrompt);
                     setShowSettingsDialog(true);
                   }}
                   className="h-9 w-9 flex items-center justify-center text-white hover:bg-white/15 transition-colors"
@@ -2163,6 +2272,7 @@ export default function Home() {
                   setTempWorkHours(workHours);
                   setTempBreakAfterEvents(breakAfterEvents);
                   setTempFocusMinutes(focusMinutes);
+                  setTempSkipDurationPrompt(skipDurationPrompt);
                   setShowSettingsDialog(true);
                   setMobileMenuOpen(false);
                 }}
@@ -2329,12 +2439,7 @@ export default function Home() {
                           <div className="flex shrink-0 items-center gap-1">
                             {!task.completedAt && (
                               <button
-                                onClick={() => {
-                                  const duration = prompt(m.tasks.promptActualMinutes);
-                                  if (duration) {
-                                    handleCompleteTask(task.id, parseInt(duration));
-                                  }
-                                }}
+                                onClick={() => requestCompleteTask(task.id)}
                                 className="rounded-md p-1.5 text-green-600 transition-colors hover:bg-green-50 hover:text-green-700"
                               >
                                 <CheckCircle2 size={14} />
@@ -2931,6 +3036,63 @@ export default function Home() {
       )}
 
       {/* Settings Dialog */}
+      {completingTaskId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
+            <h3 className="text-lg font-bold text-gray-800 mb-1">{m.tasks.completeTaskTitle}</h3>
+            <p className="text-sm text-gray-500 mb-4">{m.tasks.completeTaskHint}</p>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {m.tasks.promptActualMinutes}
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={24 * 60}
+              value={completionDurationInput}
+              onChange={(e) => setCompletionDurationInput(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 mb-3"
+              autoFocus
+            />
+            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer mb-4">
+              <input
+                type="checkbox"
+                checked={completionDontAskAgain}
+                onChange={(e) => setCompletionDontAskAgain(e.target.checked)}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              {m.tasks.dontAskDurationAgain}
+            </label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={submitCompletionWithReport}
+                className="flex-1 px-3 py-2 bg-secondary text-white rounded-lg text-sm font-medium hover:bg-secondary/90"
+              >
+                {m.tasks.completeTaskSubmit}
+              </button>
+              <button
+                type="button"
+                onClick={skipCompletionQuestionnaire}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                {m.tasks.completeTaskSkip}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setCompletingTaskId(null);
+                setCompletionDurationInput('');
+                setCompletionDontAskAgain(false);
+              }}
+              className="mt-3 w-full text-xs text-gray-500 underline hover:no-underline"
+            >
+              {m.common.cancel}
+            </button>
+          </div>
+        </div>
+      )}
+
       {showSettingsDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto border border-gray-200">
@@ -3262,6 +3424,23 @@ export default function Home() {
                 </select>
               </div>
 
+              {/* Skip duration prompt */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-800 mb-2">
+                  {m.settings.skipDurationPrompt}
+                </h4>
+                <p className="text-xs text-gray-500 mb-2">{m.settings.skipDurationPromptHint}</p>
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={tempSkipDurationPrompt}
+                    onChange={(e) => setTempSkipDurationPrompt(e.target.checked)}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  {m.settings.skipDurationPrompt}
+                </label>
+              </div>
+
               {/* Tutorial */}
               <div>
                 <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.settings.tutorial}</h4>
@@ -3319,6 +3498,8 @@ export default function Home() {
                   storage.saveBreakAfterEvents(tempBreakAfterEvents);
                   setFocusMinutes(tempFocusMinutes);
                   storage.saveFocusMinutes(tempFocusMinutes);
+                  setSkipDurationPrompt(tempSkipDurationPrompt);
+                  storage.saveSkipDurationPrompt(tempSkipDurationPrompt);
                   setShowSettingsDialog(false);
                 }}
                 disabled={!isTempWorkHoursValid}
@@ -3332,6 +3513,7 @@ export default function Home() {
                   setTempWorkHours(workHours);
                   setTempBreakAfterEvents(breakAfterEvents);
                   setTempFocusMinutes(focusMinutes);
+                  setTempSkipDurationPrompt(skipDurationPrompt);
                 }}
                 className="cancel-btn px-4 py-2 text-primary rounded-lg border transition-colors"
               >

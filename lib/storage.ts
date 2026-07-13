@@ -20,8 +20,10 @@ const ICS_SUBSCRIPTIONS_KEY = 'cadence_ics_subscriptions';
 const WORK_HOURS_KEY = 'cadence_work_hours';
 const BREAK_AFTER_EVENTS_KEY = 'cadence_break_after_events';
 const FOCUS_MINUTES_KEY = 'cadence_focus_minutes';
+const SKIP_DURATION_PROMPT_KEY = 'cadence_skip_duration_prompt';
 const NOTIFICATIONS_KEY = 'cadence_notifications';
 const USER_PROFILE_KEY = 'cadence_user_profile';
+const ANONYMOUS_SESSION_KEY = 'cadence_anonymous_session_id';
 
 // Default pastel color palette for subscribed ICS calendars (easy on the eyes)
 const ICS_SUBSCRIPTION_COLORS = [
@@ -187,6 +189,16 @@ export const storage = {
   clearUserProfile(): void {
     if (typeof window === 'undefined') return;
     localStorage.removeItem(USER_PROFILE_KEY);
+  },
+
+  /** Stable anonymous device id for telemetry (not tied to Google or profile). */
+  getOrCreateAnonymousSessionId(): string {
+    if (typeof window === 'undefined') return '';
+    const existing = localStorage.getItem(ANONYMOUS_SESSION_KEY);
+    if (existing && existing.trim()) return existing.trim();
+    const id = uuidv4();
+    localStorage.setItem(ANONYMOUS_SESSION_KEY, id);
+    return id;
   },
 
   ensureCalendarFeedToken(): string | null {
@@ -434,6 +446,17 @@ export const storage = {
   saveFocusMinutes(minutes: number): void {
     if (typeof window === 'undefined') return;
     localStorage.setItem(FOCUS_MINUTES_KEY, String(Math.max(30, Math.min(180, minutes))));
+  },
+
+  /** When true, skip the "how long did it take?" prompt and use scheduled/estimate duration. */
+  getSkipDurationPrompt(): boolean {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(SKIP_DURATION_PROMPT_KEY) === '1';
+  },
+
+  saveSkipDurationPrompt(skip: boolean): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(SKIP_DURATION_PROMPT_KEY, skip ? '1' : '0');
   },
 
   getLocale(): AppLocale | null {

@@ -45,6 +45,11 @@ export const en = {
     completedCount: '({count} completed)',
     due: 'Due:',
     promptActualMinutes: 'How long did this task actually take? (in minutes)',
+    completeTaskTitle: 'Complete task',
+    completeTaskHint: 'Enter how long it took, or skip to use the scheduled time.',
+    completeTaskSubmit: 'Complete',
+    completeTaskSkip: 'Skip',
+    dontAskDurationAgain: "Don't ask again",
     addTask: 'Add task',
     activeTab: 'Active',
     completedTab: 'Completed',
@@ -125,6 +130,9 @@ export const en = {
     focusDuration: 'Focus Duration',
     focusDurationHint:
       'How long you feel comfortable focusing on a task. Longer tasks are split into chunks of this size (30 min – 3 hours)',
+    skipDurationPrompt: 'Never ask how long a task took',
+    skipDurationPromptHint:
+      'When completing a task, skip the duration question and use the scheduled block length (or estimate) instead.',
     appearance: 'Appearance',
     darkMode: 'Dark Mode',
     lightMode: 'Light Mode',

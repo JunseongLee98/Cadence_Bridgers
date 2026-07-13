@@ -37,6 +37,12 @@ export default function PrivacyPage() {
           subscribe to it.
         </li>
         <li>
+          <strong>Anonymous duration telemetry.</strong> When you complete a task and enter how long
+          it took, Cadence may send an anonymous record (random device id, AI procedure step
+          title/description/order when applicable, estimated minutes, and actual minutes). This is
+          not linked to your Google account, email, or username.
+        </li>
+        <li>
           <strong>Technical data.</strong> Our hosting provider may automatically collect standard
           server logs (such as IP address, browser type, and request timestamps) when you visit the
           site.
@@ -48,6 +54,10 @@ export default function PrivacyPage() {
         <li>To provide Cadence features (scheduling, calendar display, Google sync).</li>
         <li>To maintain your session with Google Calendar after you authorize access.</li>
         <li>To publish your Cadence calendar feed when you use that feature.</li>
+        <li>
+          To study anonymous task completion times by AI-broken-down procedure steps and improve
+          scheduling estimates.
+        </li>
         <li>To operate, secure, and improve the service.</li>
       </ul>
       <p>We do not sell your personal information.</p>

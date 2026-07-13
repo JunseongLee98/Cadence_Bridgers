@@ -45,6 +45,11 @@ export const ko = {
     completedCount: '({count}회 완료)',
     due: '마감:',
     promptActualMinutes: '이 할 일에 실제로 몇 분이 걸렸나요?',
+    completeTaskTitle: '할 일 완료',
+    completeTaskHint: '실제 소요 시간을 입력하거나, 건너뛰어 예정된 시간을 사용하세요.',
+    completeTaskSubmit: '완료',
+    completeTaskSkip: '건너뛰기',
+    dontAskDurationAgain: '다시 묻지 않기',
     addTask: '할 일 추가',
     activeTab: '진행 중',
     completedTab: '완료',
@@ -125,6 +130,9 @@ export const ko = {
     focusDuration: '집중 시간',
     focusDurationHint:
       '한 번에 집중할 수 있는 시간입니다. 더 긴 할 일은 이 길이로 나뉩니다(30분–3시간).',
+    skipDurationPrompt: '할 일 소요 시간 묻지 않기',
+    skipDurationPromptHint:
+      '할 일 완료 시 소요 시간 질문을 건너뛰고 예정된 블록 길이(또는 예상 시간)를 사용합니다.',
     appearance: '화면',
     darkMode: '다크 모드',
     lightMode: '라이트 모드',

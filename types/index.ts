@@ -11,6 +11,12 @@ export interface Task {
   completedAt?: Date;
   /** From AI breakdown `order`: lower = earlier step; used to schedule steps in sequence. */
   planStepOrder?: number;
+  /** Shared id for all subtasks created from one AI breakdown. */
+  planId?: string;
+  /** AI procedure step title (telemetry category). */
+  procedureTitle?: string;
+  /** AI procedure step description (telemetry category detail). */
+  procedureDescription?: string;
 }
 
 export interface CalendarEvent {
