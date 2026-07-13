@@ -4,7 +4,7 @@ import { LegalPageShell } from '@/components/LegalPageShell';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy — Cadence',
-  description: 'How Cadence handles your data when you use Google Calendar, Apple Calendar, and the web app.',
+  description: 'How Cadence handles your data when you use Google Calendar and the web app.',
 };
 
 export default function PrivacyPage() {
@@ -15,7 +15,7 @@ export default function PrivacyPage() {
         planning web application operated for the Capstone Bridgers project at{' '}
         <a href="https://www.bridgerscadence.com">www.bridgerscadence.com</a>. This Privacy Policy
         explains what information we process when you use Cadence, including when you connect a
-        Google account or Apple/iCloud Calendar.
+        Google account.
       </p>
 
       <h2>1. Information we process</h2>
@@ -30,14 +30,6 @@ export default function PrivacyPage() {
           Calendar, we request OAuth access so Cadence can read calendars you select and, when
           enabled, create or update events in a Cadence-managed Google calendar. We receive Google
           access and refresh tokens needed to perform those actions on your behalf.
-        </li>
-        <li>
-          <strong>Apple / iCloud Calendar (CalDAV).</strong> If you choose to connect Apple Calendar,
-          you provide your Apple ID email and an{' '}
-          <em>app-specific password</em> (not your primary Apple password). Cadence stores that
-          credential encrypted on our servers so it can read calendars you select and sync Cadence
-          tasks to a Cadence-managed Apple calendar via CalDAV. Your browser keeps only a random
-          connection token and calendar preferences—not the app-specific password.
         </li>
         <li>
           <strong>Calendar feed links.</strong> If you use Cadence&apos;s subscribe/feed feature, we
@@ -67,11 +59,8 @@ export default function PrivacyPage() {
 
       <h2>2. How we use information</h2>
       <ul>
-        <li>To provide Cadence features (scheduling, calendar display, Google/Apple sync).</li>
+        <li>To provide Cadence features (scheduling, calendar display, Google sync).</li>
         <li>To maintain your session with Google Calendar after you authorize access.</li>
-        <li>
-          To access iCloud CalDAV on your behalf after you provide an app-specific password.
-        </li>
         <li>To publish your Cadence calendar feed when you use that feature.</li>
         <li>
           To study anonymous task completion times by AI-broken-down procedure steps (including
@@ -111,11 +100,6 @@ export default function PrivacyPage() {
           access.
         </li>
         <li>
-          Apple app-specific passwords used for CalDAV are encrypted and stored on our
-          hosting/storage providers (for example Vercel Blob or Upstash Redis). A connection token
-          in your browser identifies that encrypted record.
-        </li>
-        <li>
           Feed/sync features may store Cadence event data on our hosting/storage providers (for
           example Vercel and related storage) so your subscription URL can be served.
         </li>
@@ -124,9 +108,8 @@ export default function PrivacyPage() {
       <h2>5. Sharing</h2>
       <p>
         We share data only as needed to run Cadence (for example with Google when you authorize
-        Calendar access, with Apple/iCloud CalDAV when you connect Apple Calendar, and with
-        infrastructure providers that host the app). We do not share your calendar data with third
-        parties for their own marketing.
+        Calendar access, and with infrastructure providers that host the app). We do not share your
+        Google Calendar data with third parties for their own marketing.
       </p>
 
       <h2>6. Retention &amp; your choices</h2>
@@ -134,15 +117,6 @@ export default function PrivacyPage() {
         <li>
           You can disconnect Google Calendar in Cadence settings, which clears local Google tokens
           from the browser.
-        </li>
-        <li>
-          You can disconnect Apple Calendar in Cadence, which deletes the server-stored encrypted
-          credentials and clears the local connection token. You should also revoke the
-          app-specific password at{' '}
-          <a href="https://account.apple.com" target="_blank" rel="noreferrer">
-            account.apple.com
-          </a>
-          .
         </li>
         <li>
           You can revoke Cadence&apos;s access at any time in your Google Account under{' '}

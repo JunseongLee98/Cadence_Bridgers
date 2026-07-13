@@ -178,37 +178,6 @@ export const ko = {
     googleManageCalendarsSave: '저장',
     googleManageCalendarsCancel: '취소',
     googleManageCalendarsPrimary: '기본',
-    appleConnect: 'Apple 캘린더 연결',
-    appleSync: 'Apple 캘린더에 동기화',
-    appleSyncing: 'Apple에 동기화 중…',
-    appleConnectedTitle: 'Apple 캘린더 (CalDAV 실시간 동기화)',
-    applePushHelp:
-      '연결됨 — Cadence 작업이 Apple의 Cadence 캘린더로 동기화됩니다. 앱 전용 비밀번호는 서버에 암호화되어 저장됩니다.',
-    appleConnectHelp:
-      'Apple ID 앱 전용 비밀번호로 양방향 동기화(캘린더 읽기 + Cadence 작업 푸시)를 연결하세요. 단방향 구독만 필요하면 아래 Apple 캘린더에 추가를 사용하세요.',
-    appleConnectTitle: 'Apple / iCloud 캘린더 연결',
-    appleConnectGuide:
-      'account.apple.com → 로그인 및 보안 → 앱 전용 비밀번호에서 비밀번호를 만드세요(2단계 인증 필요). 아래에 붙여 넣으세요 — 실제 Apple 비밀번호는 사용하지 마세요.',
-    appleIdLabel: 'Apple ID 이메일',
-    applePasswordLabel: '앱 전용 비밀번호',
-    appleConnectSubmit: '연결',
-    appleConnectCancel: '취소',
-    appleConnecting: '연결 중…',
-    appleConnectFailed: 'Apple 캘린더 연결에 실패했습니다.',
-    appleReconnect:
-      'Apple 캘린더 자격 증명이 만료되었습니다 — 새 앱 전용 비밀번호로 다시 연결하세요.',
-    applePushFailed: 'Apple 캘린더 업데이트에 실패했습니다.',
-    appleSynced: 'Apple 캘린더에 동기화되었습니다.',
-    appleReconnectAction: 'Apple 다시 연결',
-    appleDisconnect: '연결 해제',
-    appleManageCalendars: '캘린더 관리',
-    appleManageCalendarsTitle: 'Apple 캘린더 선택',
-    appleManageCalendarsHelp:
-      'Cadence에 표시할 iCloud 캘린더를 선택하세요(읽기 전용). 가능하면 Cadence 전용 캘린더에 작업을 씁니다.',
-    appleManageCalendarsLoading: '캘린더 불러오는 중…',
-    appleManageCalendarsEmpty: '이 Apple 계정에서 캘린더를 찾지 못했습니다.',
-    appleManageCalendarsSave: '저장',
-    appleManageCalendarsCancel: '취소',
     googleHelp:
       'Google: 아래 Google 캘린더에 추가를 사용하거나(또는 다른 캘린더 → URL에서 https 링크). Apple: 파일 → 새 캘린더 구독.',
     googleEmptyHelp1:

@@ -178,36 +178,6 @@ export const en = {
     googleManageCalendarsSave: 'Save',
     googleManageCalendarsCancel: 'Cancel',
     googleManageCalendarsPrimary: 'Primary',
-    appleConnect: 'Connect Apple Calendar',
-    appleSync: 'Sync to Apple Calendar',
-    appleSyncing: 'Syncing to Apple…',
-    appleConnectedTitle: 'Apple Calendar (CalDAV live sync)',
-    applePushHelp:
-      'Connected — Cadence tasks sync into your Cadence Apple calendar. Uses an app-specific password stored encrypted on the server.',
-    appleConnectHelp:
-      'Connect with an Apple ID app-specific password for two-way sync (read calendars + push Cadence tasks). Or use Add to Apple Calendar below for one-way subscribe.',
-    appleConnectTitle: 'Connect Apple / iCloud Calendar',
-    appleConnectGuide:
-      'Create an app-specific password at account.apple.com → Sign-In and Security → App-Specific Passwords (requires 2FA). Paste it below — never use your real Apple password.',
-    appleIdLabel: 'Apple ID email',
-    applePasswordLabel: 'App-specific password',
-    appleConnectSubmit: 'Connect',
-    appleConnectCancel: 'Cancel',
-    appleConnecting: 'Connecting…',
-    appleConnectFailed: 'Failed to connect Apple Calendar.',
-    appleReconnect: 'Apple Calendar credentials expired — reconnect with a new app-specific password.',
-    applePushFailed: 'Failed to update Apple Calendar.',
-    appleSynced: 'Synced to Apple Calendar.',
-    appleReconnectAction: 'Reconnect Apple',
-    appleDisconnect: 'Disconnect',
-    appleManageCalendars: 'Manage calendars',
-    appleManageCalendarsTitle: 'Choose Apple calendars',
-    appleManageCalendarsHelp:
-      'Select which iCloud calendars to show in Cadence (read-only). Cadence tasks are written to a dedicated Cadence calendar when possible.',
-    appleManageCalendarsLoading: 'Loading calendars…',
-    appleManageCalendarsEmpty: 'No calendars found for this Apple account.',
-    appleManageCalendarsSave: 'Save',
-    appleManageCalendarsCancel: 'Cancel',
     googleHelp:
       'Google: use Add to Google Calendar below (or Other calendars → From URL with the https link). Apple: File → New Calendar Subscription.',
     googleEmptyHelp1:
