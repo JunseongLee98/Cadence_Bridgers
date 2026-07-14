@@ -243,5 +243,9 @@ export const en = {
     confirmClearNotifications: 'Clear all notifications?',
     confirmDeleteEvent: 'Delete this event?',
     feedSyncFailed: 'Failed to sync calendar feed.',
+    allowOutsideWorkHours:
+      'Some work does not fit in your working hours. Allow Cadence to schedule outside your working hours?',
+    tasksOmittedNoRoom:
+      'Some steps could not be scheduled and were omitted from your task list.',
   },
 } as const;

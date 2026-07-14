@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@upstash/redis": "^1.38.0",
+    "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.5.0",
     "date-fns": "^3.6.0",
     "googleapis": "^168.0.0",

@@ -588,6 +588,73 @@ describe('CalendarAIAgent.distributeTasks', () => {
       );
     }
   });
+
+  it('reports unmet minutes when work hours are too short', () => {
+    vi.setSystemTime(new Date(2026, 3, 13, 9, 0, 0, 0));
+    const start = new Date(2026, 3, 13, 0, 0, 0, 0);
+    const end = new Date(2026, 3, 13, 23, 59, 59, 999);
+    const due = new Date(2026, 3, 13, 0, 0, 0, 0);
+    const task = baseTask({
+      id: 'overflow-1',
+      title: 'Too much for today',
+      estimatedDuration: 300,
+      dueDate: due,
+      actualDurations: [],
+      planStepOrder: 1,
+      planId: 'ov',
+    });
+    // Only 2 work hours on the due day → cannot place 300m.
+    const events = CalendarAIAgent.distributeTasks(
+      [task],
+      [],
+      start,
+      end,
+      [{ startHour: 9, endHour: 11 }],
+      0,
+      50
+    );
+    const unmet = CalendarAIAgent.measureUnmetSchedule([task], events);
+    expect(unmet.length).toBe(1);
+    expect(unmet[0].taskId).toBe('overflow-1');
+    expect(unmet[0].unmetMinutes).toBeGreaterThanOrEqual(15);
+  });
+
+  it('can place work outside normal hours with full-day segments', () => {
+    vi.setSystemTime(new Date(2026, 3, 13, 9, 0, 0, 0));
+    const start = new Date(2026, 3, 13, 0, 0, 0, 0);
+    const end = new Date(2026, 3, 13, 23, 59, 59, 999);
+    const due = new Date(2026, 3, 13, 0, 0, 0, 0);
+    const task = baseTask({
+      id: 'evening-1',
+      title: 'Evening work',
+      estimatedDuration: 180,
+      dueDate: due,
+      actualDurations: [],
+    });
+    const narrow = CalendarAIAgent.distributeTasks(
+      [task],
+      [],
+      start,
+      end,
+      [{ startHour: 9, endHour: 11 }],
+      0,
+      50
+    );
+    const full = CalendarAIAgent.distributeTasks(
+      [task],
+      [],
+      start,
+      end,
+      CalendarAIAgent.fullDayWorkSegments(),
+      0,
+      50
+    );
+    expect(eventMinutesForTask(narrow, 'evening-1')).toBeLessThan(180);
+    expect(eventMinutesForTask(full, 'evening-1')).toBe(180);
+    expect(eventMinutesForTask(full, 'evening-1')).toBeGreaterThan(
+      eventMinutesForTask(narrow, 'evening-1')
+    );
+  });
 });
 
 describe('CalendarAIAgent.getTaskDurationStats', () => {

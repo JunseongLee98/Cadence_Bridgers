@@ -264,7 +264,8 @@ export class CalendarAIAgent {
     const segments = workSegments
       .map((seg) => {
         const startHour = Math.max(0, Math.min(23, seg.startHour));
-        const endHour = Math.max(0, Math.min(23, seg.endHour));
+        // Allow 24 so a full-day block can run through 23:59 (outside-hours overflow).
+        const endHour = Math.max(0, Math.min(24, seg.endHour));
         return { startHour, endHour };
       })
       .filter((seg) => seg.startHour < seg.endHour)
@@ -298,6 +299,41 @@ export class CalendarAIAgent {
       const endM = seg.endHour * 60;
       return mins >= startM && mins < endM;
     });
+  }
+
+  /** Weekday slots for the entire calendar day — used when the user allows outside work hours. */
+  static fullDayWorkSegments(): WorkSegment[] {
+    return [{ startHour: 0, endHour: 24 }];
+  }
+
+  /**
+   * Minutes still needed for each incomplete task after a scheduling pass.
+   * Sub-15m leftovers are ignored (same floor as placement).
+   */
+  static measureUnmetSchedule(
+    tasks: Task[],
+    scheduledEvents: CalendarEvent[]
+  ): { taskId: string; unmetMinutes: number }[] {
+    const placed = new Map<string, number>();
+    for (const event of scheduledEvents) {
+      if (!event.taskId) continue;
+      const mins = Math.round((event.end.getTime() - event.start.getTime()) / (1000 * 60));
+      placed.set(event.taskId, (placed.get(event.taskId) ?? 0) + mins);
+    }
+
+    const unmet: { taskId: string; unmetMinutes: number }[] = [];
+    const seen = new Set<string>();
+    for (const task of tasks) {
+      if (task.completedAt || seen.has(task.id)) continue;
+      seen.add(task.id);
+      const need = this.calculateTaskDuration(task);
+      const got = placed.get(task.id) ?? 0;
+      const rem = need - got;
+      if (rem >= 15) {
+        unmet.push({ taskId: task.id, unmetMinutes: rem });
+      }
+    }
+    return unmet;
   }
 
   /** End of the task's due calendar day (local). Scheduled work must end by this instant. */

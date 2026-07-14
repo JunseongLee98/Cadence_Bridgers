@@ -1294,22 +1294,22 @@ export default function Home() {
     startDate.setHours(0, 0, 0, 0);
     const endDate = CalendarAIAgent.computeScheduleEndDate(incomplete, startDate);
 
-    setEvents((prevEvents) => {
-      const allExistingEvents = dedupeCalendarEventsById([
-        ...prevEvents,
-        ...googleEventsRef.current,
-        ...icsSubscribedEventsRef.current,
-      ]);
+    const configuredSegments =
+      workHours.segments.length > 0 &&
+      workHours.segments.some((s) => s.startHour < s.endHour)
+        ? workHours.segments
+        : storage.getWorkHours().segments;
+    const breakMinutes = storage.getBreakAfterEvents();
+    const focusMinutes = storage.getFocusMinutes();
 
-      const segments =
-        workHours.segments.length > 0 &&
-        workHours.segments.some((s) => s.startHour < s.endHour)
-          ? workHours.segments
-          : storage.getWorkHours().segments;
+    const allExistingEvents = dedupeCalendarEventsById([
+      ...events,
+      ...googleEventsRef.current,
+      ...icsSubscribedEventsRef.current,
+    ]);
 
-      const breakMinutes = storage.getBreakAfterEvents();
-      const focusMinutes = storage.getFocusMinutes();
-      const scheduledEvents = CalendarAIAgent.distributeTasks(
+    const runPass = (segments: typeof configuredSegments) =>
+      CalendarAIAgent.distributeTasks(
         incomplete,
         allExistingEvents,
         startDate,
@@ -1319,15 +1319,37 @@ export default function Home() {
         focusMinutes
       );
 
-      if (scheduledEvents.length > 0) {
-        enqueueCadenceNotificationsForEvents(scheduledEvents);
+    let scheduledEvents = runPass(configuredSegments);
+    const unmet = CalendarAIAgent.measureUnmetSchedule(incomplete, scheduledEvents);
+    if (unmet.length > 0) {
+      const allowOutside = window.confirm(m.alerts.allowOutsideWorkHours);
+      if (allowOutside) {
+        scheduledEvents = runPass(CalendarAIAgent.fullDayWorkSegments());
+      }
+    }
+
+    const scheduledIds = new Set(
+      scheduledEvents.map((e) => e.taskId).filter((id): id is string => Boolean(id))
+    );
+    const batchIds = new Set(incomplete.map((t) => t.id));
+    const omitted = incomplete.some((t) => !scheduledIds.has(t.id));
+
+    setTasks((prev) =>
+      prev.filter((t) => !batchIds.has(t.id) || scheduledIds.has(t.id) || Boolean(t.completedAt))
+    );
+
+    if (omitted) {
+      window.alert(m.alerts.tasksOmittedNoRoom);
+    }
+
+    if (scheduledEvents.length > 0) {
+      enqueueCadenceNotificationsForEvents(scheduledEvents);
+      setEvents((prevEvents) => {
         const next = [...prevEvents, ...scheduledEvents];
         pushCalendarFeedSync(next);
         return next;
-      }
-
-      return prevEvents;
-    });
+      });
+    }
   };
 
   // Schedule a single new task immediately
@@ -1337,41 +1359,41 @@ export default function Home() {
 
   // Auto-distribute tasks function (for manual distribution)
   const autoDistributeTasks = async (tasksToSchedule: Task[] = tasks) => {
-    const incompleteTasks = tasksToSchedule.filter(task => !task.completedAt);
-    
+    const incompleteTasks = tasksToSchedule.filter((task) => !task.completedAt);
+
     if (incompleteTasks.length === 0) {
-      return; // No tasks to schedule
+      return;
     }
 
     const startDate = new Date();
     startDate.setHours(0, 0, 0, 0);
     const endDate = CalendarAIAgent.computeScheduleEndDate(incompleteTasks, startDate);
 
-    // Get current events using functional update to ensure we have latest state
-    setEvents(currentEvents => {
-      const allExistingEvents = dedupeCalendarEventsById([
-        ...currentEvents,
-        ...googleEvents,
-        ...icsSubscribedEvents,
-      ]);
+    const allExistingEvents = dedupeCalendarEventsById([
+      ...events,
+      ...googleEventsRef.current,
+      ...icsSubscribedEventsRef.current,
+    ]);
 
-      // Filter out already scheduled tasks (those with taskId in events)
-      const scheduledTaskIds = new Set(currentEvents.filter(e => e.taskId).map(e => e.taskId));
-      const unscheduledTasks = incompleteTasks.filter(task => !scheduledTaskIds.has(task.id));
-      
-      if (unscheduledTasks.length === 0) {
-        return currentEvents; // All tasks already scheduled
-      }
+    const scheduledTaskIds = new Set(
+      events.filter((e) => e.taskId).map((e) => e.taskId as string)
+    );
+    const unscheduledTasks = incompleteTasks.filter((task) => !scheduledTaskIds.has(task.id));
 
-      const segments =
-        workHours.segments.length > 0 &&
-        workHours.segments.some((s) => s.startHour < s.endHour)
-          ? workHours.segments
-          : storage.getWorkHours().segments;
+    if (unscheduledTasks.length === 0) {
+      return;
+    }
 
-      const breakMinutes = storage.getBreakAfterEvents();
-      const focusMinutes = storage.getFocusMinutes();
-      const scheduledEvents = CalendarAIAgent.distributeTasks(
+    const configuredSegments =
+      workHours.segments.length > 0 &&
+      workHours.segments.some((s) => s.startHour < s.endHour)
+        ? workHours.segments
+        : storage.getWorkHours().segments;
+    const breakMinutes = storage.getBreakAfterEvents();
+    const focusMinutes = storage.getFocusMinutes();
+
+    const runPass = (segments: typeof configuredSegments) =>
+      CalendarAIAgent.distributeTasks(
         unscheduledTasks,
         allExistingEvents,
         startDate,
@@ -1381,15 +1403,37 @@ export default function Home() {
         focusMinutes
       );
 
-      if (scheduledEvents.length > 0) {
-        enqueueCadenceNotificationsForEvents(scheduledEvents);
+    let scheduledEvents = runPass(configuredSegments);
+    const unmet = CalendarAIAgent.measureUnmetSchedule(unscheduledTasks, scheduledEvents);
+    if (unmet.length > 0) {
+      const allowOutside = window.confirm(m.alerts.allowOutsideWorkHours);
+      if (allowOutside) {
+        scheduledEvents = runPass(CalendarAIAgent.fullDayWorkSegments());
+      }
+    }
+
+    const newlyScheduledIds = new Set(
+      scheduledEvents.map((e) => e.taskId).filter((id): id is string => Boolean(id))
+    );
+    const batchIds = new Set(unscheduledTasks.map((t) => t.id));
+    const omitted = unscheduledTasks.some((t) => !newlyScheduledIds.has(t.id));
+
+    setTasks((prev) =>
+      prev.filter((t) => !batchIds.has(t.id) || newlyScheduledIds.has(t.id) || Boolean(t.completedAt))
+    );
+
+    if (omitted) {
+      window.alert(m.alerts.tasksOmittedNoRoom);
+    }
+
+    if (scheduledEvents.length > 0) {
+      enqueueCadenceNotificationsForEvents(scheduledEvents);
+      setEvents((currentEvents) => {
         const next = [...currentEvents, ...scheduledEvents];
         pushCalendarFeedSync(next);
         return next;
-      }
-      
-      return currentEvents;
-    });
+      });
+    }
   };
 
   const handleDeleteTask = (taskId: string) => {
@@ -1663,8 +1707,8 @@ export default function Home() {
         priority: 'medium',
       });
 
-      scheduleTasks(newTasks);
       setTasks((prev) => [...prev, ...newTasks]);
+      scheduleTasks(newTasks);
 
       setShowEventDialog(false);
       setSelectedEvent(null);
@@ -1726,10 +1770,15 @@ export default function Home() {
     return Math.round(sum / task.actualDurations.length);
   };
 
-  const incompleteTasksCount = tasks.filter(t => !t.completedAt).length;
-  const activeTasks = sortActiveTasks(tasks.filter((task) => !task.completedAt));
+  const scheduledTaskIds = new Set(
+    events.filter((e) => e.taskId).map((e) => e.taskId as string)
+  );
+  const activeTasks = sortActiveTasks(
+    tasks.filter((task) => !task.completedAt && scheduledTaskIds.has(task.id))
+  );
   const completedTasks = sortCompletedTasks(tasks.filter((task) => task.completedAt));
   const displayedTasks = taskSidebarTab === 'active' ? activeTasks : completedTasks;
+  const incompleteTasksCount = activeTasks.length;
 
   // Mini calendar display data
   const miniCalendarYear = miniCalendarDate.getFullYear();
