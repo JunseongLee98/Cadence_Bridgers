@@ -524,18 +524,18 @@ describe('CalendarAIAgent.distributeTasks', () => {
     expect(ids.has('partial-2')).toBe(true);
   });
 
-  it('spreads AI plan steps through Thursday when due is Friday', () => {
-    // Regression: modest plans packed Mon–Wed only and left Thursday empty.
+  it('spreads AI plan steps evenly across remaining weekdays by task count', () => {
+    // Mon–Fri (5 weekdays), 5 steps → one step start per day, not dumped before due.
     vi.setSystemTime(new Date(2026, 3, 13, 9, 0, 0, 0));
     const start = new Date(2026, 3, 13, 0, 0, 0, 0);
     const end = new Date(2026, 3, 20, 23, 59, 59, 999);
     const due = new Date(2026, 3, 17, 0, 0, 0, 0); // Friday
 
-    const steps = [1, 2, 3].map((order) =>
+    const steps = [1, 2, 3, 4, 5].map((order) =>
       baseTask({
         id: `spread-${order}`,
         title: `Step ${order}`,
-        estimatedDuration: 60,
+        estimatedDuration: 50,
         actualDurations: [],
         dueDate: due,
         planStepOrder: order,
@@ -549,24 +549,71 @@ describe('CalendarAIAgent.distributeTasks', () => {
       start,
       end,
       [{ startHour: 9, endHour: 18 }],
-      5,
+      0,
       50
     );
 
-    const days = new Set(events.map((e) => e.start.getDay()));
-    expect(days.has(4)).toBe(true); // Thursday
-    // Still strictly ordered across steps
+    const firstStartByTask = new Map<string, Date>();
+    for (const e of events) {
+      if (!e.taskId) continue;
+      const prev = firstStartByTask.get(e.taskId);
+      if (!prev || e.start < prev) {
+        firstStartByTask.set(e.taskId, e.start);
+      }
+    }
+    const startDays = [...firstStartByTask.values()].map((d) => d.getDay());
+    expect(new Set(startDays).size).toBe(5);
+    expect(startDays.sort()).toEqual([1, 2, 3, 4, 5]); // Mon–Fri
+
     const first1 = Math.min(
       ...events.filter((e) => e.taskId === 'spread-1').map((e) => e.start.getTime())
     );
-    const first2 = Math.min(
-      ...events.filter((e) => e.taskId === 'spread-2').map((e) => e.start.getTime())
+    const first5 = Math.min(
+      ...events.filter((e) => e.taskId === 'spread-5').map((e) => e.start.getTime())
     );
-    const first3 = Math.min(
-      ...events.filter((e) => e.taskId === 'spread-3').map((e) => e.start.getTime())
+    expect(first1).toBeLessThan(first5);
+  });
+
+  it('assigns two plan steps per day when there are twice as many steps as weekdays', () => {
+    vi.setSystemTime(new Date(2026, 3, 13, 9, 0, 0, 0));
+    const start = new Date(2026, 3, 13, 0, 0, 0, 0);
+    const end = new Date(2026, 3, 20, 23, 59, 59, 999);
+    const due = new Date(2026, 3, 17, 0, 0, 0, 0);
+
+    const steps = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((order) =>
+      baseTask({
+        id: `ten-${order}`,
+        title: `Step ${order}`,
+        estimatedDuration: 40,
+        actualDurations: [],
+        dueDate: due,
+        planStepOrder: order,
+        planId: 'ten-plan',
+      })
     );
-    expect(first1).toBeLessThan(first2);
-    expect(first2).toBeLessThan(first3);
+
+    const events = CalendarAIAgent.distributeTasks(
+      steps,
+      [],
+      start,
+      end,
+      [{ startHour: 9, endHour: 18 }],
+      0,
+      50
+    );
+
+    const counts = new Map<number, number>();
+    const seenTask = new Set<string>();
+    for (const e of events) {
+      if (!e.taskId || seenTask.has(e.taskId)) continue;
+      seenTask.add(e.taskId);
+      const day = e.start.getDay();
+      counts.set(day, (counts.get(day) ?? 0) + 1);
+    }
+    // Mon–Fri each get 2 step starts
+    for (const dow of [1, 2, 3, 4, 5]) {
+      expect(counts.get(dow)).toBe(2);
+    }
   });
 
   it('respects due date cap', () => {
@@ -663,6 +710,28 @@ describe('CalendarAIAgent.distributeTasks', () => {
     const tuesday = extended.filter((e) => e.start.getDate() === 14);
     expect(tuesday.length).toBeGreaterThan(0);
     expect(Math.min(...tuesday.map((e) => e.start.getHours()))).toBeGreaterThanOrEqual(9);
+  });
+});
+
+describe('CalendarAIAgent.assignPlanStepsEvenlyAcrossDays', () => {
+  it('splits steps evenly with remainder on earlier days', () => {
+    const assigned = CalendarAIAgent.assignPlanStepsEvenlyAcrossDays(
+      ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+      ['Mon', 'Tue', 'Wed']
+    );
+    const byDay = (day: string) =>
+      [...assigned.entries()].filter(([, d]) => d === day).map(([id]) => id);
+    expect(byDay('Mon')).toEqual(['a', 'b', 'c']);
+    expect(byDay('Tue')).toEqual(['d', 'e']);
+    expect(byDay('Wed')).toEqual(['f', 'g']);
+  });
+
+  it('puts one step on each day when counts match', () => {
+    const assigned = CalendarAIAgent.assignPlanStepsEvenlyAcrossDays(
+      ['1', '2', '3', '4', '5'],
+      ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+    );
+    expect([...assigned.values()]).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
   });
 });
 
