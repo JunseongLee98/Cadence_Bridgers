@@ -239,7 +239,7 @@ export const ko = {
     confirmDeleteEvent: '이 일정을 삭제할까요?',
     feedSyncFailed: '캘린더 피드 동기화에 실패했습니다.',
     allowOutsideWorkHours:
-      '일부 할 일이 근무 시간 안에 들어가지 않습니다. 근무 시간 밖에도 일정을 배치할까요?',
+      '일부 할 일이 근무 시간 안에 들어가지 않습니다. 근무 종료 이후~그날 자정까지 배치를 허용할까요? (근무 시작 이전에는 배치하지 않습니다.)',
     tasksOmittedNoRoom:
       '배치할 자리가 없어 일부 단계가 할 일 목록에서 빠졌습니다.',
   },

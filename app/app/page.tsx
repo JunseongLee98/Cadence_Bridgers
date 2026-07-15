@@ -1324,7 +1324,9 @@ export default function Home() {
     if (unmet.length > 0) {
       const allowOutside = window.confirm(m.alerts.allowOutsideWorkHours);
       if (allowOutside) {
-        scheduledEvents = runPass(CalendarAIAgent.fullDayWorkSegments());
+        scheduledEvents = runPass(
+          CalendarAIAgent.extendWorkSegmentsPastEnd(configuredSegments)
+        );
       }
     }
 
@@ -1408,7 +1410,9 @@ export default function Home() {
     if (unmet.length > 0) {
       const allowOutside = window.confirm(m.alerts.allowOutsideWorkHours);
       if (allowOutside) {
-        scheduledEvents = runPass(CalendarAIAgent.fullDayWorkSegments());
+        scheduledEvents = runPass(
+          CalendarAIAgent.extendWorkSegmentsPastEnd(configuredSegments)
+        );
       }
     }
 

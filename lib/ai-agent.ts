@@ -1,5 +1,6 @@
 import { Task, CalendarEvent, TimeSlot, TaskDurationStats, WorkSegment } from '@/types';
 import { endOfLocalCalendarDay } from '@/lib/date-utils';
+import { isAllDayLikeEvent } from '@/lib/calendar-event-utils';
 import { SCHEDULE_MAX_HORIZON_DAYS } from '@/lib/schedule-constants';
 
 /**
@@ -17,20 +18,6 @@ import { SCHEDULE_MAX_HORIZON_DAYS } from '@/lib/schedule-constants';
  *   cannot be placed at all, remaining steps are skipped.
  */
 export class CalendarAIAgent {
-  /** Heuristic: treat these as non-blocking all-day placeholders (Canvas due dates, holidays, etc). */
-  private static isAllDayLikeEvent(event: CalendarEvent): boolean {
-    const start = event.start;
-    const end = event.end;
-    const startAtMidnight = start.getHours() === 0 && start.getMinutes() === 0 && start.getSeconds() === 0;
-    const endAtMidnight = end.getHours() === 0 && end.getMinutes() === 0 && end.getSeconds() === 0;
-    const durMs = end.getTime() - start.getTime();
-    // Many ICS feeds represent all-day items as [00:00, 00:00 next day] (24h),
-    // while Canvas sometimes exports assignment due dates as 00:00 with 0 duration.
-    const isZeroDurationMidnight = durMs === 0 && startAtMidnight && endAtMidnight;
-    const isFullDayOrMore = durMs >= 23 * 60 * 60 * 1000 && startAtMidnight && endAtMidnight;
-    return isZeroDurationMidnight || isFullDayOrMore;
-  }
-
   /**
    * Coerce UI / API duration input to a positive integer minute value (fallback 60).
    */
@@ -174,7 +161,7 @@ export class CalendarAIAgent {
 
       for (const event of dayEvents) {
         // Treat all-day events as informational (e.g. Canvas due dates) and do not block work time.
-        if (this.isAllDayLikeEvent(event)) {
+        if (isAllDayLikeEvent(event)) {
           continue;
         }
         // Entirely before this work window
@@ -301,9 +288,20 @@ export class CalendarAIAgent {
     });
   }
 
-  /** Weekday slots for the entire calendar day — used when the user allows outside work hours. */
-  static fullDayWorkSegments(): WorkSegment[] {
-    return [{ startHour: 0, endHour: 24 }];
+  /**
+   * When the user allows scheduling past working hours: keep configured starts
+   * (never earlier than work-hour start) and extend the last block through end of day.
+   * Following days still begin at the normal work start — mornings before that stay empty.
+   */
+  static extendWorkSegmentsPastEnd(workSegments: WorkSegment[]): WorkSegment[] {
+    const normalized = this.normalizeWorkSegments(workSegments);
+    if (normalized.length === 0) {
+      return [{ startHour: 9, endHour: 24 }];
+    }
+    const extended = normalized.map((seg, index) =>
+      index === normalized.length - 1 ? { ...seg, endHour: 24 } : { ...seg }
+    );
+    return this.normalizeWorkSegments(extended);
   }
 
   /**

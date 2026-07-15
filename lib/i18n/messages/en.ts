@@ -244,7 +244,7 @@ export const en = {
     confirmDeleteEvent: 'Delete this event?',
     feedSyncFailed: 'Failed to sync calendar feed.',
     allowOutsideWorkHours:
-      'Some work does not fit in your working hours. Allow Cadence to schedule outside your working hours?',
+      'Some work does not fit in your working hours. Allow Cadence to schedule after your working hours until the end of that day? (Never before your work start.)',
     tasksOmittedNoRoom:
       'Some steps could not be scheduled and were omitted from your task list.',
   },

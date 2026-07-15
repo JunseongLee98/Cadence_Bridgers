@@ -917,6 +917,36 @@ html.dark .rbc-day-slot .calendar-outside-work-hours {
   white-space: normal !important;
 }
 
+/* Timed grid: drop inner time label (position already shows time) so short titles fit */
+.rbc-time-view .rbc-day-slot .rbc-event-label {
+  display: none !important;
+}
+
+.rbc-time-view .rbc-day-slot .rbc-event {
+  padding: 2px 5px !important;
+}
+
+.rbc-time-view .rbc-day-slot .rbc-event--short {
+  padding: 1px 4px !important;
+}
+
+.rbc-time-view .rbc-day-slot .calendar-event-title {
+  width: 100%;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  word-break: break-word;
+}
+
+.rbc-time-view .rbc-day-slot .calendar-event-title--short {
+  font-size: 12px;
+  line-height: 1.15;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .rbc-time-view .rbc-allday-cell .rbc-event-content {
   font-size: 14px !important;
   line-height: 1.1 !important;

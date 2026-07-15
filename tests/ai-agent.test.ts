@@ -619,41 +619,50 @@ describe('CalendarAIAgent.distributeTasks', () => {
     expect(unmet[0].unmetMinutes).toBeGreaterThanOrEqual(15);
   });
 
-  it('can place work outside normal hours with full-day segments', () => {
+  it('extends past work end but never before work start', () => {
     vi.setSystemTime(new Date(2026, 3, 13, 9, 0, 0, 0));
     const start = new Date(2026, 3, 13, 0, 0, 0, 0);
-    const end = new Date(2026, 3, 13, 23, 59, 59, 999);
-    const due = new Date(2026, 3, 13, 0, 0, 0, 0);
+    const end = new Date(2026, 3, 14, 23, 59, 59, 999);
+    const due = new Date(2026, 3, 14, 0, 0, 0, 0);
     const task = baseTask({
       id: 'evening-1',
       title: 'Evening work',
-      estimatedDuration: 180,
+      estimatedDuration: 600,
       dueDate: due,
       actualDurations: [],
     });
+    const work = [{ startHour: 9, endHour: 11 }];
     const narrow = CalendarAIAgent.distributeTasks(
       [task],
       [],
       start,
       end,
-      [{ startHour: 9, endHour: 11 }],
+      work,
       0,
       50
     );
-    const full = CalendarAIAgent.distributeTasks(
+    const extendedSegs = CalendarAIAgent.extendWorkSegmentsPastEnd(work);
+    expect(extendedSegs).toEqual([{ startHour: 9, endHour: 24 }]);
+
+    const extended = CalendarAIAgent.distributeTasks(
       [task],
       [],
       start,
       end,
-      CalendarAIAgent.fullDayWorkSegments(),
+      extendedSegs,
       0,
       50
     );
-    expect(eventMinutesForTask(narrow, 'evening-1')).toBeLessThan(180);
-    expect(eventMinutesForTask(full, 'evening-1')).toBe(180);
-    expect(eventMinutesForTask(full, 'evening-1')).toBeGreaterThan(
-      eventMinutesForTask(narrow, 'evening-1')
+    expect(eventMinutesForTask(narrow, 'evening-1')).toBeLessThan(
+      eventMinutesForTask(extended, 'evening-1')
     );
+    for (const e of extended) {
+      expect(e.start.getHours()).toBeGreaterThanOrEqual(9);
+    }
+    // Day 2 must also start at work hour, not midnight/1am.
+    const tuesday = extended.filter((e) => e.start.getDate() === 14);
+    expect(tuesday.length).toBeGreaterThan(0);
+    expect(Math.min(...tuesday.map((e) => e.start.getHours()))).toBeGreaterThanOrEqual(9);
   });
 });
 

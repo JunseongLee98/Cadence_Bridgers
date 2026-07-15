@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Calendar as BigCalendar, momentLocalizer, View } from 'react-big-calendar';
+import { Calendar as BigCalendar, momentLocalizer, View, type EventProps } from 'react-big-calendar';
 import moment from 'moment';
-import { format } from 'date-fns';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { CalendarEvent } from '@/types';
+import { isAllDayLikeEvent } from '@/lib/calendar-event-utils';
+
+type DisplayEvent = CalendarEvent & { allDay?: boolean };
 
 interface CalendarProps {
   events: CalendarEvent[];
@@ -68,6 +70,24 @@ function TimeSlotWrapper({ children, value }: TimeSlotWrapperProps) {
   );
 }
 
+function TimedEventTitle({ event, title }: EventProps<DisplayEvent>) {
+  const durationMins = Math.max(
+    0,
+    Math.round((event.end.getTime() - event.start.getTime()) / (1000 * 60))
+  );
+  const isShort = !event.allDay && durationMins > 0 && durationMins <= 30;
+  return (
+    <div
+      className={
+        isShort ? 'calendar-event-title calendar-event-title--short' : 'calendar-event-title'
+      }
+      title={title}
+    >
+      {title}
+    </div>
+  );
+}
+
 export default function Calendar({ events, date, view, workHours, onDateChange, onViewChange, onSelectSlot, onSelectEvent }: CalendarProps) {
   const [currentView, setCurrentView] = useState<View>('week');
   const [internalDate, setInternalDate] = useState(new Date());
@@ -84,36 +104,56 @@ export default function Calendar({ events, date, view, workHours, onDateChange, 
   };
 
   const formattedEvents = useMemo(() => {
-    return events.map(event => ({
-      ...event,
-      title: event.title,
-      start: event.start,
-      end: event.end,
-    }));
+    return events.map((event) => {
+      const allDay = isAllDayLikeEvent(event);
+      return {
+        ...event,
+        title: event.title,
+        start: event.start,
+        end: event.end,
+        allDay,
+      };
+    });
   }, [events]);
 
-  // Determine the earliest event start time (by time-of-day) to auto-scroll near it
+  // Earliest timed (non–all-day) start by clock time — all-day midnight must not yank scroll up.
   const scrollTargetTime = useMemo(() => {
-    if (!events || events.length === 0) {
-      return new Date(1970, 0, 1, 6, 0, 0);
+    const fallbackHour = workHours?.segments?.[0]?.startHour ?? 9;
+    const fallback = new Date(1970, 0, 1, fallbackHour, 0, 0);
+
+    const timed = (events ?? []).filter((ev) => !isAllDayLikeEvent(ev));
+    if (timed.length === 0) {
+      return fallback;
     }
 
-    let earliest = events[0].start;
-    for (const ev of events) {
-      if (ev.start < earliest) {
-        earliest = ev.start;
+    let bestMins = Number.POSITIVE_INFINITY;
+    for (const ev of timed) {
+      const mins = ev.start.getHours() * 60 + ev.start.getMinutes();
+      if (mins < bestMins) {
+        bestMins = mins;
       }
     }
 
-    const hours = earliest.getHours();
-    const minutes = earliest.getMinutes();
-    return new Date(1970, 0, 1, hours, minutes, 0, 0);
-  }, [events]);
+    if (!Number.isFinite(bestMins)) {
+      return fallback;
+    }
 
-  const eventStyleGetter = (event: CalendarEvent) => {
+    return new Date(1970, 0, 1, Math.floor(bestMins / 60), bestMins % 60, 0, 0);
+  }, [events, workHours?.segments]);
+
+  const eventStyleGetter = (event: DisplayEvent) => {
     const isTaskBlock = Boolean(event.taskId);
+    const durationMins = Math.round(
+      (event.end.getTime() - event.start.getTime()) / (1000 * 60)
+    );
+    const isShortTimed = !event.allDay && durationMins > 0 && durationMins <= 30;
     return {
-      className: isTaskBlock ? 'rbc-event--cadence-task' : undefined,
+      className: [
+        isTaskBlock ? 'rbc-event--cadence-task' : '',
+        isShortTimed ? 'rbc-event--short' : '',
+      ]
+        .filter(Boolean)
+        .join(' ') || undefined,
       style: {
         backgroundColor: event.color || '#dbeafe',
         borderRadius: '4px',
@@ -177,6 +217,7 @@ export default function Calendar({ events, date, view, workHours, onDateChange, 
           events={formattedEvents}
           startAccessor="start"
           endAccessor="end"
+          allDayAccessor="allDay"
           style={{ height: '100%' }}
           view={view ?? currentView}
           onView={onViewChange ?? setCurrentView}
@@ -207,6 +248,7 @@ export default function Calendar({ events, date, view, workHours, onDateChange, 
           components={{
             toolbar: () => null,
             header: WeekHeader,
+            event: TimedEventTitle,
             timeSlotWrapper: TimeSlotWrapper as unknown as React.ComponentType,
           }}
         />
@@ -214,4 +256,3 @@ export default function Calendar({ events, date, view, workHours, onDateChange, 
     </div>
   );
 }
-
