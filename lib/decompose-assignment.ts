@@ -105,7 +105,7 @@ function buildUserPrompt(input: DecomposeInput): string {
   return `
 You are an expert study-planning assistant for university students.
 
-Given an assignment, break it down into small, actionable subtasks that a student can schedule on their calendar.
+Given an assignment, break it into a short sequence of meaningful work blocks a student can schedule — not a micro checklist.
 
 Assignment:
 - Title: ${title}
@@ -113,9 +113,10 @@ Assignment:
 - Description (may be from Canvas): ${description ?? 'none'}
 
 Guidelines:
-- Output 3–10 concrete subtasks.
-- Make each subtask small and specific (e.g. reading a section and taking notes, drafting an outline, writing an introduction, creating test cases).
-- Include a rough estimated duration in minutes for each subtask (e.g. 45, 60, 90). For large assignments, split work across multiple days.
+- Prefer 2–4 subtasks. Use at most 5 only when the assignment is clearly large or multi-part. Never invent busywork to reach a count; never use 6+ steps for a simple or short task.
+- Keep steps coarse and practical (e.g. "Read and annotate the chapter", "Draft the essay", "Revise and submit") — do NOT over-split into tiny pieces like separate outline / intro / body / conclusion / cite / proofread unless the assignment is long enough that those are real sessions.
+- Combine related work into one step when it would normally be done together in a single sitting.
+- Include a rough estimated duration in minutes for each subtask (e.g. 45, 60, 90, 120). Longer steps are fine; prefer fewer longer blocks over many 30–45 minute crumbs.
 - Order the subtasks in a sensible sequence from 1..N.
 - Do NOT include calendar dates; just describe the work.
 - When the work is measurable, include workAmount (positive number) and workUnit (short freeform label you choose from the assignment, e.g. pages/questions/words or the equivalent in the output language). Do not invent a fixed global unit system—pick whatever unit fits that step.
@@ -138,6 +139,11 @@ Return ONLY valid JSON with this shape (no markdown, no code fence):
 `;
 }
 
+/** Exported for unit tests that assert decompose prompt policy. */
+export function buildDecomposeUserPrompt(input: DecomposeInput): string {
+  return buildUserPrompt(input);
+}
+
 /**
  * Core assignment decomposition used by the Next.js API route and the Chrome extension background.
  */
@@ -153,7 +159,11 @@ export async function decomposeAssignment(
   const userPrompt = buildUserPrompt(input);
 
   const messages: OllamaMessage[] = [
-    { role: 'system', content: 'You are a helpful study planner. Reply only with valid JSON.' },
+    {
+      role: 'system',
+      content:
+        'You are a helpful study planner. Prefer fewer, coarser work blocks over many tiny steps. Reply only with valid JSON.',
+    },
     { role: 'user', content: userPrompt },
   ];
 
@@ -173,7 +183,7 @@ export async function decomposeAssignment(
           (typeof process !== 'undefined' ? process.env?.GROQ_MODEL : undefined) ||
           'llama-3.3-70b-versatile',
         messages: [
-          { role: 'system', content: 'You are a helpful study planner that returns strict JSON.' },
+          { role: 'system', content: 'You are a helpful study planner that returns strict JSON. Prefer 2–4 coarser work blocks; avoid over-splitting simple tasks.' },
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.3,
@@ -223,7 +233,7 @@ export async function decomposeAssignment(
       body: JSON.stringify({
         model: 'gpt-4.1-mini',
         messages: [
-          { role: 'system', content: 'You are a helpful study planner that returns strict JSON.' },
+          { role: 'system', content: 'You are a helpful study planner that returns strict JSON. Prefer 2–4 coarser work blocks; avoid over-splitting simple tasks.' },
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.3,
