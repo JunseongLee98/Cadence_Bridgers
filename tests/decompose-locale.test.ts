@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDecomposeUserPrompt,
   decomposeLanguageInstruction,
+  ensureSubtaskDueDates,
 } from '@/lib/decompose-assignment';
 
 describe('decomposeLanguageInstruction', () => {
@@ -32,5 +33,39 @@ describe('buildDecomposeUserPrompt', () => {
     expect(prompt).toMatch(/at most 5/);
     expect(prompt).toMatch(/over-split|Never invent busywork|coarse/i);
     expect(prompt).not.toMatch(/3–10/);
+  });
+
+  it('requests a fixed step count when stepCount is set', () => {
+    const prompt = buildDecomposeUserPrompt({
+      title: 'Research paper',
+      stepCount: 4,
+    });
+    expect(prompt).toMatch(/exactly 4 subtasks/);
+  });
+
+  it('asks for per-subtask dueDate fields', () => {
+    const prompt = buildDecomposeUserPrompt({
+      title: 'Lab report',
+      dueDate: '2026-08-01',
+    });
+    expect(prompt).toMatch(/"dueDate"/);
+    expect(prompt).toMatch(/YYYY-MM-DD/);
+    expect(prompt).not.toMatch(/Do NOT include calendar dates/);
+  });
+});
+
+describe('ensureSubtaskDueDates', () => {
+  it('spreads missing dates between today and assignment due', () => {
+    const result = ensureSubtaskDueDates(
+      [
+        { title: 'A', order: 1 },
+        { title: 'B', order: 2 },
+        { title: 'C', order: 3 },
+      ],
+      '2030-06-30'
+    );
+    expect(result.every((s) => s.dueDate)).toBe(true);
+    expect(result[0].dueDate! <= result[2].dueDate!).toBe(true);
+    expect(result[2].dueDate).toBe('2030-06-30');
   });
 });

@@ -122,6 +122,8 @@ export default function Home() {
   const [isDecomposingEvent, setIsDecomposingEvent] = useState(false);
   const [isDecomposingNewTask, setIsDecomposingNewTask] = useState(false);
   const [breakDownNewTaskWithAi, setBreakDownNewTaskWithAi] = useState(true);
+  /** `auto` lets the model pick 2–4 steps; otherwise a fixed count (2–6). */
+  const [aiDecomposeStepCount, setAiDecomposeStepCount] = useState<number | 'auto'>('auto');
   const [conversionDuration, setConversionDuration] = useState(60); // Default duration in minutes
   const [workHours, setWorkHours] = useState<{ segments: { startHour: number; endHour: number }[] }>({
     segments: [{ startHour: 9, endHour: 18 }],
@@ -1140,6 +1142,7 @@ export default function Home() {
           dueDate: taskData.dueDate,
           priority: taskData.priority,
           category: taskData.category,
+          stepCount: aiDecomposeStepCount === 'auto' ? undefined : aiDecomposeStepCount,
         });
 
         setTasks((prev) => [...prev, ...newTasks]);
@@ -1204,6 +1207,7 @@ export default function Home() {
     dueDate?: string | Date;
     priority?: 'low' | 'medium' | 'high';
     category?: string;
+    stepCount?: number;
   }): Promise<Task[]> => {
     const dueIso =
       input.dueDate instanceof Date
@@ -1220,6 +1224,7 @@ export default function Home() {
         description: htmlToReadableText(input.description) || undefined,
         dueDate: dueIso,
         locale,
+        stepCount: input.stepCount,
       }),
     });
     if (!res.ok) {
@@ -1249,18 +1254,12 @@ export default function Home() {
       (a: { order: number }, b: { order: number }) => a.order - b.order
     );
     const planId = uuidv4();
-    const assignmentDue = dueIso
-      ? parseLocalDateInput(
-          dueIso.includes('T')
-            ? formatDateToLocalISO(new Date(dueIso))
-            : dueIso.slice(0, 10)
-        )
-      : undefined;
 
     return ordered.map(
       (st: {
         title: string;
         description?: string;
+        dueDate?: string;
         estimatedMinutes?: number;
         workAmount?: number;
         workUnit?: string;
@@ -1272,7 +1271,11 @@ export default function Home() {
         estimatedDuration: st.estimatedMinutes ?? 60,
         priority: input.priority ?? ('medium' as const),
         category: input.category ?? '',
-        dueDate: assignmentDue,
+        dueDate: (() => {
+          if (!st.dueDate) return undefined;
+          const d = parseLocalDateInput(st.dueDate);
+          return Number.isNaN(d.getTime()) ? undefined : d;
+        })(),
         planStepOrder: st.order,
         planId,
         procedureTitle: st.title,
@@ -1709,6 +1712,7 @@ export default function Home() {
         description: event.description,
         dueDate: event.start,
         priority: 'medium',
+        stepCount: aiDecomposeStepCount === 'auto' ? undefined : aiDecomposeStepCount,
       });
 
       setTasks((prev) => [...prev, ...newTasks]);
@@ -2842,6 +2846,31 @@ export default function Home() {
                   </button>
                 </div>
 
+                {breakDownNewTaskWithAi && Boolean(newTask.description?.trim()) && (
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      {m.addTask.aiStepCount}
+                    </label>
+                    <select
+                      value={aiDecomposeStepCount === 'auto' ? 'auto' : String(aiDecomposeStepCount)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setAiDecomposeStepCount(v === 'auto' ? 'auto' : parseInt(v, 10));
+                      }}
+                      disabled={isDecomposingNewTask}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    >
+                      <option value="auto">{m.addTask.aiStepCountAuto}</option>
+                      {[2, 3, 4, 5, 6].map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-[11px] text-gray-500">{m.addTask.aiStepCountHint}</p>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Estimated Duration
@@ -3061,6 +3090,25 @@ export default function Home() {
               </div>
             </div>
             <div className="space-y-2">
+              <label className="block text-xs font-medium text-gray-700">
+                {m.addTask.aiStepCount}
+              </label>
+              <select
+                value={aiDecomposeStepCount === 'auto' ? 'auto' : String(aiDecomposeStepCount)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setAiDecomposeStepCount(v === 'auto' ? 'auto' : parseInt(v, 10));
+                }}
+                disabled={isDecomposingEvent}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              >
+                <option value="auto">{m.addTask.aiStepCountAuto}</option>
+                {[2, 3, 4, 5, 6].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
               <button
                 type="button"
                 onClick={() => handleBreakDownWithAI(selectedEvent)}

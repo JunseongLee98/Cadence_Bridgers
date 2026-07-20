@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { decomposeAssignment } from '@/lib/decompose-assignment';
+import { decomposeAssignment, normalizeDecomposeStepCount } from '@/lib/decompose-assignment';
 
 /**
  * POST /api/assignments/decompose
@@ -8,11 +8,12 @@ import { decomposeAssignment } from '@/lib/decompose-assignment';
  */
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { title, description, dueDate, locale } = body as {
+  const { title, description, dueDate, locale, stepCount } = body as {
     title?: string;
     description?: string;
     dueDate?: string;
     locale?: string;
+    stepCount?: number;
   };
 
   if (!title) {
@@ -23,7 +24,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const result = await decomposeAssignment(
-      { title, description, dueDate, locale: normalizedLocale },
+      {
+        title,
+        description,
+        dueDate,
+        locale: normalizedLocale,
+        stepCount: normalizeDecomposeStepCount(stepCount),
+      },
       {
         openaiApiKey: process.env.OPENAI_API_KEY,
         groqApiKey: process.env.GROQ_API_KEY,

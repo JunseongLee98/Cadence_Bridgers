@@ -1,3 +1,4 @@
+import { formatDateToLocalISO, parseLocalDateInput } from '@/lib/date-utils';
 import { ollamaChat } from '@/lib/ollama';
 import type { OllamaMessage } from '@/lib/ollama';
 
@@ -5,6 +6,8 @@ export interface DecomposeInput {
   title: string;
   description?: string;
   dueDate?: string;
+  /** Target number of subtasks (2–8). Omit for automatic count. */
+  stepCount?: number;
   /** App UI locale — subtask titles/descriptions should be written in this language. */
   locale?: 'en' | 'ko';
 }
@@ -12,6 +15,8 @@ export interface DecomposeInput {
 export interface DecomposeSubtask {
   title: string;
   description?: string;
+  /** Suggested finish-by date for this step (`YYYY-MM-DD`, local calendar day). */
+  dueDate?: string;
   estimatedMinutes?: number;
   /** AI-inferred measurable quantity for this step (e.g. 20). */
   workAmount?: number;
@@ -100,8 +105,91 @@ export function decomposeLanguageInstruction(locale?: string): string {
   ].join('\n');
 }
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function isValidIsoCalendarDate(value: string): boolean {
+  if (!ISO_DATE_RE.test(value)) return false;
+  const d = parseLocalDateInput(value);
+  return !Number.isNaN(d.getTime());
+}
+
+/** Clamp user step count to a safe range for prompts and validation. */
+export function normalizeDecomposeStepCount(stepCount?: number): number | undefined {
+  if (stepCount === undefined || stepCount === null) return undefined;
+  if (!Number.isFinite(stepCount)) return undefined;
+  const n = Math.round(stepCount);
+  if (n < 2 || n > 8) return undefined;
+  return n;
+}
+
+/** Exported for unit tests that assert decompose prompt policy. */
+export function buildStepCountGuideline(stepCount?: number): string {
+  const normalized = normalizeDecomposeStepCount(stepCount);
+  if (normalized === undefined) {
+    return [
+      '- Prefer 2–4 subtasks. Use at most 5 only when the assignment is clearly large or multi-part. Never invent busywork to reach a count; never use 6+ steps for a simple or short task.',
+      '- Keep steps coarse and practical (e.g. "Read and annotate the chapter", "Draft the essay", "Revise and submit") — do NOT over-split into tiny pieces like separate outline / intro / body / conclusion / cite / proofread unless the assignment is long enough that those are real sessions.',
+      '- Combine related work into one step when it would normally be done together in a single sitting.',
+    ].join('\n');
+  }
+  return [
+    `- Create exactly ${normalized} subtasks (no more, no fewer).`,
+    '- Keep each step a meaningful work block a student can schedule in one or a few sittings.',
+    '- Combine related work when needed to hit the count without inventing busywork.',
+  ].join('\n');
+}
+
+function buildDueDateGuideline(assignmentDue?: string): string {
+  const today = formatDateToLocalISO(new Date());
+  const dueLine = assignmentDue
+    ? `- The assignment is due ${assignmentDue.includes('T') ? assignmentDue.slice(0, 10) : assignmentDue}; the final subtask must have dueDate on or before that day.`
+    : '- No assignment due date was given; spread subtask due dates across the next 7–14 days starting from today.';
+  return [
+    '- Assign each subtask a "dueDate" (YYYY-MM-DD): the calendar day that step should be finished by.',
+    `- Today is ${today}. Earlier steps get earlier due dates; keep due dates in non-decreasing order by step order.`,
+    dueLine,
+  ].join('\n');
+}
+
+/** Fill missing per-step due dates by spreading from today through the assignment due date. */
+export function ensureSubtaskDueDates(
+  subtasks: DecomposeSubtask[],
+  assignmentDueIso?: string
+): DecomposeSubtask[] {
+  if (subtasks.length === 0) return subtasks;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let end = new Date(today);
+  if (assignmentDueIso) {
+    const datePart = assignmentDueIso.includes('T')
+      ? formatDateToLocalISO(new Date(assignmentDueIso))
+      : assignmentDueIso.slice(0, 10);
+    if (isValidIsoCalendarDate(datePart)) {
+      end = parseLocalDateInput(datePart);
+    }
+  } else {
+    end.setDate(end.getDate() + 14);
+  }
+  if (end.getTime() < today.getTime()) {
+    end = new Date(today);
+  }
+
+  const n = subtasks.length;
+  return subtasks.map((st, i) => {
+    if (st.dueDate && isValidIsoCalendarDate(st.dueDate)) return st;
+    if (n === 1) {
+      return { ...st, dueDate: formatDateToLocalISO(end) };
+    }
+    const t = i / (n - 1);
+    const ms = today.getTime() + t * (end.getTime() - today.getTime());
+    return { ...st, dueDate: formatDateToLocalISO(new Date(ms)) };
+  });
+}
+
 function buildUserPrompt(input: DecomposeInput): string {
-  const { title, description, dueDate, locale } = input;
+  const { title, description, dueDate, locale, stepCount } = input;
   return `
 You are an expert study-planning assistant for university students.
 
@@ -113,12 +201,10 @@ Assignment:
 - Description (may be from Canvas): ${description ?? 'none'}
 
 Guidelines:
-- Prefer 2–4 subtasks. Use at most 5 only when the assignment is clearly large or multi-part. Never invent busywork to reach a count; never use 6+ steps for a simple or short task.
-- Keep steps coarse and practical (e.g. "Read and annotate the chapter", "Draft the essay", "Revise and submit") — do NOT over-split into tiny pieces like separate outline / intro / body / conclusion / cite / proofread unless the assignment is long enough that those are real sessions.
-- Combine related work into one step when it would normally be done together in a single sitting.
+${buildStepCountGuideline(stepCount)}
 - Include a rough estimated duration in minutes for each subtask (e.g. 45, 60, 90, 120). Longer steps are fine; prefer fewer longer blocks over many 30–45 minute crumbs.
 - Order the subtasks in a sensible sequence from 1..N.
-- Do NOT include calendar dates; just describe the work.
+${buildDueDateGuideline(dueDate)}
 - When the work is measurable, include workAmount (positive number) and workUnit (short freeform label you choose from the assignment, e.g. pages/questions/words or the equivalent in the output language). Do not invent a fixed global unit system—pick whatever unit fits that step.
 - Omit workAmount and workUnit when the step is not quantifiable (e.g. brainstorming ideas, reviewing feedback).
 ${decomposeLanguageInstruction(locale)}
@@ -129,6 +215,7 @@ Return ONLY valid JSON with this shape (no markdown, no code fence):
     {
       "title": "string",
       "description": "string",
+      "dueDate": "2026-07-10",
       "estimatedMinutes": 60,
       "workAmount": 20,
       "workUnit": "pages",
@@ -284,9 +371,17 @@ export async function decomposeAssignment(
       workAmount: st.workAmount,
       workUnit: st.workUnit,
     });
+    let dueDate: string | undefined;
+    if (typeof st.dueDate === 'string') {
+      const candidate = st.dueDate.trim().slice(0, 10);
+      if (isValidIsoCalendarDate(candidate)) {
+        dueDate = candidate;
+      }
+    }
     cleaned.push({
       title,
       description,
+      dueDate,
       estimatedMinutes,
       ...work,
       order: cleaned.length + 1,
@@ -297,5 +392,6 @@ export async function decomposeAssignment(
     throw new Error('Model returned no usable subtasks (missing titles).');
   }
 
-  return { subtasks: cleaned };
+  const withDueDates = ensureSubtaskDueDates(cleaned, input.dueDate);
+  return { subtasks: withDueDates };
 }

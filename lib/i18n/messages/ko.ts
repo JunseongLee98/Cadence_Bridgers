@@ -91,6 +91,9 @@ export const ko = {
     breakDownAi: 'AI로 세부 단계 나누기',
     breakDownAiHint:
       '설명을 바탕으로 순서 있는 하위 할 일과 예상 시간을 만든 뒤, 자동 배치가 켜져 있으면 캘린더에 넣습니다.',
+    aiStepCount: '단계 수',
+    aiStepCountAuto: '자동 (2–4)',
+    aiStepCountHint: 'AI가 이 과제를 나눌 하위 할 일 개수입니다.',
     breakingDown: 'AI로 나누는 중…',
     scheduleAuto: '자동 일정 배치',
     scheduleAutoHint:

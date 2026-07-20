@@ -5,6 +5,7 @@ import { CalendarAIAgent } from '@/lib/ai-agent';
 import { SCHEDULE_MAX_HORIZON_DAYS } from '../../lib/schedule-constants';
 import { cadenceRequest } from '@/lib/cadence-request';
 import { parseICSFile } from '@/lib/ics-parser';
+import { parseLocalDateInput } from '@/lib/date-utils';
 
 const TASKS_KEY = 'cadence_tasks';
 const EVENTS_KEY = 'cadence_events';
@@ -73,6 +74,7 @@ export function CadencePanel(): React.ReactElement {
 
   const [aiTitle, setAiTitle] = useState('');
   const [aiDesc, setAiDesc] = useState('');
+  const [aiStepCount, setAiStepCount] = useState<number | 'auto'>('auto');
 
   const [icsUrl, setIcsUrl] = useState('');
   const [icsName, setIcsName] = useState('');
@@ -306,6 +308,7 @@ export function CadencePanel(): React.ReactElement {
         subtasks: Array<{
           title: string;
           description?: string;
+          dueDate?: string;
           estimatedMinutes?: number;
           workAmount?: number;
           workUnit?: string;
@@ -316,6 +319,7 @@ export function CadencePanel(): React.ReactElement {
         payload: {
           title: aiTitle.trim(),
           description: aiDesc || undefined,
+          stepCount: aiStepCount === 'auto' ? undefined : aiStepCount,
           locale: navigator.language.toLowerCase().startsWith('ko') ? 'ko' : 'en',
         },
       });
@@ -328,6 +332,11 @@ export function CadencePanel(): React.ReactElement {
         estimatedDuration: st.estimatedMinutes ?? 60,
         priority: 'medium' as const,
         category: '',
+        dueDate: (() => {
+          if (!st.dueDate) return undefined;
+          const d = parseLocalDateInput(st.dueDate);
+          return Number.isNaN(d.getTime()) ? undefined : d;
+        })(),
         planStepOrder: st.order,
         planId,
         procedureTitle: st.title,
@@ -552,6 +561,23 @@ export function CadencePanel(): React.ReactElement {
             onChange={(e) => setAiDesc(e.target.value)}
             style={{ marginTop: 8 }}
           />
+          <label className="muted" style={{ display: 'block', marginTop: 8 }}>
+            Steps{' '}
+            <select
+              value={aiStepCount === 'auto' ? 'auto' : String(aiStepCount)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setAiStepCount(v === 'auto' ? 'auto' : parseInt(v, 10));
+              }}
+            >
+              <option value="auto">Auto (2–4)</option>
+              {[2, 3, 4, 5, 6].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
           <button type="button" className="btn btn-primary" style={{ marginTop: 8 }} disabled={busy} onClick={handleDecompose}>
             Break down & schedule
           </button>

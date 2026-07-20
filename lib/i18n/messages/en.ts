@@ -91,6 +91,9 @@ export const en = {
     breakDownAi: 'Break down with AI',
     breakDownAiHint:
       'Uses your description to create ordered subtasks with time estimates, then schedules them when auto-schedule is on.',
+    aiStepCount: 'Number of steps',
+    aiStepCountAuto: 'Auto (2–4)',
+    aiStepCountHint: 'How many subtasks the AI should create when breaking down this assignment.',
     breakingDown: 'Breaking down with AI…',
     scheduleAuto: 'Schedule automatically',
     scheduleAutoHint: 'Cadence will split this task into focus-sized blocks and place them on your calendar.',

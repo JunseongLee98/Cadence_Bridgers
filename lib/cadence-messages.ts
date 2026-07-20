@@ -5,7 +5,13 @@
 export type CadenceMessage =
   | {
       type: 'CADENCE_DECOMPOSE';
-      payload: { title: string; description?: string; dueDate?: string; locale?: 'en' | 'ko' };
+      payload: {
+        title: string;
+        description?: string;
+        dueDate?: string;
+        stepCount?: number;
+        locale?: 'en' | 'ko';
+      };
     }
   | {
       type: 'CADENCE_GET_GOOGLE_EVENTS';
