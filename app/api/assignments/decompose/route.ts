@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { decomposeAssignment, normalizeDecomposeStepCount } from '@/lib/decompose-assignment';
+import {
+  clampDecomposeMaxSteps,
+  decomposeAssignment,
+  normalizeDecomposeMaxSteps,
+} from '@/lib/decompose-assignment';
 
 /**
  * POST /api/assignments/decompose
@@ -8,11 +12,13 @@ import { decomposeAssignment, normalizeDecomposeStepCount } from '@/lib/decompos
  */
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { title, description, dueDate, locale, stepCount } = body as {
+  const { title, description, dueDate, locale, maxSteps, stepCount } = body as {
     title?: string;
     description?: string;
     dueDate?: string;
     locale?: string;
+    maxSteps?: number;
+    /** @deprecated use maxSteps */
     stepCount?: number;
   };
 
@@ -29,7 +35,7 @@ export async function POST(request: NextRequest) {
         description,
         dueDate,
         locale: normalizedLocale,
-        stepCount: normalizeDecomposeStepCount(stepCount),
+        maxSteps: normalizeDecomposeMaxSteps(maxSteps ?? stepCount),
       },
       {
         openaiApiKey: process.env.OPENAI_API_KEY,

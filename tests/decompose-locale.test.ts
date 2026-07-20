@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildDecomposeUserPrompt,
+  capDecomposeSubtasks,
   decomposeLanguageInstruction,
   ensureSubtaskDueDates,
 } from '@/lib/decompose-assignment';
@@ -29,18 +30,25 @@ describe('buildDecomposeUserPrompt', () => {
       title: 'Write a short reflection',
       description: 'One page reflection on the reading',
     });
-    expect(prompt).toMatch(/Prefer 2–4 subtasks/);
-    expect(prompt).toMatch(/at most 5/);
-    expect(prompt).toMatch(/over-split|Never invent busywork|coarse/i);
-    expect(prompt).not.toMatch(/3–10/);
+    expect(prompt).toMatch(/at most 4 subtasks/);
+    expect(prompt).toMatch(/never exceed 4/);
   });
 
-  it('requests a fixed step count when stepCount is set', () => {
+  it('respects a higher maxSteps cap in the prompt', () => {
     const prompt = buildDecomposeUserPrompt({
       title: 'Research paper',
-      stepCount: 4,
+      maxSteps: 15,
     });
-    expect(prompt).toMatch(/exactly 4 subtasks/);
+    expect(prompt).toMatch(/at most 15 subtasks/);
+    expect(prompt).toMatch(/never exceed 15/);
+  });
+
+  it('uses default max steps when maxSteps is omitted', () => {
+    const prompt = buildDecomposeUserPrompt({
+      title: 'Write a short reflection',
+      description: 'One page reflection on the reading',
+    });
+    expect(prompt).toMatch(/at most 4 subtasks/);
   });
 
   it('asks for per-subtask dueDate fields', () => {
@@ -51,6 +59,18 @@ describe('buildDecomposeUserPrompt', () => {
     expect(prompt).toMatch(/"dueDate"/);
     expect(prompt).toMatch(/YYYY-MM-DD/);
     expect(prompt).not.toMatch(/Do NOT include calendar dates/);
+  });
+});
+
+describe('capDecomposeSubtasks', () => {
+  it('truncates when the model returns too many steps', () => {
+    const many = [1, 2, 3, 4, 5].map((order) => ({
+      title: `Step ${order}`,
+      order,
+    }));
+    const result = capDecomposeSubtasks(many, 3);
+    expect(result).toHaveLength(3);
+    expect(result.map((s) => s.order)).toEqual([1, 2, 3]);
   });
 });
 

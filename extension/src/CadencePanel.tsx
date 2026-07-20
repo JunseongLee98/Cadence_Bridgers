@@ -6,6 +6,12 @@ import { SCHEDULE_MAX_HORIZON_DAYS } from '../../lib/schedule-constants';
 import { cadenceRequest } from '@/lib/cadence-request';
 import { parseICSFile } from '@/lib/ics-parser';
 import { parseLocalDateInput } from '@/lib/date-utils';
+import {
+  AI_DECOMPOSE_STEP_PRESETS,
+  clampDecomposeMaxSteps,
+  DECOMPOSE_ABS_MAX_STEPS,
+  DECOMPOSE_MIN_MAX_STEPS,
+} from '@/lib/decompose-assignment';
 
 const TASKS_KEY = 'cadence_tasks';
 const EVENTS_KEY = 'cadence_events';
@@ -74,7 +80,9 @@ export function CadencePanel(): React.ReactElement {
 
   const [aiTitle, setAiTitle] = useState('');
   const [aiDesc, setAiDesc] = useState('');
-  const [aiStepCount, setAiStepCount] = useState<number | 'auto'>('auto');
+  const [aiMaxStepsMode, setAiMaxStepsMode] = useState<'preset' | 'custom'>('preset');
+  const [aiMaxSteps, setAiMaxSteps] = useState(4);
+  const [aiMaxStepsCustom, setAiMaxStepsCustom] = useState(12);
 
   const [icsUrl, setIcsUrl] = useState('');
   const [icsName, setIcsName] = useState('');
@@ -319,7 +327,10 @@ export function CadencePanel(): React.ReactElement {
         payload: {
           title: aiTitle.trim(),
           description: aiDesc || undefined,
-          stepCount: aiStepCount === 'auto' ? undefined : aiStepCount,
+          maxSteps:
+            aiMaxStepsMode === 'custom'
+              ? clampDecomposeMaxSteps(aiMaxStepsCustom)
+              : aiMaxSteps,
           locale: navigator.language.toLowerCase().startsWith('ko') ? 'ko' : 'en',
         },
       });
@@ -562,22 +573,40 @@ export function CadencePanel(): React.ReactElement {
             style={{ marginTop: 8 }}
           />
           <label className="muted" style={{ display: 'block', marginTop: 8 }}>
-            Steps{' '}
+            Max steps{' '}
             <select
-              value={aiStepCount === 'auto' ? 'auto' : String(aiStepCount)}
+              value={aiMaxStepsMode === 'custom' ? 'custom' : String(aiMaxSteps)}
               onChange={(e) => {
-                const v = e.target.value;
-                setAiStepCount(v === 'auto' ? 'auto' : parseInt(v, 10));
+                const value = e.target.value;
+                if (value === 'custom') {
+                  setAiMaxStepsMode('custom');
+                  return;
+                }
+                setAiMaxStepsMode('preset');
+                setAiMaxSteps(parseInt(value, 10) || 4);
               }}
             >
-              <option value="auto">Auto (2–4)</option>
-              {[2, 3, 4, 5, 6].map((n) => (
+              {AI_DECOMPOSE_STEP_PRESETS.map((n) => (
                 <option key={n} value={n}>
-                  {n}
+                  Up to {n}
                 </option>
               ))}
+              <option value="custom">Custom</option>
             </select>
           </label>
+          {aiMaxStepsMode === 'custom' && (
+            <input
+              type="number"
+              min={DECOMPOSE_MIN_MAX_STEPS}
+              max={DECOMPOSE_ABS_MAX_STEPS}
+              step={1}
+              value={aiMaxStepsCustom}
+              onChange={(e) =>
+                setAiMaxStepsCustom(clampDecomposeMaxSteps(parseInt(e.target.value, 10)))
+              }
+              style={{ marginTop: 8, width: 72 }}
+            />
+          )}
           <button type="button" className="btn btn-primary" style={{ marginTop: 8 }} disabled={busy} onClick={handleDecompose}>
             Break down & schedule
           </button>

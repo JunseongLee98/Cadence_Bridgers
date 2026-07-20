@@ -524,12 +524,11 @@ describe('CalendarAIAgent.distributeTasks', () => {
     expect(ids.has('partial-2')).toBe(true);
   });
 
-  it('spreads AI plan steps evenly across remaining weekdays by task count', () => {
+  it('spreads AI plan steps evenly across remaining weekdays by task count when due dates are missing', () => {
     // Mon–Fri (5 weekdays), 5 steps → one step start per day, not dumped before due.
     vi.setSystemTime(new Date(2026, 3, 13, 9, 0, 0, 0));
     const start = new Date(2026, 3, 13, 0, 0, 0, 0);
     const end = new Date(2026, 3, 20, 23, 59, 59, 999);
-    const due = new Date(2026, 3, 17, 0, 0, 0, 0); // Friday
 
     const steps = [1, 2, 3, 4, 5].map((order) =>
       baseTask({
@@ -537,7 +536,6 @@ describe('CalendarAIAgent.distributeTasks', () => {
         title: `Step ${order}`,
         estimatedDuration: 50,
         actualDurations: [],
-        dueDate: due,
         planStepOrder: order,
         planId: 'spread-plan',
       })
@@ -574,11 +572,44 @@ describe('CalendarAIAgent.distributeTasks', () => {
     expect(first1).toBeLessThan(first5);
   });
 
+  it('schedules AI plan steps on their subtask due date when set', () => {
+    vi.setSystemTime(new Date(2026, 6, 20, 9, 0, 0, 0)); // Mon Jul 20, 2026
+    const start = new Date(2026, 6, 20, 0, 0, 0, 0);
+    const end = new Date(2026, 7, 15, 23, 59, 59, 999);
+    const due = new Date(2026, 7, 7, 0, 0, 0, 0); // Aug 7
+
+    const step = baseTask({
+      id: 'due-aug-7',
+      title: 'Final draft',
+      estimatedDuration: 60,
+      actualDurations: [],
+      dueDate: due,
+      planStepOrder: 1,
+      planId: 'due-plan',
+    });
+
+    const events = CalendarAIAgent.distributeTasks(
+      [step],
+      [],
+      start,
+      end,
+      [{ startHour: 9, endHour: 18 }],
+      0,
+      50
+    );
+
+    expect(events.length).toBeGreaterThan(0);
+    const first = events.find((e) => e.taskId === 'due-aug-7');
+    expect(first).toBeDefined();
+    expect(first!.start.getFullYear()).toBe(2026);
+    expect(first!.start.getMonth()).toBe(7);
+    expect(first!.start.getDate()).toBe(7);
+  });
+
   it('assigns two plan steps per day when there are twice as many steps as weekdays', () => {
     vi.setSystemTime(new Date(2026, 3, 13, 9, 0, 0, 0));
     const start = new Date(2026, 3, 13, 0, 0, 0, 0);
-    const end = new Date(2026, 3, 20, 23, 59, 59, 999);
-    const due = new Date(2026, 3, 17, 0, 0, 0, 0);
+    const end = new Date(2026, 3, 17, 23, 59, 59, 999);
 
     const steps = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((order) =>
       baseTask({
@@ -586,7 +617,6 @@ describe('CalendarAIAgent.distributeTasks', () => {
         title: `Step ${order}`,
         estimatedDuration: 40,
         actualDurations: [],
-        dueDate: due,
         planStepOrder: order,
         planId: 'ten-plan',
       })

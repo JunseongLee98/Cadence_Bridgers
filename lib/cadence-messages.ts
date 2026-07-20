@@ -9,7 +9,7 @@ export type CadenceMessage =
         title: string;
         description?: string;
         dueDate?: string;
-        stepCount?: number;
+        maxSteps?: number;
         locale?: 'en' | 'ko';
       };
     }

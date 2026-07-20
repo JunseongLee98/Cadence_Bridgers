@@ -598,12 +598,42 @@ export class CalendarAIAgent {
       if (planSpreadWeekdays.length === 0) {
         planSpreadWeekdays = [this.localDayKey(planStart)];
       }
-      const assigned = this.assignPlanStepsEvenlyAcrossDays(
-        orderedPlanTaskIds,
-        planSpreadWeekdays
-      );
-      for (const [taskId, dayKey] of assigned) {
-        planTaskTargetDay.set(taskId, dayKey);
+
+      const planTasksById = new Map<string, Task>();
+      for (const { task } of planChunks) {
+        planTasksById.set(task.id, task);
+      }
+
+      const withoutDueTarget: string[] = [];
+      for (const taskId of orderedPlanTaskIds) {
+        const task = planTasksById.get(taskId);
+        const due = task ? this.getTaskDueDeadline(task) : null;
+        if (due) {
+          planTaskTargetDay.set(taskId, this.localDayKey(due));
+        } else {
+          withoutDueTarget.push(taskId);
+        }
+      }
+
+      if (withoutDueTarget.length > 0) {
+        const assigned = this.assignPlanStepsEvenlyAcrossDays(
+          withoutDueTarget,
+          planSpreadWeekdays
+        );
+        for (const [taskId, dayKey] of assigned) {
+          planTaskTargetDay.set(taskId, dayKey);
+        }
+      }
+
+      const targetDayKeys = new Set(planTaskTargetDay.values());
+      if (targetDayKeys.size > 0) {
+        const keyToSortable = (dayKey: string) => {
+          const [y, m, d] = dayKey.split('-').map(Number);
+          return new Date(y, m, d).getTime();
+        };
+        planSpreadWeekdays = [...targetDayKeys].sort(
+          (a, b) => keyToSortable(a) - keyToSortable(b)
+        );
       }
     }
 

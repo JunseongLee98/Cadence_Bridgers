@@ -6,8 +6,8 @@ export interface DecomposeInput {
   title: string;
   description?: string;
   dueDate?: string;
-  /** Target number of subtasks (2–8). Omit for automatic count. */
-  stepCount?: number;
+  /** Maximum subtasks the model may return (2–10). Omit for default planning rules. */
+  maxSteps?: number;
   /** App UI locale — subtask titles/descriptions should be written in this language. */
   locale?: 'en' | 'ko';
 }
@@ -113,29 +113,61 @@ export function isValidIsoCalendarDate(value: string): boolean {
   return !Number.isNaN(d.getTime());
 }
 
-/** Clamp user step count to a safe range for prompts and validation. */
-export function normalizeDecomposeStepCount(stepCount?: number): number | undefined {
-  if (stepCount === undefined || stepCount === null) return undefined;
-  if (!Number.isFinite(stepCount)) return undefined;
-  const n = Math.round(stepCount);
-  if (n < 2 || n > 8) return undefined;
+const DEFAULT_MAX_STEPS = 4;
+
+/** Minimum subtasks the user may allow (also used when clamping). */
+export const DECOMPOSE_MIN_MAX_STEPS = 2;
+
+/** Last value in the preset dropdown (2…N). Custom input may go higher. */
+export const DECOMPOSE_PRESET_MAX_STEPS = 10;
+
+/** Upper bound for custom max-step input (prompt size / runaway model output). */
+export const DECOMPOSE_ABS_MAX_STEPS = 50;
+
+export const AI_DECOMPOSE_STEP_PRESETS: number[] = Array.from(
+  { length: DECOMPOSE_PRESET_MAX_STEPS - DECOMPOSE_MIN_MAX_STEPS + 1 },
+  (_, i) => DECOMPOSE_MIN_MAX_STEPS + i
+);
+
+/** Clamp user max-step setting to a safe range for prompts and validation. */
+export function normalizeDecomposeMaxSteps(maxSteps?: number): number | undefined {
+  if (maxSteps === undefined || maxSteps === null) return undefined;
+  if (!Number.isFinite(maxSteps)) return undefined;
+  const n = Math.round(maxSteps);
+  if (n < DECOMPOSE_MIN_MAX_STEPS || n > DECOMPOSE_ABS_MAX_STEPS) return undefined;
   return n;
 }
 
+/** Clamp a raw UI value to the allowed max-steps range. */
+export function clampDecomposeMaxSteps(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_MAX_STEPS;
+  const n = Math.round(value);
+  return Math.min(DECOMPOSE_ABS_MAX_STEPS, Math.max(DECOMPOSE_MIN_MAX_STEPS, n));
+}
+
+/** @deprecated Use normalizeDecomposeMaxSteps */
+export function normalizeDecomposeStepCount(stepCount?: number): number | undefined {
+  return normalizeDecomposeMaxSteps(stepCount);
+}
+
+/** Trim excess subtasks if the model exceeded the user's maximum. */
+export function capDecomposeSubtasks(
+  subtasks: DecomposeSubtask[],
+  maxSteps?: number
+): DecomposeSubtask[] {
+  const max = normalizeDecomposeMaxSteps(maxSteps);
+  if (!max || subtasks.length <= max) return subtasks;
+  return subtasks.slice(0, max).map((st, i) => ({ ...st, order: i + 1 }));
+}
+
 /** Exported for unit tests that assert decompose prompt policy. */
-export function buildStepCountGuideline(stepCount?: number): string {
-  const normalized = normalizeDecomposeStepCount(stepCount);
-  if (normalized === undefined) {
-    return [
-      '- Prefer 2–4 subtasks. Use at most 5 only when the assignment is clearly large or multi-part. Never invent busywork to reach a count; never use 6+ steps for a simple or short task.',
-      '- Keep steps coarse and practical (e.g. "Read and annotate the chapter", "Draft the essay", "Revise and submit") — do NOT over-split into tiny pieces like separate outline / intro / body / conclusion / cite / proofread unless the assignment is long enough that those are real sessions.',
-      '- Combine related work into one step when it would normally be done together in a single sitting.',
-    ].join('\n');
-  }
+export function buildStepCountGuideline(maxSteps?: number): string {
+  const normalized = normalizeDecomposeMaxSteps(maxSteps) ?? DEFAULT_MAX_STEPS;
   return [
-    `- Create exactly ${normalized} subtasks (no more, no fewer).`,
-    '- Keep each step a meaningful work block a student can schedule in one or a few sittings.',
-    '- Combine related work when needed to hit the count without inventing busywork.',
+    `- Use at most ${normalized} subtasks. Use fewer (down to 2) when the assignment is simple; never exceed ${normalized}.`,
+    '- Keep steps coarse and practical (e.g. "Read and annotate the chapter", "Draft the essay", "Revise and submit") — do NOT over-split into tiny pieces unless the assignment truly needs more sessions.',
+    '- Combine related work into one step when it would normally be done together in a single sitting.',
+    '- Never invent busywork to approach the maximum; fewer meaningful blocks are better.',
   ].join('\n');
 }
 
@@ -189,7 +221,7 @@ export function ensureSubtaskDueDates(
 }
 
 function buildUserPrompt(input: DecomposeInput): string {
-  const { title, description, dueDate, locale, stepCount } = input;
+  const { title, description, dueDate, locale, maxSteps } = input;
   return `
 You are an expert study-planning assistant for university students.
 
@@ -201,7 +233,7 @@ Assignment:
 - Description (may be from Canvas): ${description ?? 'none'}
 
 Guidelines:
-${buildStepCountGuideline(stepCount)}
+${buildStepCountGuideline(maxSteps)}
 - Include a rough estimated duration in minutes for each subtask (e.g. 45, 60, 90, 120). Longer steps are fine; prefer fewer longer blocks over many 30–45 minute crumbs.
 - Order the subtasks in a sensible sequence from 1..N.
 ${buildDueDateGuideline(dueDate)}
@@ -392,6 +424,7 @@ export async function decomposeAssignment(
     throw new Error('Model returned no usable subtasks (missing titles).');
   }
 
-  const withDueDates = ensureSubtaskDueDates(cleaned, input.dueDate);
+  const capped = capDecomposeSubtasks(cleaned, input.maxSteps);
+  const withDueDates = ensureSubtaskDueDates(capped, input.dueDate);
   return { subtasks: withDueDates };
 }

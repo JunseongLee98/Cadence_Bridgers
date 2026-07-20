@@ -5,6 +5,12 @@ export function formatDateToLocalISO(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/** Format a stored due date for UI without UTC date-only parsing shifts. */
+export function formatLocalDateForDisplay(date: Date, locale: string): string {
+  const local = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return local.toLocaleDateString(locale);
+}
+
 /** Parse `YYYY-MM-DD` as local midnight (avoids UTC-only parsing from `new Date(iso)`). */
 export function parseLocalDateInput(isoDate: string): Date {
   const parts = isoDate.split('-').map(Number);

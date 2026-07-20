@@ -17,7 +17,13 @@ import {
 import { filterEventsForCalendarFeed, serializeFeedEvents } from '@/lib/calendar-feed-events';
 import { CalendarAIAgent } from '@/lib/ai-agent';
 import { SCHEDULE_MAX_HORIZON_DAYS } from '@/lib/schedule-constants';
-import { formatDateToLocalISO, parseLocalDateInput } from '@/lib/date-utils';
+import { formatDateToLocalISO, formatLocalDateForDisplay, parseLocalDateInput } from '@/lib/date-utils';
+import {
+  AI_DECOMPOSE_STEP_PRESETS,
+  clampDecomposeMaxSteps,
+  DECOMPOSE_ABS_MAX_STEPS,
+  DECOMPOSE_MIN_MAX_STEPS,
+} from '@/lib/decompose-assignment';
 import Calendar from '@/components/Calendar';
 import NotificationsBell from '@/components/NotificationsBell';
 import { v4 as uuidv4 } from 'uuid';
@@ -122,8 +128,9 @@ export default function Home() {
   const [isDecomposingEvent, setIsDecomposingEvent] = useState(false);
   const [isDecomposingNewTask, setIsDecomposingNewTask] = useState(false);
   const [breakDownNewTaskWithAi, setBreakDownNewTaskWithAi] = useState(true);
-  /** `auto` lets the model pick 2–4 steps; otherwise a fixed count (2–6). */
-  const [aiDecomposeStepCount, setAiDecomposeStepCount] = useState<number | 'auto'>('auto');
+  const [aiMaxStepsMode, setAiMaxStepsMode] = useState<'preset' | 'custom'>('preset');
+  const [aiDecomposeMaxSteps, setAiDecomposeMaxSteps] = useState(4);
+  const [aiDecomposeMaxStepsCustom, setAiDecomposeMaxStepsCustom] = useState(12);
   const [conversionDuration, setConversionDuration] = useState(60); // Default duration in minutes
   const [workHours, setWorkHours] = useState<{ segments: { startHour: number; endHour: number }[] }>({
     segments: [{ startHour: 9, endHour: 18 }],
@@ -1142,7 +1149,7 @@ export default function Home() {
           dueDate: taskData.dueDate,
           priority: taskData.priority,
           category: taskData.category,
-          stepCount: aiDecomposeStepCount === 'auto' ? undefined : aiDecomposeStepCount,
+          maxSteps: effectiveAiMaxSteps,
         });
 
         setTasks((prev) => [...prev, ...newTasks]);
@@ -1207,7 +1214,7 @@ export default function Home() {
     dueDate?: string | Date;
     priority?: 'low' | 'medium' | 'high';
     category?: string;
-    stepCount?: number;
+    maxSteps?: number;
   }): Promise<Task[]> => {
     const dueIso =
       input.dueDate instanceof Date
@@ -1224,7 +1231,7 @@ export default function Home() {
         description: htmlToReadableText(input.description) || undefined,
         dueDate: dueIso,
         locale,
-        stepCount: input.stepCount,
+        maxSteps: input.maxSteps,
       }),
     });
     if (!res.ok) {
@@ -1712,7 +1719,7 @@ export default function Home() {
         description: event.description,
         dueDate: event.start,
         priority: 'medium',
-        stepCount: aiDecomposeStepCount === 'auto' ? undefined : aiDecomposeStepCount,
+        maxSteps: effectiveAiMaxSteps,
       });
 
       setTasks((prev) => [...prev, ...newTasks]);
@@ -1787,6 +1794,11 @@ export default function Home() {
   const completedTasks = sortCompletedTasks(tasks.filter((task) => task.completedAt));
   const displayedTasks = taskSidebarTab === 'active' ? activeTasks : completedTasks;
   const incompleteTasksCount = activeTasks.length;
+
+  const effectiveAiMaxSteps =
+    aiMaxStepsMode === 'custom'
+      ? clampDecomposeMaxSteps(aiDecomposeMaxStepsCustom)
+      : aiDecomposeMaxSteps;
 
   // Mini calendar display data
   const miniCalendarYear = miniCalendarDate.getFullYear();
@@ -2668,7 +2680,8 @@ export default function Home() {
 
                             {task.dueDate && (
                               <span className="font-medium text-orange-600">
-                                {m.tasks.due} {new Date(task.dueDate).toLocaleDateString(dateLocale)}
+                                {m.tasks.due}{' '}
+                                {formatLocalDateForDisplay(task.dueDate, dateLocale)}
                               </span>
                             )}
                           </div>
@@ -2849,25 +2862,46 @@ export default function Home() {
                 {breakDownNewTaskWithAi && Boolean(newTask.description?.trim()) && (
                   <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
                     <label className="block text-xs font-medium text-gray-700 mb-1">
-                      {m.addTask.aiStepCount}
+                      {m.addTask.aiMaxSteps}
                     </label>
                     <select
-                      value={aiDecomposeStepCount === 'auto' ? 'auto' : String(aiDecomposeStepCount)}
+                      value={aiMaxStepsMode === 'custom' ? 'custom' : String(aiDecomposeMaxSteps)}
                       onChange={(e) => {
-                        const v = e.target.value;
-                        setAiDecomposeStepCount(v === 'auto' ? 'auto' : parseInt(v, 10));
+                        const value = e.target.value;
+                        if (value === 'custom') {
+                          setAiMaxStepsMode('custom');
+                          return;
+                        }
+                        setAiMaxStepsMode('preset');
+                        setAiDecomposeMaxSteps(parseInt(value, 10) || 4);
                       }}
                       disabled={isDecomposingNewTask}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     >
-                      <option value="auto">{m.addTask.aiStepCountAuto}</option>
-                      {[2, 3, 4, 5, 6].map((n) => (
+                      {AI_DECOMPOSE_STEP_PRESETS.map((n) => (
                         <option key={n} value={n}>
-                          {n}
+                          {t('addTask.aiMaxStepsOption', { n })}
                         </option>
                       ))}
+                      <option value="custom">{m.addTask.aiMaxStepsCustom}</option>
                     </select>
-                    <p className="mt-1 text-[11px] text-gray-500">{m.addTask.aiStepCountHint}</p>
+                    {aiMaxStepsMode === 'custom' && (
+                      <input
+                        type="number"
+                        min={DECOMPOSE_MIN_MAX_STEPS}
+                        max={DECOMPOSE_ABS_MAX_STEPS}
+                        step={1}
+                        value={aiDecomposeMaxStepsCustom}
+                        onChange={(e) =>
+                          setAiDecomposeMaxStepsCustom(
+                            clampDecomposeMaxSteps(parseInt(e.target.value, 10))
+                          )
+                        }
+                        disabled={isDecomposingNewTask}
+                        className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      />
+                    )}
+                    <p className="mt-1 text-[11px] text-gray-500">{m.addTask.aiMaxStepsHint}</p>
                   </div>
                 )}
 
@@ -3091,24 +3125,45 @@ export default function Home() {
             </div>
             <div className="space-y-2">
               <label className="block text-xs font-medium text-gray-700">
-                {m.addTask.aiStepCount}
+                {m.addTask.aiMaxSteps}
               </label>
               <select
-                value={aiDecomposeStepCount === 'auto' ? 'auto' : String(aiDecomposeStepCount)}
+                value={aiMaxStepsMode === 'custom' ? 'custom' : String(aiDecomposeMaxSteps)}
                 onChange={(e) => {
-                  const v = e.target.value;
-                  setAiDecomposeStepCount(v === 'auto' ? 'auto' : parseInt(v, 10));
+                  const value = e.target.value;
+                  if (value === 'custom') {
+                    setAiMaxStepsMode('custom');
+                    return;
+                  }
+                  setAiMaxStepsMode('preset');
+                  setAiDecomposeMaxSteps(parseInt(value, 10) || 4);
                 }}
                 disabled={isDecomposingEvent}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
-                <option value="auto">{m.addTask.aiStepCountAuto}</option>
-                {[2, 3, 4, 5, 6].map((n) => (
+                {AI_DECOMPOSE_STEP_PRESETS.map((n) => (
                   <option key={n} value={n}>
-                    {n}
+                    {t('addTask.aiMaxStepsOption', { n })}
                   </option>
                 ))}
+                <option value="custom">{m.addTask.aiMaxStepsCustom}</option>
               </select>
+              {aiMaxStepsMode === 'custom' && (
+                <input
+                  type="number"
+                  min={DECOMPOSE_MIN_MAX_STEPS}
+                  max={DECOMPOSE_ABS_MAX_STEPS}
+                  step={1}
+                  value={aiDecomposeMaxStepsCustom}
+                  onChange={(e) =>
+                    setAiDecomposeMaxStepsCustom(
+                      clampDecomposeMaxSteps(parseInt(e.target.value, 10))
+                    )
+                  }
+                  disabled={isDecomposingEvent}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              )}
               <button
                 type="button"
                 onClick={() => handleBreakDownWithAI(selectedEvent)}
