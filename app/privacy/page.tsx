@@ -45,10 +45,11 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>Personalized learning profile (when signed in with Google).</strong> If you connect
-          Google, Cadence uses your Google account id to store a per-user learning profile that
-          tracks how your actual completion times compare with AI estimates (by work unit). This is
-          used only to tailor future duration suggestions for you. Population research telemetry
-          remains anonymous and separate.
+          Google, Cadence stores a per-user learning profile — keyed by your Google account id, and
+          including your email and display name — on our server-side storage, tracking how your
+          actual completion times compare with AI estimates (by work unit). This is used only to
+          tailor future duration suggestions for you. Population research telemetry remains anonymous
+          and separate.
         </li>
         <li>
           <strong>Technical data.</strong> Our hosting provider may automatically collect standard
@@ -100,23 +101,46 @@ export default function PrivacyPage() {
           access.
         </li>
         <li>
+          Your personalized learning profile (Google account id, email, display name, and timing
+          calibration history) is stored server-side on our hosting/storage providers (Vercel Blob or
+          Upstash Redis, depending on configuration) so it can follow you across devices and browser
+          sessions.
+        </li>
+        <li>
           Feed/sync features may store Cadence event data on our hosting/storage providers (for
           example Vercel and related storage) so your subscription URL can be served.
         </li>
       </ul>
 
-      <h2>5. Sharing</h2>
+      <h2>5. Data protection</h2>
       <p>
-        We share data only as needed to run Cadence (for example with Google when you authorize
-        Calendar access, and with infrastructure providers that host the app). We do not share your
-        Google Calendar data with third parties for their own marketing.
+        Data in transit between your browser, Cadence, and Google is encrypted (HTTPS/TLS). Google
+        OAuth tokens are kept only in your browser, never on our servers. Server-side storage
+        (learning profiles, feed/sync data) is accessed only by Cadence&apos;s own backend using
+        provider-issued credentials that are not exposed to the client, and is not shared with
+        unrelated third parties. We limit what we store to what each feature needs to function.
       </p>
 
-      <h2>6. Retention &amp; your choices</h2>
+      <h2>6. Sharing &amp; transfer</h2>
+      <p>
+        We share data only as needed to run Cadence: with Google (to authorize and perform the
+        Calendar actions you request) and with the infrastructure providers that host the app and its
+        storage (for example Vercel and Upstash). These providers process data only on our behalf to
+        operate Cadence. We do not sell or transfer Google user data to data brokers, advertisers, or
+        any other third party, and we do not share your Google Calendar data with third parties for
+        their own marketing.
+      </p>
+
+      <h2>7. Retention &amp; deletion</h2>
       <ul>
         <li>
-          You can disconnect Google Calendar in Cadence settings, which clears local Google tokens
-          from the browser.
+          Disconnecting Google Calendar in Cadence settings clears local Google tokens from your
+          browser <strong>and</strong> permanently deletes your server-side learning profile (Google
+          account id, email, display name, and timing calibration history).
+        </li>
+        <li>
+          If you never disconnect, the learning profile is retained until you do, or until you delete
+          your account data by contacting us (see Contact below).
         </li>
         <li>
           You can revoke Cadence&apos;s access at any time in your Google Account under{' '}
@@ -127,27 +151,28 @@ export default function PrivacyPage() {
           >
             Third-party access
           </a>
-          .
+          . This immediately stops Cadence from using your Google tokens; disconnecting inside Cadence
+          (above) is what removes the stored learning profile.
         </li>
         <li>
           Clearing site data in your browser removes local Cadence data stored on that device.
         </li>
       </ul>
 
-      <h2>7. Children</h2>
+      <h2>8. Children</h2>
       <p>
         Cadence is intended for students and general users. It is not directed at children under 13.
         Do not use the service if you are under 13.
       </p>
 
-      <h2>8. Changes</h2>
+      <h2>9. Changes</h2>
       <p>
         We may update this Privacy Policy from time to time. The &quot;Last updated&quot; date at
         the top will change when we do. Continued use of Cadence after an update means you accept
         the revised policy.
       </p>
 
-      <h2>9. Contact</h2>
+      <h2>10. Contact</h2>
       <p>
         Questions about this Privacy Policy or Cadence&apos;s handling of data can be sent through
         the Capstone Bridgers / Cadence project maintainers listed with the live site at{' '}

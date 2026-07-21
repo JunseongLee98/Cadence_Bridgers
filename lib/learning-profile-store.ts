@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { get, head, put } from '@vercel/blob';
+import { del, get, head, put } from '@vercel/blob';
 import type { LearningProfile } from '@/lib/estimate-calibration';
 
 const DATA_DIR =
@@ -120,6 +120,21 @@ function saveFile(profile: LearningProfile): void {
   fs.writeFileSync(localFilePath(profile.googleSub), JSON.stringify(profile), 'utf8');
 }
 
+function deleteFile(googleSub: string): void {
+  const file = localFilePath(googleSub);
+  if (fs.existsSync(file)) fs.unlinkSync(file);
+}
+
+async function deleteBlob(googleSub: string): Promise<void> {
+  await del(blobPathname(googleSub));
+}
+
+async function deleteRedis(googleSub: string): Promise<void> {
+  const { Redis } = await import('@upstash/redis');
+  const redis = Redis.fromEnv();
+  await redis.del(redisKey(googleSub));
+}
+
 export function emptyLearningProfile(
   googleSub: string,
   extras?: { email?: string; displayName?: string }
@@ -158,6 +173,20 @@ export async function saveLearningProfile(profile: LearningProfile): Promise<voi
     return;
   }
   saveFile(next);
+}
+
+/** Permanently delete a user's stored learning profile (Google sub, email, name, timing history). */
+export async function deleteLearningProfile(googleSub: string): Promise<void> {
+  assertServerStorageConfigured();
+  if (useBlobStore()) {
+    await deleteBlob(googleSub);
+    return;
+  }
+  if (useRedisStore()) {
+    await deleteRedis(googleSub);
+    return;
+  }
+  deleteFile(googleSub);
 }
 
 export async function getOrCreateLearningProfile(

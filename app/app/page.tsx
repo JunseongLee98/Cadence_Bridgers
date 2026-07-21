@@ -40,6 +40,7 @@ import {
   type CalibrationByUnit,
 } from '@/lib/estimate-calibration';
 import {
+  deleteLearningProfile,
   fetchLearningProfile,
   postLearningCalibration,
 } from '@/lib/learning-client';
@@ -527,7 +528,13 @@ export default function Home() {
   };
 
   // Disconnect from Google Calendar
-  const handleDisconnectGoogle = () => {
+  const handleDisconnectGoogle = async () => {
+    try {
+      const accessToken = await getGoogleAccessTokenForLearning();
+      if (accessToken) await deleteLearningProfile(accessToken);
+    } catch (err) {
+      console.warn('Failed to delete server-side learning profile on disconnect', err);
+    }
     storage.clearGoogleTokens();
     setGoogleConnected(false);
     setGoogleEvents([]);

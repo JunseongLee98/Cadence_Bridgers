@@ -25,6 +25,15 @@ export async function fetchLearningProfile(
   return data;
 }
 
+/** Permanently delete the signed-in user's server-side learning profile. */
+export async function deleteLearningProfile(accessToken: string): Promise<boolean> {
+  const res = await fetch('/api/learning/profile', {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  return res.ok;
+}
+
 /** Push a completion gap into the per-Google-user calibration store. */
 export async function postLearningCalibration(
   accessToken: string,

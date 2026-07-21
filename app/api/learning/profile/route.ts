@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { bearerAccessToken, fetchGoogleUserInfo } from '@/lib/google-userinfo';
-import { getOrCreateLearningProfile } from '@/lib/learning-profile-store';
+import { deleteLearningProfile, getOrCreateLearningProfile } from '@/lib/learning-profile-store';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -33,6 +33,31 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('learning profile GET:', error);
     const message = error instanceof Error ? error.message : 'Failed to load profile';
+    const status = message.includes('userinfo') ? 401 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
+}
+
+/**
+ * DELETE /api/learning/profile
+ * Authorization: Bearer <Google access_token>
+ * Permanently deletes the caller's stored learning profile (Google sub, email,
+ * display name, and timing calibration history).
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const accessToken = bearerAccessToken(request);
+    if (!accessToken) {
+      return NextResponse.json({ error: 'Missing Bearer access token' }, { status: 401 });
+    }
+
+    const user = await fetchGoogleUserInfo(accessToken);
+    await deleteLearningProfile(user.sub);
+
+    return NextResponse.json({ deleted: true });
+  } catch (error) {
+    console.error('learning profile DELETE:', error);
+    const message = error instanceof Error ? error.message : 'Failed to delete profile';
     const status = message.includes('userinfo') ? 401 : 500;
     return NextResponse.json({ error: message }, { status });
   }
