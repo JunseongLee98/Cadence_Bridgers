@@ -15,13 +15,13 @@ const STORAGE = {
   googleOAuthClientId: 'cadence_google_oauth_client_id',
 } as const;
 
+// The extension only reads calendars/events (see fetchGoogleCalendarEventsRest
+// below); it never creates or modifies anything, so it needs no write scope.
 const CALENDAR_SCOPES = [
   'openid',
   'email',
   'profile',
   'https://www.googleapis.com/auth/calendar.readonly',
-  'https://www.googleapis.com/auth/calendar.events',
-  'https://www.googleapis.com/auth/calendar',
 ].join(' ');
 
 const LEARNING_API_ORIGIN = 'https://www.bridgerscadence.com';

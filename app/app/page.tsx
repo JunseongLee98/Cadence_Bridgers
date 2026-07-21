@@ -538,8 +538,8 @@ export default function Home() {
     setShowGoogleCalendarsDialog(false);
   };
 
-  // Force a fresh OAuth consent (needed after the write scope was added, so the
-  // app gets calendar.events access + a refresh token and can create the calendar).
+  // Force a fresh OAuth consent (needed after a scope change, so the app gets
+  // the current scopes + a refresh token and can create the calendar).
   const handleReconnectGoogle = () => {
     storage.clearGoogleTokens();
     setGoogleConnected(false);

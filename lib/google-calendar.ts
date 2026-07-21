@@ -9,10 +9,12 @@ const SCOPES = [
   'openid',
   'email',
   'profile',
+  // Read the user's existing calendars/events to display them.
   'https://www.googleapis.com/auth/calendar.readonly',
-  'https://www.googleapis.com/auth/calendar.events',
-  // Needed for Calendars.insert (creating the dedicated "Cadence" secondary calendar)
-  'https://www.googleapis.com/auth/calendar',
+  // Create the dedicated "Cadence" secondary calendar and manage events on it
+  // (Calendars.insert + event CRUD), without granting access to the user's
+  // other calendars.
+  'https://www.googleapis.com/auth/calendar.app.created',
 ];
 
 /** Exchange a refresh token for a fresh access token (access tokens expire ~1h). */
