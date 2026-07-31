@@ -524,8 +524,8 @@ describe('CalendarAIAgent.distributeTasks', () => {
     expect(ids.has('partial-2')).toBe(true);
   });
 
-  it('packs short AI plans into fewer days instead of stretching to the due horizon', () => {
-    // 5 × 50min = 250min fits in one 9–18 workday → all on Monday, not Mon–Fri.
+  it('packs short AI plans into fewer days when there is no due date', () => {
+    // 5 × 50min = 250min fits in one 9–18 workday → all on Monday (no due → compact).
     vi.setSystemTime(new Date(2026, 3, 13, 9, 0, 0, 0));
     const start = new Date(2026, 3, 13, 0, 0, 0, 0);
     const end = new Date(2026, 3, 20, 23, 59, 59, 999);
@@ -563,14 +563,57 @@ describe('CalendarAIAgent.distributeTasks', () => {
     const startDays = [...firstStartByTask.values()].map((d) => d.getDay());
     expect(new Set(startDays).size).toBe(1);
     expect(startDays[0]).toBe(1); // Monday
+  });
+
+  it('spreads AI plan steps across weekdays through the due date', () => {
+    // Mon–Fri due window, 5 steps → one start per weekday (not all Monday).
+    vi.setSystemTime(new Date(2026, 3, 13, 9, 0, 0, 0));
+    const start = new Date(2026, 3, 13, 0, 0, 0, 0);
+    const end = new Date(2026, 3, 20, 23, 59, 59, 999);
+    const due = new Date(2026, 3, 17, 0, 0, 0, 0); // Friday
+
+    const steps = [1, 2, 3, 4, 5].map((order) =>
+      baseTask({
+        id: `pace-${order}`,
+        title: `Step ${order}`,
+        estimatedDuration: 50,
+        actualDurations: [],
+        dueDate: due,
+        planStepOrder: order,
+        planId: 'pace-plan',
+      })
+    );
+
+    const events = CalendarAIAgent.distributeTasks(
+      steps,
+      [],
+      start,
+      end,
+      [{ startHour: 9, endHour: 18 }],
+      0,
+      50
+    );
+
+    const firstStartByTask = new Map<string, Date>();
+    for (const e of events) {
+      if (!e.taskId) continue;
+      const prev = firstStartByTask.get(e.taskId);
+      if (!prev || e.start < prev) {
+        firstStartByTask.set(e.taskId, e.start);
+      }
+    }
+    expect(firstStartByTask.size).toBe(5);
+    const startDays = [...firstStartByTask.values()].map((d) => d.getDay());
+    expect(new Set(startDays).size).toBe(5);
+    expect(startDays.sort()).toEqual([1, 2, 3, 4, 5]); // Mon–Fri
 
     const first1 = Math.min(
-      ...events.filter((e) => e.taskId === 'spread-1').map((e) => e.start.getTime())
+      ...events.filter((e) => e.taskId === 'pace-1').map((e) => e.start.getTime())
     );
     const first5 = Math.min(
-      ...events.filter((e) => e.taskId === 'spread-5').map((e) => e.start.getTime())
+      ...events.filter((e) => e.taskId === 'pace-5').map((e) => e.start.getTime())
     );
-    expect(first1).toBeLessThanOrEqual(first5);
+    expect(first1).toBeLessThan(first5);
   });
 
   it('packs AI plan steps early and still finishes before a far due date', () => {

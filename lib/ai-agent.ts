@@ -629,13 +629,8 @@ export class CalendarAIAgent {
       futureSlots.sort((a, b) => a.start.getTime() - b.start.getTime())
     );
 
-    const planDayMid = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-    const planAnchorWeekStart = this.startOfSundayWeek(planDayMid);
-    const planAnchorWeekEndEx = new Date(planAnchorWeekStart);
-    planAnchorWeekEndEx.setDate(planAnchorWeekEndEx.getDate() + 7);
-
-    // Pack AI plan steps into a compact weekday window sized to estimated work
-    // (not stretched to each step's due date). Due dates remain hard deadlines when placing.
+    // Spread AI plan steps evenly across weekdays through the plan due date.
+    // Without a due date, keep a compact window sized to estimated work (avoid a 14-day dump).
     let planSpreadWeekdays: string[] = [];
     const planTaskTargetDay = new Map<string, string>();
     if (planChunks.length > 0) {
@@ -646,7 +641,7 @@ export class CalendarAIAgent {
         startDate.getDate()
       );
       let planStart = startMid.getTime() > todayMid.getTime() ? startMid : todayMid;
-      // If today's work window is basically over, start packing on the next weekday.
+      // If today's work window is basically over, start on the next weekday.
       if (this.remainingWorkMinutesToday(now, normalizedSegments) < 30) {
         const next = this.nextWeekdayOnOrAfter(
           new Date(todayMid.getFullYear(), todayMid.getMonth(), todayMid.getDate() + 1)
@@ -679,21 +674,26 @@ export class CalendarAIAgent {
         lastInstant.getDate()
       );
       const allWeekdays = this.listWeekdayKeysBetweenInclusive(planStart, planEnd);
-      let totalPlanMinutes = 0;
-      for (const taskId of orderedPlanTaskIds) {
-        const t = planTasksById.get(taskId);
-        if (t) totalPlanMinutes += this.calculateTaskDuration(t);
+      if (latestPlanDue && allWeekdays.length > 0) {
+        // Pace work across the full due window (e.g. Mon→Fri when due Friday).
+        planSpreadWeekdays = allWeekdays;
+      } else {
+        let totalPlanMinutes = 0;
+        for (const taskId of orderedPlanTaskIds) {
+          const t = planTasksById.get(taskId);
+          if (t) totalPlanMinutes += this.calculateTaskDuration(t);
+        }
+        const dailyCap = this.estimateDailyWorkMinutes(normalizedSegments);
+        const dayCount = this.compactPlanDayCount(
+          totalPlanMinutes,
+          dailyCap,
+          Math.max(1, allWeekdays.length)
+        );
+        planSpreadWeekdays =
+          allWeekdays.length > 0
+            ? allWeekdays.slice(0, dayCount)
+            : [this.localDayKey(planStart)];
       }
-      const dailyCap = this.estimateDailyWorkMinutes(normalizedSegments);
-      const dayCount = this.compactPlanDayCount(
-        totalPlanMinutes,
-        dailyCap,
-        Math.max(1, allWeekdays.length)
-      );
-      planSpreadWeekdays =
-        allWeekdays.length > 0
-          ? allWeekdays.slice(0, dayCount)
-          : [this.localDayKey(planStart)];
       const assigned = this.assignPlanStepsEvenlyAcrossDays(
         orderedPlanTaskIds,
         planSpreadWeekdays
@@ -898,22 +898,8 @@ export class CalendarAIAgent {
         }
 
         if (usesPlanOrder) {
-          // Prefer the current week when it still has candidates; otherwise keep the full pool
-          // (e.g. Friday evening → Monday next week must remain schedulable).
-          let anchorWeekEnd = planAnchorWeekEndEx.getTime();
-          if (dueEnd && dueEnd.getTime() < anchorWeekEnd) {
-            anchorWeekEnd = dueEnd.getTime();
-          }
-          const inAnchorWeek = pool.filter(
-            (c) =>
-              c.start.getTime() >= planAnchorWeekStart.getTime() &&
-              c.start.getTime() < anchorWeekEnd
-          );
-          if (inAnchorWeek.length > 0) {
-            pool = inAnchorWeek;
-          }
-
-          // Prefer the pre-assigned day; otherwise spill to any later free slot (including next week).
+          // Prefer the pre-assigned day; otherwise spill forward (including later weeks).
+          // Do not force the current calendar week — that collapses due-window pacing onto Monday.
           if (targetDay && planSpreadWeekdays.length > 0) {
             const onTarget = pool.filter((c) => c.dayKey === targetDay);
             if (onTarget.length > 0) {
