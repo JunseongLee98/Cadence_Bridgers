@@ -445,6 +445,28 @@ export class CalendarAIAgent {
     return out;
   }
 
+  /** Rough productive minutes available in one workday from configured segments. */
+  static estimateDailyWorkMinutes(
+    workSegments: WorkSegment[] = [{ startHour: 9, endHour: 18 }]
+  ): number {
+    const segments = this.normalizeWorkSegments(workSegments);
+    let mins = 0;
+    for (const s of segments) {
+      mins += Math.max(0, (s.endHour - s.startHour) * 60);
+    }
+    return Math.max(60, mins);
+  }
+
+  /**
+   * How many weekdays are needed to fit `totalMinutes` given daily capacity.
+   * Keeps short plans compact instead of stretching across the full due horizon.
+   */
+  static compactPlanDayCount(totalMinutes: number, dailyCapacityMinutes: number, maxDays: number): number {
+    const cap = Math.max(60, dailyCapacityMinutes);
+    const needed = Math.max(1, Math.ceil(Math.max(0, totalMinutes) / cap));
+    return Math.min(Math.max(1, maxDays), needed);
+  }
+
   /**
    * Distribute tasks across available calendar slots
    * breakAfterEventsMinutes: gap after each event/task before next can be scheduled
@@ -561,8 +583,8 @@ export class CalendarAIAgent {
     const planAnchorWeekEndEx = new Date(planAnchorWeekStart);
     planAnchorWeekEndEx.setDate(planAnchorWeekEndEx.getDate() + 7);
 
-    // Evenly assign AI plan steps across remaining weekdays through the due date
-    // (by task count — not minutes), so work doesn't dump on the day before due.
+    // Pack AI plan steps into a compact weekday window sized to estimated work
+    // (not stretched to each step's due date). Due dates remain hard deadlines when placing.
     let planSpreadWeekdays: string[] = [];
     const planTaskTargetDay = new Map<string, string>();
     if (planChunks.length > 0) {
@@ -576,7 +598,9 @@ export class CalendarAIAgent {
       let latestPlanDue: Date | null = null;
       const orderedPlanTaskIds: string[] = [];
       const seenPlanTasks = new Set<string>();
+      const planTasksById = new Map<string, Task>();
       for (const { task } of planChunks) {
+        planTasksById.set(task.id, task);
         if (!seenPlanTasks.has(task.id)) {
           seenPlanTasks.add(task.id);
           orderedPlanTaskIds.push(task.id);
@@ -594,46 +618,28 @@ export class CalendarAIAgent {
         lastInstant.getMonth(),
         lastInstant.getDate()
       );
-      planSpreadWeekdays = this.listWeekdayKeysBetweenInclusive(planStart, planEnd);
-      if (planSpreadWeekdays.length === 0) {
-        planSpreadWeekdays = [this.localDayKey(planStart)];
-      }
-
-      const planTasksById = new Map<string, Task>();
-      for (const { task } of planChunks) {
-        planTasksById.set(task.id, task);
-      }
-
-      const withoutDueTarget: string[] = [];
+      const allWeekdays = this.listWeekdayKeysBetweenInclusive(planStart, planEnd);
+      let totalPlanMinutes = 0;
       for (const taskId of orderedPlanTaskIds) {
-        const task = planTasksById.get(taskId);
-        const due = task ? this.getTaskDueDeadline(task) : null;
-        if (due) {
-          planTaskTargetDay.set(taskId, this.localDayKey(due));
-        } else {
-          withoutDueTarget.push(taskId);
-        }
+        const t = planTasksById.get(taskId);
+        if (t) totalPlanMinutes += this.calculateTaskDuration(t);
       }
-
-      if (withoutDueTarget.length > 0) {
-        const assigned = this.assignPlanStepsEvenlyAcrossDays(
-          withoutDueTarget,
-          planSpreadWeekdays
-        );
-        for (const [taskId, dayKey] of assigned) {
-          planTaskTargetDay.set(taskId, dayKey);
-        }
-      }
-
-      const targetDayKeys = new Set(planTaskTargetDay.values());
-      if (targetDayKeys.size > 0) {
-        const keyToSortable = (dayKey: string) => {
-          const [y, m, d] = dayKey.split('-').map(Number);
-          return new Date(y, m, d).getTime();
-        };
-        planSpreadWeekdays = [...targetDayKeys].sort(
-          (a, b) => keyToSortable(a) - keyToSortable(b)
-        );
+      const dailyCap = this.estimateDailyWorkMinutes(normalizedSegments);
+      const dayCount = this.compactPlanDayCount(
+        totalPlanMinutes,
+        dailyCap,
+        Math.max(1, allWeekdays.length)
+      );
+      planSpreadWeekdays =
+        allWeekdays.length > 0
+          ? allWeekdays.slice(0, dayCount)
+          : [this.localDayKey(planStart)];
+      const assigned = this.assignPlanStepsEvenlyAcrossDays(
+        orderedPlanTaskIds,
+        planSpreadWeekdays
+      );
+      for (const [taskId, dayKey] of assigned) {
+        planTaskTargetDay.set(taskId, dayKey);
       }
     }
 

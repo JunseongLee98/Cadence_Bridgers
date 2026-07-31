@@ -164,10 +164,10 @@ export function capDecomposeSubtasks(
 export function buildStepCountGuideline(maxSteps?: number): string {
   const normalized = normalizeDecomposeMaxSteps(maxSteps) ?? DEFAULT_MAX_STEPS;
   return [
-    `- Use at most ${normalized} subtasks. Use fewer (down to 2) when the assignment is simple; never exceed ${normalized}.`,
-    '- Keep steps coarse and practical (e.g. "Read and annotate the chapter", "Draft the essay", "Revise and submit") — do NOT over-split into tiny pieces unless the assignment truly needs more sessions.',
-    '- Combine related work into one step when it would normally be done together in a single sitting.',
-    '- Never invent busywork to approach the maximum; fewer meaningful blocks are better.',
+    `- Use at most ${normalized} subtasks. Prefer 2–3 for ordinary homework; never exceed ${normalized}.`,
+    '- Assume a capable university student: do not over-specify or micro-manage (no separate outline/intro/body/conclusion/cite/proofread steps unless the assignment is clearly a large multi-day project).',
+    '- Keep steps coarse and practical (e.g. "Read and annotate the chapter", "Draft the essay", "Revise and submit"). Combine related work that fits in one sitting.',
+    '- Never invent busywork to approach the maximum; fewer meaningful blocks are better than a detailed checklist.',
   ].join('\n');
 }
 
@@ -175,15 +175,16 @@ function buildDueDateGuideline(assignmentDue?: string): string {
   const today = formatDateToLocalISO(new Date());
   const dueLine = assignmentDue
     ? `- The assignment is due ${assignmentDue.includes('T') ? assignmentDue.slice(0, 10) : assignmentDue}; the final subtask must have dueDate on or before that day.`
-    : '- No assignment due date was given; spread subtask due dates across the next 7–14 days starting from today.';
+    : '- No assignment due date was given; keep due dates tight (finish within a few days for short work — do not invent a multi-week timeline).';
   return [
-    '- Assign each subtask a "dueDate" (YYYY-MM-DD): the calendar day that step should be finished by.',
+    '- Assign each subtask a "dueDate" (YYYY-MM-DD): the calendar day that step should be finished by (a deadline, not a schedule-on date).',
     `- Today is ${today}. Earlier steps get earlier due dates; keep due dates in non-decreasing order by step order.`,
+    '- Match the timeline to the work: a few hours of total effort should finish within 1–3 days, not a full week.',
     dueLine,
   ].join('\n');
 }
 
-/** Fill missing per-step due dates by spreading from today through the assignment due date. */
+/** Fill missing per-step due dates with a compact horizon based on estimates. */
 export function ensureSubtaskDueDates(
   subtasks: DecomposeSubtask[],
   assignmentDueIso?: string
@@ -202,7 +203,14 @@ export function ensureSubtaskDueDates(
       end = parseLocalDateInput(datePart);
     }
   } else {
-    end.setDate(end.getDate() + 14);
+    const totalMinutes = subtasks.reduce(
+      (sum, st) => sum + (st.estimatedMinutes && st.estimatedMinutes > 0 ? st.estimatedMinutes : 60),
+      0
+    );
+    // ~6h productive day; keep short plans within a few calendar days (cap 14).
+    const workDays = Math.max(1, Math.ceil(totalMinutes / (6 * 60)));
+    const span = Math.min(14, Math.max(workDays, Math.min(subtasks.length, 3)) - 1);
+    end.setDate(end.getDate() + Math.max(0, span));
   }
   if (end.getTime() < today.getTime()) {
     end = new Date(today);
@@ -225,7 +233,7 @@ function buildUserPrompt(input: DecomposeInput): string {
   return `
 You are an expert study-planning assistant for university students.
 
-Given an assignment, break it into a short sequence of meaningful work blocks a student can schedule — not a micro checklist.
+Given an assignment, break it into a short sequence of meaningful work blocks a student can schedule — not a micro checklist. Respect that students can handle substantial chunks of work without hand-holding.
 
 Assignment:
 - Title: ${title}
@@ -234,7 +242,8 @@ Assignment:
 
 Guidelines:
 ${buildStepCountGuideline(maxSteps)}
-- Include a rough estimated duration in minutes for each subtask (e.g. 45, 60, 90, 120). Longer steps are fine; prefer fewer longer blocks over many 30–45 minute crumbs.
+- Include a rough estimated duration in minutes for each subtask (e.g. 45, 60, 90, 120). Prefer realistic longer blocks; do not pad with many short 30–45 minute crumbs.
+- Keep step titles/descriptions brief and action-oriented — avoid long procedural instructions inside each step.
 - Order the subtasks in a sensible sequence from 1..N.
 ${buildDueDateGuideline(dueDate)}
 - When the work is measurable, include workAmount (positive number) and workUnit (short freeform label you choose from the assignment, e.g. pages/questions/words or the equivalent in the output language). Do not invent a fixed global unit system—pick whatever unit fits that step.
@@ -281,7 +290,7 @@ export async function decomposeAssignment(
     {
       role: 'system',
       content:
-        'You are a helpful study planner. Prefer fewer, coarser work blocks over many tiny steps. Reply only with valid JSON.',
+        'You are a helpful study planner for capable university students. Prefer fewer, coarser work blocks; do not micro-manage. Reply only with valid JSON.',
     },
     { role: 'user', content: userPrompt },
   ];
@@ -302,7 +311,7 @@ export async function decomposeAssignment(
           (typeof process !== 'undefined' ? process.env?.GROQ_MODEL : undefined) ||
           'llama-3.3-70b-versatile',
         messages: [
-          { role: 'system', content: 'You are a helpful study planner that returns strict JSON. Prefer 2–4 coarser work blocks; avoid over-splitting simple tasks.' },
+          { role: 'system', content: 'You are a helpful study planner that returns strict JSON. Prefer 2–3 coarser blocks for ordinary homework; avoid over-specifying or underestimating students.' },
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.3,
@@ -352,7 +361,7 @@ export async function decomposeAssignment(
       body: JSON.stringify({
         model: 'gpt-4.1-mini',
         messages: [
-          { role: 'system', content: 'You are a helpful study planner that returns strict JSON. Prefer 2–4 coarser work blocks; avoid over-splitting simple tasks.' },
+          { role: 'system', content: 'You are a helpful study planner that returns strict JSON. Prefer 2–3 coarser blocks for ordinary homework; avoid over-specifying or underestimating students.' },
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.3,

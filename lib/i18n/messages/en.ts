@@ -44,6 +44,7 @@ export const en = {
     avg: 'Avg:',
     completedCount: '({count} completed)',
     due: 'Due:',
+    notScheduled: 'Not scheduled',
     promptActualMinutes: 'How long did this task actually take? (in minutes)',
     completeTaskTitle: 'Complete task',
     completeTaskHint: 'Enter how long it took, or skip to use the suggested time.',
@@ -251,6 +252,6 @@ export const en = {
     allowOutsideWorkHours:
       'Some work does not fit in your working hours. Allow Cadence to schedule after your working hours until the end of that day? (Never before your work start.)',
     tasksOmittedNoRoom:
-      'Some steps could not be scheduled and were omitted from your task list.',
+      'Some steps could not fit in free calendar slots before their due dates. They stay in your task list — try wider work hours, clear conflicts, or redistribute later.',
   },
 } as const;

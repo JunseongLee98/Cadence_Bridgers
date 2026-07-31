@@ -32,6 +32,7 @@ describe('buildDecomposeUserPrompt', () => {
     });
     expect(prompt).toMatch(/at most 4 subtasks/);
     expect(prompt).toMatch(/never exceed 4/);
+    expect(prompt).toMatch(/over-specify|micro-manage|capable university student/i);
   });
 
   it('respects a higher maxSteps cap in the prompt', () => {

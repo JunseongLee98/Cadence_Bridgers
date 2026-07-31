@@ -1343,12 +1343,7 @@ export default function Home() {
     const scheduledIds = new Set(
       scheduledEvents.map((e) => e.taskId).filter((id): id is string => Boolean(id))
     );
-    const batchIds = new Set(incomplete.map((t) => t.id));
     const omitted = incomplete.some((t) => !scheduledIds.has(t.id));
-
-    setTasks((prev) =>
-      prev.filter((t) => !batchIds.has(t.id) || scheduledIds.has(t.id) || Boolean(t.completedAt))
-    );
 
     if (omitted) {
       window.alert(m.alerts.tasksOmittedNoRoom);
@@ -1429,12 +1424,7 @@ export default function Home() {
     const newlyScheduledIds = new Set(
       scheduledEvents.map((e) => e.taskId).filter((id): id is string => Boolean(id))
     );
-    const batchIds = new Set(unscheduledTasks.map((t) => t.id));
     const omitted = unscheduledTasks.some((t) => !newlyScheduledIds.has(t.id));
-
-    setTasks((prev) =>
-      prev.filter((t) => !batchIds.has(t.id) || newlyScheduledIds.has(t.id) || Boolean(t.completedAt))
-    );
 
     if (omitted) {
       window.alert(m.alerts.tasksOmittedNoRoom);
@@ -1788,9 +1778,7 @@ export default function Home() {
   const scheduledTaskIds = new Set(
     events.filter((e) => e.taskId).map((e) => e.taskId as string)
   );
-  const activeTasks = sortActiveTasks(
-    tasks.filter((task) => !task.completedAt && scheduledTaskIds.has(task.id))
-  );
+  const activeTasks = sortActiveTasks(tasks.filter((task) => !task.completedAt));
   const completedTasks = sortCompletedTasks(tasks.filter((task) => task.completedAt));
   const displayedTasks = taskSidebarTab === 'active' ? activeTasks : completedTasks;
   const incompleteTasksCount = activeTasks.length;
@@ -2682,6 +2670,11 @@ export default function Home() {
                               <span className="font-medium text-orange-600">
                                 {m.tasks.due}{' '}
                                 {formatLocalDateForDisplay(task.dueDate, dateLocale)}
+                              </span>
+                            )}
+                            {!scheduledTaskIds.has(task.id) && !task.completedAt && (
+                              <span className="font-medium text-gray-400">
+                                {m.tasks.notScheduled}
                               </span>
                             )}
                           </div>

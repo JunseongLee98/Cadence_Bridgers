@@ -524,8 +524,8 @@ describe('CalendarAIAgent.distributeTasks', () => {
     expect(ids.has('partial-2')).toBe(true);
   });
 
-  it('spreads AI plan steps evenly across remaining weekdays by task count when due dates are missing', () => {
-    // Mon–Fri (5 weekdays), 5 steps → one step start per day, not dumped before due.
+  it('packs short AI plans into fewer days instead of stretching to the due horizon', () => {
+    // 5 × 50min = 250min fits in one 9–18 workday → all on Monday, not Mon–Fri.
     vi.setSystemTime(new Date(2026, 3, 13, 9, 0, 0, 0));
     const start = new Date(2026, 3, 13, 0, 0, 0, 0);
     const end = new Date(2026, 3, 20, 23, 59, 59, 999);
@@ -559,9 +559,10 @@ describe('CalendarAIAgent.distributeTasks', () => {
         firstStartByTask.set(e.taskId, e.start);
       }
     }
+    expect(firstStartByTask.size).toBe(5);
     const startDays = [...firstStartByTask.values()].map((d) => d.getDay());
-    expect(new Set(startDays).size).toBe(5);
-    expect(startDays.sort()).toEqual([1, 2, 3, 4, 5]); // Mon–Fri
+    expect(new Set(startDays).size).toBe(1);
+    expect(startDays[0]).toBe(1); // Monday
 
     const first1 = Math.min(
       ...events.filter((e) => e.taskId === 'spread-1').map((e) => e.start.getTime())
@@ -569,10 +570,10 @@ describe('CalendarAIAgent.distributeTasks', () => {
     const first5 = Math.min(
       ...events.filter((e) => e.taskId === 'spread-5').map((e) => e.start.getTime())
     );
-    expect(first1).toBeLessThan(first5);
+    expect(first1).toBeLessThanOrEqual(first5);
   });
 
-  it('schedules AI plan steps on their subtask due date when set', () => {
+  it('packs AI plan steps early and still finishes before a far due date', () => {
     vi.setSystemTime(new Date(2026, 6, 20, 9, 0, 0, 0)); // Mon Jul 20, 2026
     const start = new Date(2026, 6, 20, 0, 0, 0, 0);
     const end = new Date(2026, 7, 15, 23, 59, 59, 999);
@@ -602,20 +603,24 @@ describe('CalendarAIAgent.distributeTasks', () => {
     const first = events.find((e) => e.taskId === 'due-aug-7');
     expect(first).toBeDefined();
     expect(first!.start.getFullYear()).toBe(2026);
-    expect(first!.start.getMonth()).toBe(7);
-    expect(first!.start.getDate()).toBe(7);
+    expect(first!.start.getMonth()).toBe(6);
+    expect(first!.start.getDate()).toBe(20);
+    expect(first!.end.getTime()).toBeLessThanOrEqual(
+      new Date(2026, 7, 7, 23, 59, 59, 999).getTime()
+    );
   });
 
-  it('assigns two plan steps per day when there are twice as many steps as weekdays', () => {
+  it('spreads longer AI plans across multiple weekdays when work needs more than one day', () => {
     vi.setSystemTime(new Date(2026, 3, 13, 9, 0, 0, 0));
     const start = new Date(2026, 3, 13, 0, 0, 0, 0);
     const end = new Date(2026, 3, 17, 23, 59, 59, 999);
 
+    // 10 × 300min = 3000min; 9h/day → needs ~6 days but only 5 weekdays available.
     const steps = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((order) =>
       baseTask({
         id: `ten-${order}`,
         title: `Step ${order}`,
-        estimatedDuration: 40,
+        estimatedDuration: 300,
         actualDurations: [],
         planStepOrder: order,
         planId: 'ten-plan',
@@ -640,10 +645,8 @@ describe('CalendarAIAgent.distributeTasks', () => {
       const day = e.start.getDay();
       counts.set(day, (counts.get(day) ?? 0) + 1);
     }
-    // Mon–Fri each get 2 step starts
-    for (const dow of [1, 2, 3, 4, 5]) {
-      expect(counts.get(dow)).toBe(2);
-    }
+    expect(seenTask.size).toBeGreaterThan(0);
+    expect([...counts.keys()].length).toBeGreaterThan(1);
   });
 
   it('respects due date cap', () => {

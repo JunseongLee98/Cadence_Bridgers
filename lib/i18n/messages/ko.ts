@@ -44,6 +44,7 @@ export const ko = {
     avg: '평균:',
     completedCount: '({count}회 완료)',
     due: '마감:',
+    notScheduled: '미배치',
     promptActualMinutes: '이 할 일에 실제로 몇 분이 걸렸나요?',
     completeTaskTitle: '할 일 완료',
     completeTaskHint: '실제 소요 시간을 입력하거나, 건너뛰어 제안된 시간을 사용하세요.',
@@ -246,6 +247,6 @@ export const ko = {
     allowOutsideWorkHours:
       '일부 할 일이 근무 시간 안에 들어가지 않습니다. 근무 종료 이후~그날 자정까지 배치를 허용할까요? (근무 시작 이전에는 배치하지 않습니다.)',
     tasksOmittedNoRoom:
-      '배치할 자리가 없어 일부 단계가 할 일 목록에서 빠졌습니다.',
+      '일부 단계를 마감일 전 빈 시간에 넣지 못했습니다. 할 일 목록에는 그대로 남아 있으니, 근무 시간을 늘리거나 충돌을 줄인 뒤 다시 배치해 보세요.',
   },
 } as const;
