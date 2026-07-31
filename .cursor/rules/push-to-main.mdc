@@ -1,0 +1,13 @@
+---
+description: Always commit and push completed code changes to main immediately
+alwaysApply: true
+---
+
+# Push to main immediately
+
+After finishing a coding task that changes the repo:
+
+1. Commit the relevant changes (follow the repo commit style; do not commit secrets or unrelated untracked files like scratch `index.html` unless asked).
+2. Push to `origin main` right away — do not wait for the user to ask.
+3. Do not ask “want me to push?” unless something is blocked (auth, conflicts, or the user explicitly said not to push).
+4. Prefer a normal commit + `git push origin main` on `main`. Avoid force-push.

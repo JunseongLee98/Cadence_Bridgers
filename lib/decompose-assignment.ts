@@ -218,7 +218,13 @@ export function ensureSubtaskDueDates(
 
   const n = subtasks.length;
   return subtasks.map((st, i) => {
-    if (st.dueDate && isValidIsoCalendarDate(st.dueDate)) return st;
+    if (st.dueDate && isValidIsoCalendarDate(st.dueDate)) {
+      const parsed = parseLocalDateInput(st.dueDate);
+      if (parsed.getTime() < today.getTime()) {
+        return { ...st, dueDate: formatDateToLocalISO(today) };
+      }
+      return st;
+    }
     if (n === 1) {
       return { ...st, dueDate: formatDateToLocalISO(end) };
     }

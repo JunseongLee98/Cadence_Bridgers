@@ -131,6 +131,10 @@ export default function Home() {
   const [aiMaxStepsMode, setAiMaxStepsMode] = useState<'preset' | 'custom'>('preset');
   const [aiDecomposeMaxSteps, setAiDecomposeMaxSteps] = useState(4);
   const [aiDecomposeMaxStepsCustom, setAiDecomposeMaxStepsCustom] = useState(12);
+  const effectiveAiMaxSteps =
+    aiMaxStepsMode === 'custom'
+      ? clampDecomposeMaxSteps(aiDecomposeMaxStepsCustom)
+      : aiDecomposeMaxSteps;
   const [conversionDuration, setConversionDuration] = useState(60); // Default duration in minutes
   const [workHours, setWorkHours] = useState<{ segments: { startHour: number; endHour: number }[] }>({
     segments: [{ startHour: 9, endHour: 18 }],
@@ -1318,9 +1322,9 @@ export default function Home() {
       ...icsSubscribedEventsRef.current,
     ]);
 
-    const runPass = (segments: typeof configuredSegments) =>
+    const runPass = (segments: typeof configuredSegments, tasksPass: Task[] = incomplete) =>
       CalendarAIAgent.distributeTasks(
-        incomplete,
+        tasksPass,
         allExistingEvents,
         startDate,
         endDate,
@@ -1330,13 +1334,24 @@ export default function Home() {
       );
 
     let scheduledEvents = runPass(configuredSegments);
-    const unmet = CalendarAIAgent.measureUnmetSchedule(incomplete, scheduledEvents);
+    let unmet = CalendarAIAgent.measureUnmetSchedule(incomplete, scheduledEvents);
+    // Auto-extend past work-end (same day) when needed — don't ask first; cancel used to leave a blank calendar.
     if (unmet.length > 0) {
-      const allowOutside = window.confirm(m.alerts.allowOutsideWorkHours);
-      if (allowOutside) {
-        scheduledEvents = runPass(
-          CalendarAIAgent.extendWorkSegmentsPastEnd(configuredSegments)
-        );
+      scheduledEvents = runPass(
+        CalendarAIAgent.extendWorkSegmentsPastEnd(configuredSegments)
+      );
+      unmet = CalendarAIAgent.measureUnmetSchedule(incomplete, scheduledEvents);
+    }
+    // Last resort: ignore due-date caps so blocks still appear on the calendar.
+    if (scheduledEvents.length === 0 || unmet.length > 0) {
+      const relaxed = incomplete.map((t) => ({ ...t, dueDate: undefined }));
+      const relaxedEvents = runPass(
+        CalendarAIAgent.extendWorkSegmentsPastEnd(configuredSegments),
+        relaxed
+      );
+      if (relaxedEvents.length > scheduledEvents.length) {
+        scheduledEvents = relaxedEvents;
+        unmet = CalendarAIAgent.measureUnmetSchedule(incomplete, scheduledEvents);
       }
     }
 
@@ -1350,9 +1365,19 @@ export default function Home() {
     }
 
     if (scheduledEvents.length > 0) {
-      enqueueCadenceNotificationsForEvents(scheduledEvents);
+      const withDates = scheduledEvents.map((e) => ({
+        ...e,
+        start: e.start instanceof Date ? e.start : new Date(e.start),
+        end: e.end instanceof Date ? e.end : new Date(e.end),
+      }));
+      const earliest = withDates.reduce((a, b) =>
+        a.start.getTime() <= b.start.getTime() ? a : b
+      );
+      setMainCalendarDate(new Date(earliest.start));
+      setMiniCalendarDate(new Date(earliest.start));
+      enqueueCadenceNotificationsForEvents(withDates);
       setEvents((prevEvents) => {
-        const next = [...prevEvents, ...scheduledEvents];
+        const next = [...prevEvents, ...withDates];
         pushCalendarFeedSync(next);
         return next;
       });
@@ -1399,9 +1424,9 @@ export default function Home() {
     const breakMinutes = storage.getBreakAfterEvents();
     const focusMinutes = storage.getFocusMinutes();
 
-    const runPass = (segments: typeof configuredSegments) =>
+    const runPass = (segments: typeof configuredSegments, tasksPass: Task[] = unscheduledTasks) =>
       CalendarAIAgent.distributeTasks(
-        unscheduledTasks,
+        tasksPass,
         allExistingEvents,
         startDate,
         endDate,
@@ -1411,13 +1436,21 @@ export default function Home() {
       );
 
     let scheduledEvents = runPass(configuredSegments);
-    const unmet = CalendarAIAgent.measureUnmetSchedule(unscheduledTasks, scheduledEvents);
+    let unmet = CalendarAIAgent.measureUnmetSchedule(unscheduledTasks, scheduledEvents);
     if (unmet.length > 0) {
-      const allowOutside = window.confirm(m.alerts.allowOutsideWorkHours);
-      if (allowOutside) {
-        scheduledEvents = runPass(
-          CalendarAIAgent.extendWorkSegmentsPastEnd(configuredSegments)
-        );
+      scheduledEvents = runPass(
+        CalendarAIAgent.extendWorkSegmentsPastEnd(configuredSegments)
+      );
+      unmet = CalendarAIAgent.measureUnmetSchedule(unscheduledTasks, scheduledEvents);
+    }
+    if (scheduledEvents.length === 0 || unmet.length > 0) {
+      const relaxed = unscheduledTasks.map((t) => ({ ...t, dueDate: undefined }));
+      const relaxedEvents = runPass(
+        CalendarAIAgent.extendWorkSegmentsPastEnd(configuredSegments),
+        relaxed
+      );
+      if (relaxedEvents.length > scheduledEvents.length) {
+        scheduledEvents = relaxedEvents;
       }
     }
 
@@ -1431,9 +1464,19 @@ export default function Home() {
     }
 
     if (scheduledEvents.length > 0) {
-      enqueueCadenceNotificationsForEvents(scheduledEvents);
+      const withDates = scheduledEvents.map((e) => ({
+        ...e,
+        start: e.start instanceof Date ? e.start : new Date(e.start),
+        end: e.end instanceof Date ? e.end : new Date(e.end),
+      }));
+      const earliest = withDates.reduce((a, b) =>
+        a.start.getTime() <= b.start.getTime() ? a : b
+      );
+      setMainCalendarDate(new Date(earliest.start));
+      setMiniCalendarDate(new Date(earliest.start));
+      enqueueCadenceNotificationsForEvents(withDates);
       setEvents((currentEvents) => {
-        const next = [...currentEvents, ...scheduledEvents];
+        const next = [...currentEvents, ...withDates];
         pushCalendarFeedSync(next);
         return next;
       });
@@ -1782,11 +1825,6 @@ export default function Home() {
   const completedTasks = sortCompletedTasks(tasks.filter((task) => task.completedAt));
   const displayedTasks = taskSidebarTab === 'active' ? activeTasks : completedTasks;
   const incompleteTasksCount = activeTasks.length;
-
-  const effectiveAiMaxSteps =
-    aiMaxStepsMode === 'custom'
-      ? clampDecomposeMaxSteps(aiDecomposeMaxStepsCustom)
-      : aiDecomposeMaxSteps;
 
   // Mini calendar display data
   const miniCalendarYear = miniCalendarDate.getFullYear();

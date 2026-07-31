@@ -252,6 +252,6 @@ export const en = {
     allowOutsideWorkHours:
       'Some work does not fit in your working hours. Allow Cadence to schedule after your working hours until the end of that day? (Never before your work start.)',
     tasksOmittedNoRoom:
-      'Some steps could not fit in free calendar slots before their due dates. They stay in your task list — try wider work hours, clear conflicts, or redistribute later.',
+      'Some steps could not fully fit before their due dates. Placed blocks are on your calendar; anything left shows as “Not scheduled” in the task list.',
   },
 } as const;

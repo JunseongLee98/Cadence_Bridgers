@@ -335,9 +335,32 @@ export class CalendarAIAgent {
   }
 
   /** End of the task's due calendar day (local). Scheduled work must end by this instant. */
-  private static getTaskDueDeadline(task: Task): Date | null {
+  private static getTaskDueDeadline(
+    task: Task,
+    options: { allowGraceForPastDue?: boolean } = { allowGraceForPastDue: true }
+  ): Date | null {
     if (!task.dueDate) return null;
-    return endOfLocalCalendarDay(task.dueDate);
+    let due = endOfLocalCalendarDay(task.dueDate);
+    if (!options.allowGraceForPastDue) {
+      return due;
+    }
+
+    const now = new Date();
+    const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Past due calendar day, or due today with no work time left → allow through next weekday.
+    if (dueDay.getTime() < today.getTime()) {
+      return endOfLocalCalendarDay(this.nextWeekdayOnOrAfter(today));
+    }
+    if (
+      dueDay.getTime() === today.getTime() &&
+      this.remainingWorkMinutesToday(now) < 15
+    ) {
+      const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+      return endOfLocalCalendarDay(this.nextWeekdayOnOrAfter(tomorrow));
+    }
+    return due;
   }
 
   /**
@@ -361,7 +384,7 @@ export class CalendarAIAgent {
 
     let latestDueMs = 0;
     for (const t of tasks) {
-      const d = this.getTaskDueDeadline(t);
+      const d = this.getTaskDueDeadline(t, { allowGraceForPastDue: false });
       if (d) {
         latestDueMs = Math.max(latestDueMs, d.getTime());
       }
@@ -379,14 +402,42 @@ export class CalendarAIAgent {
   private static taskColor(task: Task): string {
     switch (task.priority) {
       case 'high':
-        return '#fcd2d2'; // red-50
+        return '#fca5a5'; // red-300 — visible on white calendars
       case 'medium':
-        return '#fff6d0'; // amber-50
+        return '#fcd34d'; // amber-300
       case 'low':
-        return '#e0ffe2'; // emerald-50
+        return '#86efac'; // green-300
       default:
-        return '#f9fafb'; // gray-50
+        return '#93c5fd'; // blue-300
     }
+  }
+
+  /** Minutes of work-segment time still left today after `now`. */
+  static remainingWorkMinutesToday(
+    now: Date,
+    workSegments: WorkSegment[] = [{ startHour: 9, endHour: 18 }]
+  ): number {
+    const dow = now.getDay();
+    if (dow === 0 || dow === 6) return 0;
+    const segments = this.normalizeWorkSegments(workSegments);
+    const nowMins = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+    let remaining = 0;
+    for (const s of segments) {
+      const start = s.startHour * 60;
+      const end = s.endHour * 60;
+      if (nowMins >= end) continue;
+      remaining += end - Math.max(nowMins, start);
+    }
+    return Math.max(0, Math.floor(remaining));
+  }
+
+  /** Next local weekday on or after `from` (skips Sat/Sun). */
+  static nextWeekdayOnOrAfter(from: Date): Date {
+    const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+    while (d.getDay() === 0 || d.getDay() === 6) {
+      d.setDate(d.getDate() + 1);
+    }
+    return d;
   }
 
   private static localDayKey(d: Date): string {
@@ -594,7 +645,16 @@ export class CalendarAIAgent {
         startDate.getMonth(),
         startDate.getDate()
       );
-      const planStart = startMid.getTime() > todayMid.getTime() ? startMid : todayMid;
+      let planStart = startMid.getTime() > todayMid.getTime() ? startMid : todayMid;
+      // If today's work window is basically over, start packing on the next weekday.
+      if (this.remainingWorkMinutesToday(now, normalizedSegments) < 30) {
+        const next = this.nextWeekdayOnOrAfter(
+          new Date(todayMid.getFullYear(), todayMid.getMonth(), todayMid.getDate() + 1)
+        );
+        if (next.getTime() > planStart.getTime()) {
+          planStart = next;
+        }
+      }
       let latestPlanDue: Date | null = null;
       const orderedPlanTaskIds: string[] = [];
       const seenPlanTasks = new Set<string>();
@@ -838,6 +898,8 @@ export class CalendarAIAgent {
         }
 
         if (usesPlanOrder) {
+          // Prefer the current week when it still has candidates; otherwise keep the full pool
+          // (e.g. Friday evening → Monday next week must remain schedulable).
           let anchorWeekEnd = planAnchorWeekEndEx.getTime();
           if (dueEnd && dueEnd.getTime() < anchorWeekEnd) {
             anchorWeekEnd = dueEnd.getTime();
@@ -851,7 +913,7 @@ export class CalendarAIAgent {
             pool = inAnchorWeek;
           }
 
-          // Prefer the pre-assigned day; otherwise only spill forward (later weekdays).
+          // Prefer the pre-assigned day; otherwise spill to any later free slot (including next week).
           if (targetDay && planSpreadWeekdays.length > 0) {
             const onTarget = pool.filter((c) => c.dayKey === targetDay);
             if (onTarget.length > 0) {

@@ -610,6 +610,38 @@ describe('CalendarAIAgent.distributeTasks', () => {
     );
   });
 
+  it('still schedules on the next weekday when Friday work hours are over', () => {
+    vi.setSystemTime(new Date(2026, 6, 31, 19, 0, 0, 0)); // Fri Jul 31, 2026 7pm
+    const start = new Date(2026, 6, 31, 0, 0, 0, 0);
+    const end = new Date(2026, 7, 14, 23, 59, 59, 999);
+
+    const steps = [1, 2].map((order) =>
+      baseTask({
+        id: `fri-${order}`,
+        title: `Step ${order}`,
+        estimatedDuration: 60,
+        actualDurations: [],
+        dueDate: new Date(2026, 6, 31, 0, 0, 0, 0), // due "today" but day is over
+        planStepOrder: order,
+        planId: 'fri-plan',
+      })
+    );
+
+    const events = CalendarAIAgent.distributeTasks(
+      steps,
+      [],
+      start,
+      end,
+      [{ startHour: 9, endHour: 18 }],
+      0,
+      50
+    );
+
+    expect(events.length).toBeGreaterThan(0);
+    expect(events.every((e) => e.start.getDay() === 1)).toBe(true); // Monday
+    expect(events[0].start.getDate()).toBe(3); // Aug 3, 2026
+  });
+
   it('spreads longer AI plans across multiple weekdays when work needs more than one day', () => {
     vi.setSystemTime(new Date(2026, 3, 13, 9, 0, 0, 0));
     const start = new Date(2026, 3, 13, 0, 0, 0, 0);
