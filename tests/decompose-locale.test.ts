@@ -52,13 +52,14 @@ describe('buildDecomposeUserPrompt', () => {
     expect(prompt).toMatch(/at most 4 subtasks/);
   });
 
-  it('asks for per-subtask dueDate fields', () => {
+  it('asks for per-subtask dueDate fields shared with the assignment deadline', () => {
     const prompt = buildDecomposeUserPrompt({
       title: 'Lab report',
       dueDate: '2026-08-01',
     });
     expect(prompt).toMatch(/"dueDate"/);
     expect(prompt).toMatch(/YYYY-MM-DD/);
+    expect(prompt).toMatch(/same "dueDate"|copy it onto every subtask/i);
     expect(prompt).not.toMatch(/Do NOT include calendar dates/);
   });
 });
@@ -76,17 +77,25 @@ describe('capDecomposeSubtasks', () => {
 });
 
 describe('ensureSubtaskDueDates', () => {
-  it('spreads missing dates between today and assignment due', () => {
+  it('gives every step the assignment due date (scheduler paces the work)', () => {
     const result = ensureSubtaskDueDates(
       [
-        { title: 'A', order: 1 },
-        { title: 'B', order: 2 },
+        { title: 'A', order: 1, dueDate: '2030-06-01' },
+        { title: 'B', order: 2, dueDate: '2030-06-15' },
         { title: 'C', order: 3 },
       ],
       '2030-06-30'
     );
+    expect(result.every((s) => s.dueDate === '2030-06-30')).toBe(true);
+  });
+
+  it('spreads missing dates when there is no assignment due', () => {
+    const result = ensureSubtaskDueDates([
+      { title: 'A', order: 1 },
+      { title: 'B', order: 2 },
+      { title: 'C', order: 3 },
+    ]);
     expect(result.every((s) => s.dueDate)).toBe(true);
     expect(result[0].dueDate! <= result[2].dueDate!).toBe(true);
-    expect(result[2].dueDate).toBe('2030-06-30');
   });
 });

@@ -8,14 +8,14 @@ import { SCHEDULE_MAX_HORIZON_DAYS } from '@/lib/schedule-constants';
  *
  * Scheduling modes:
  * - Manual tasks: spread across weekdays up to the due date by (a) filling focus-chunks fully,
- *   (b) preferring days with lower load for that task, and (c) enforcing a per-day cap derived
- *   from totalMinutes / weekdayCount (relaxed only when nothing fits).
+ *   (b) preferring the paced target day then lower-load days, and (c) enforcing a per-day cap
+ *   derived from totalMinutes / weekdayCount (relaxed only when nothing fits).
  * - AI breakdown steps (planStepOrder): scheduled strictly step-by-step in order; later steps
  *   never occur before earlier steps. Steps are pre-assigned evenly across remaining weekdays
- *   until the due date (ceil/floor by task count so each day gets a similar load). Placement
- *   prefers each step's assigned day, then the next days if it cannot fit. Chunks never start
- *   on or after the task due date (end of that local calendar day). If a step cannot be placed
- *   at all, remaining steps are skipped.
+ *   until the plan's latest due date. Per-step due dates are display hints — placement uses the
+ *   plan-level deadline so early steps are not forced onto day one (or past work hours).
+ *   Placement prefers each step's assigned day, then later days if it cannot fit. If a step
+ *   cannot be placed at all, remaining steps are skipped.
  */
 export class CalendarAIAgent {
   /**
@@ -624,6 +624,8 @@ export class CalendarAIAgent {
     // Without a due date, keep a compact window sized to estimated work (avoid a 14-day dump).
     let planSpreadWeekdays: string[] = [];
     const planTaskTargetDay = new Map<string, string>();
+    /** Hard placement deadline per plan step — plan-level latest due, not early per-step dues. */
+    const planTaskDueEnd = new Map<string, Date>();
     if (planChunks.length > 0) {
       const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const startMid = new Date(
@@ -641,23 +643,47 @@ export class CalendarAIAgent {
           planStart = next;
         }
       }
-      let latestPlanDue: Date | null = null;
+
+      // Group by planId so each breakdown paces through its own latest due date.
+      const planGroups = new Map<string, string[]>();
+      const planTasksById = new Map<string, Task>();
       const orderedPlanTaskIds: string[] = [];
       const seenPlanTasks = new Set<string>();
-      const planTasksById = new Map<string, Task>();
       for (const { task } of planChunks) {
         planTasksById.set(task.id, task);
-        if (!seenPlanTasks.has(task.id)) {
-          seenPlanTasks.add(task.id);
-          orderedPlanTaskIds.push(task.id);
+        if (seenPlanTasks.has(task.id)) continue;
+        seenPlanTasks.add(task.id);
+        orderedPlanTaskIds.push(task.id);
+        const gid = task.planId || '__default_plan__';
+        const group = planGroups.get(gid) || [];
+        group.push(task.id);
+        planGroups.set(gid, group);
+      }
+
+      const latestDueAmong = (taskIds: string[]): Date | null => {
+        let latest: Date | null = null;
+        for (const id of taskIds) {
+          const t = planTasksById.get(id);
+          if (!t) continue;
+          const d = this.getTaskDueDeadline(t);
+          if (d && (!latest || d.getTime() > latest.getTime())) {
+            latest = d;
+          }
         }
-        const d = this.getTaskDueDeadline(task);
-        if (d && (!latestPlanDue || d.getTime() > latestPlanDue.getTime())) {
-          latestPlanDue = d;
+        return latest;
+      };
+
+      // Build a shared weekday spine through the latest due across all plan tasks,
+      // then assign each plan's steps evenly inside that window (clipped per plan).
+      let globalLatestDue: Date | null = null;
+      for (const ids of planGroups.values()) {
+        const d = latestDueAmong(ids);
+        if (d && (!globalLatestDue || d.getTime() > globalLatestDue.getTime())) {
+          globalLatestDue = d;
         }
       }
-      const lastInstant = latestPlanDue
-        ? new Date(Math.min(endDate.getTime(), latestPlanDue.getTime()))
+      const lastInstant = globalLatestDue
+        ? new Date(Math.min(endDate.getTime(), globalLatestDue.getTime()))
         : endDate;
       const planEnd = new Date(
         lastInstant.getFullYear(),
@@ -665,32 +691,61 @@ export class CalendarAIAgent {
         lastInstant.getDate()
       );
       const allWeekdays = this.listWeekdayKeysBetweenInclusive(planStart, planEnd);
-      if (latestPlanDue && allWeekdays.length > 0) {
-        // Pace work across the full due window (e.g. Mon→Fri when due Friday).
-        planSpreadWeekdays = allWeekdays;
-      } else {
-        let totalPlanMinutes = 0;
-        for (const taskId of orderedPlanTaskIds) {
-          const t = planTasksById.get(taskId);
-          if (t) totalPlanMinutes += this.calculateTaskDuration(t);
+
+      for (const [, taskIds] of planGroups) {
+        const latestPlanDue = latestDueAmong(taskIds);
+        for (const id of taskIds) {
+          if (latestPlanDue) {
+            planTaskDueEnd.set(id, latestPlanDue);
+          }
         }
-        const dailyCap = this.estimateDailyWorkMinutes(normalizedSegments);
-        const dayCount = this.compactPlanDayCount(
-          totalPlanMinutes,
-          dailyCap,
-          Math.max(1, allWeekdays.length)
-        );
-        planSpreadWeekdays =
-          allWeekdays.length > 0
-            ? allWeekdays.slice(0, dayCount)
-            : [this.localDayKey(planStart)];
-      }
-      const assigned = this.assignPlanStepsEvenlyAcrossDays(
-        orderedPlanTaskIds,
-        planSpreadWeekdays
-      );
-      for (const [taskId, dayKey] of assigned) {
-        planTaskTargetDay.set(taskId, dayKey);
+
+        let groupWeekdays: string[];
+        if (latestPlanDue && allWeekdays.length > 0) {
+          const dueDay = new Date(
+            latestPlanDue.getFullYear(),
+            latestPlanDue.getMonth(),
+            latestPlanDue.getDate()
+          );
+          groupWeekdays = this.listWeekdayKeysBetweenInclusive(planStart, dueDay);
+          if (groupWeekdays.length === 0) {
+            groupWeekdays = [this.localDayKey(planStart)];
+          }
+        } else {
+          let totalPlanMinutes = 0;
+          for (const taskId of taskIds) {
+            const t = planTasksById.get(taskId);
+            if (t) totalPlanMinutes += this.calculateTaskDuration(t);
+          }
+          const dailyCap = this.estimateDailyWorkMinutes(normalizedSegments);
+          const dayCount = this.compactPlanDayCount(
+            totalPlanMinutes,
+            dailyCap,
+            Math.max(1, allWeekdays.length)
+          );
+          groupWeekdays =
+            allWeekdays.length > 0
+              ? allWeekdays.slice(0, dayCount)
+              : [this.localDayKey(planStart)];
+        }
+
+        if (planSpreadWeekdays.length === 0) {
+          planSpreadWeekdays = groupWeekdays;
+        } else {
+          // Keep a merged ordered spine for spill-forward checks.
+          const seen = new Set(planSpreadWeekdays);
+          for (const k of groupWeekdays) {
+            if (!seen.has(k)) {
+              planSpreadWeekdays.push(k);
+              seen.add(k);
+            }
+          }
+        }
+
+        const assigned = this.assignPlanStepsEvenlyAcrossDays(taskIds, groupWeekdays);
+        for (const [taskId, dayKey] of assigned) {
+          planTaskTargetDay.set(taskId, dayKey);
+        }
       }
     }
 
@@ -719,7 +774,11 @@ export class CalendarAIAgent {
     };
 
     for (const { task, duration: chunkMinutes, partIndex, totalParts, usesPlanOrder } of orderedChunks) {
-      const dueEnd = this.getTaskDueDeadline(task);
+      // Plan steps share the plan's latest due as the hard deadline so staggered per-step
+      // dues (from AI breakdown) do not collapse all work onto the earliest day.
+      const dueEnd = usesPlanOrder
+        ? planTaskDueEnd.get(task.id) ?? this.getTaskDueDeadline(task)
+        : this.getTaskDueDeadline(task);
       const displayTitle =
         totalParts > 1 ? `${task.title} (Part ${partIndex + 1}/${totalParts})` : task.title;
 
@@ -914,12 +973,14 @@ export class CalendarAIAgent {
             return a.start.getTime() - b.start.getTime();
           });
         } else {
+          // Prefer the round-robin day first so chunks pace across the due window
+          // instead of always filling the earliest empty morning.
           pool.sort((a, b) => {
-            if (a.load !== b.load) {
-              return a.load - b.load;
-            }
             if (a.onPref !== b.onPref) {
               return a.onPref ? -1 : 1;
+            }
+            if (a.load !== b.load) {
+              return a.load - b.load;
             }
             return a.start.getTime() - b.start.getTime();
           });

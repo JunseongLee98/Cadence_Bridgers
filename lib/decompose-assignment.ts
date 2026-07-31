@@ -174,17 +174,17 @@ export function buildStepCountGuideline(maxSteps?: number): string {
 function buildDueDateGuideline(assignmentDue?: string): string {
   const today = formatDateToLocalISO(new Date());
   const dueLine = assignmentDue
-    ? `- The assignment is due ${assignmentDue.includes('T') ? assignmentDue.slice(0, 10) : assignmentDue}; the final subtask must have dueDate on or before that day.`
-    : '- No assignment due date was given; keep due dates tight (finish within a few days for short work — do not invent a multi-week timeline).';
+    ? `- The assignment is due ${assignmentDue.includes('T') ? assignmentDue.slice(0, 10) : assignmentDue}; every subtask must use that same "dueDate" (the assignment deadline — not intermediate finish-by dates).`
+    : '- No assignment due date was given; give every subtask the same dueDate a few days out for short work — do not invent a multi-week timeline.';
   return [
-    '- Assign each subtask a "dueDate" (YYYY-MM-DD): the calendar day that step should be finished by (a deadline, not a schedule-on date).',
-    `- Today is ${today}. Earlier steps get earlier due dates; keep due dates in non-decreasing order by step order.`,
-    '- Match the timeline to the work: a few hours of total effort should finish within 1–3 days, not a full week.',
+    '- Assign each subtask a "dueDate" (YYYY-MM-DD): the assignment deadline the scheduler paces toward (not a "schedule on this day" date).',
+    `- Today is ${today}. When an assignment due date exists, copy it onto every subtask — the calendar agent spreads steps evenly from today until that due date.`,
+    '- Do not invent earlier per-step deadlines; pacing across days is handled by the scheduler.',
     dueLine,
   ].join('\n');
 }
 
-/** Fill missing per-step due dates with a compact horizon based on estimates. */
+/** Fill missing per-step due dates. With an assignment due, every step shares that deadline. */
 export function ensureSubtaskDueDates(
   subtasks: DecomposeSubtask[],
   assignmentDueIso?: string
@@ -195,12 +195,14 @@ export function ensureSubtaskDueDates(
   today.setHours(0, 0, 0, 0);
 
   let end = new Date(today);
+  let hasAssignmentDue = false;
   if (assignmentDueIso) {
     const datePart = assignmentDueIso.includes('T')
       ? formatDateToLocalISO(new Date(assignmentDueIso))
       : assignmentDueIso.slice(0, 10);
     if (isValidIsoCalendarDate(datePart)) {
       end = parseLocalDateInput(datePart);
+      hasAssignmentDue = true;
     }
   } else {
     const totalMinutes = subtasks.reduce(
@@ -216,6 +218,13 @@ export function ensureSubtaskDueDates(
     end = new Date(today);
   }
 
+  const endIso = formatDateToLocalISO(end);
+
+  // Assignment deadline is shared by every step — equal distribution until due is the scheduler's job.
+  if (hasAssignmentDue) {
+    return subtasks.map((st) => ({ ...st, dueDate: endIso }));
+  }
+
   const n = subtasks.length;
   return subtasks.map((st, i) => {
     if (st.dueDate && isValidIsoCalendarDate(st.dueDate)) {
@@ -226,7 +235,7 @@ export function ensureSubtaskDueDates(
       return st;
     }
     if (n === 1) {
-      return { ...st, dueDate: formatDateToLocalISO(end) };
+      return { ...st, dueDate: endIso };
     }
     const t = i / (n - 1);
     const ms = today.getTime() + t * (end.getTime() - today.getTime());

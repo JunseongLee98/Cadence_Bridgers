@@ -616,6 +616,94 @@ describe('CalendarAIAgent.distributeTasks', () => {
     expect(first1).toBeLessThan(first5);
   });
 
+  it('ignores staggered early per-step dues and paces through the plan due date in-hours', () => {
+    // Simulates event→AI breakdown where the model invented Mon/Tue/... dues but the
+    // assignment is due Friday. Work must spread Mon–Fri and stay within 9–18.
+    vi.setSystemTime(new Date(2026, 3, 13, 9, 0, 0, 0));
+    const start = new Date(2026, 3, 13, 0, 0, 0, 0);
+    const end = new Date(2026, 3, 20, 23, 59, 59, 999);
+    const assignmentDue = new Date(2026, 3, 17, 0, 0, 0, 0); // Friday
+    const earlyDues = [
+      new Date(2026, 3, 13, 0, 0, 0, 0), // Mon
+      new Date(2026, 3, 14, 0, 0, 0, 0), // Tue
+      new Date(2026, 3, 15, 0, 0, 0, 0), // Wed
+      new Date(2026, 3, 16, 0, 0, 0, 0), // Thu
+      assignmentDue,
+    ];
+
+    const steps = [1, 2, 3, 4, 5].map((order) =>
+      baseTask({
+        id: `stagger-${order}`,
+        title: `Step ${order}`,
+        estimatedDuration: 120,
+        actualDurations: [],
+        dueDate: earlyDues[order - 1],
+        planStepOrder: order,
+        planId: 'stagger-plan',
+      })
+    );
+
+    const events = CalendarAIAgent.distributeTasks(
+      steps,
+      [],
+      start,
+      end,
+      [{ startHour: 9, endHour: 18 }],
+      0,
+      50
+    );
+
+    expect(eventMinutesForTask(events, 'stagger-1')).toBe(120);
+    expect(eventMinutesForTask(events, 'stagger-5')).toBe(120);
+
+    const days = new Set(events.map((e) => e.start.getDay()));
+    expect(days.size).toBeGreaterThanOrEqual(3);
+
+    for (const e of events) {
+      expect(e.start.getHours()).toBeGreaterThanOrEqual(9);
+      expect(e.end.getHours() < 18 || (e.end.getHours() === 18 && e.end.getMinutes() === 0)).toBe(
+        true
+      );
+      expect(e.end.getTime()).toBeLessThanOrEqual(
+        new Date(2026, 3, 17, 23, 59, 59, 999).getTime() + 1
+      );
+    }
+  });
+
+  it('spreads a single converted-style task across weekdays until due (not all day one)', () => {
+    vi.setSystemTime(new Date(2026, 3, 13, 10, 0, 0, 0));
+    const start = new Date(2026, 3, 13, 0, 0, 0, 0);
+    const end = new Date(2026, 3, 20, 23, 59, 59, 999);
+    const due = new Date(2026, 3, 17, 0, 0, 0, 0); // event date = Friday due
+    const task = baseTask({
+      id: 'convert-1',
+      title: 'Canvas assignment',
+      estimatedDuration: 300,
+      dueDate: due,
+      actualDurations: [],
+    });
+
+    const events = CalendarAIAgent.distributeTasks(
+      [task],
+      [],
+      start,
+      end,
+      [{ startHour: 9, endHour: 18 }],
+      0,
+      50
+    );
+
+    expect(eventMinutesForTask(events, 'convert-1')).toBe(300);
+    const distinctDays = new Set(events.map((e) => e.start.getDate()));
+    expect(distinctDays.size).toBeGreaterThanOrEqual(3);
+    for (const e of events) {
+      expect(e.start.getHours()).toBeGreaterThanOrEqual(9);
+      expect(
+        e.end.getHours() < 18 || (e.end.getHours() === 18 && e.end.getMinutes() === 0)
+      ).toBe(true);
+    }
+  });
+
   it('packs AI plan steps early and still finishes before a far due date', () => {
     vi.setSystemTime(new Date(2026, 6, 20, 9, 0, 0, 0)); // Mon Jul 20, 2026
     const start = new Date(2026, 6, 20, 0, 0, 0, 0);

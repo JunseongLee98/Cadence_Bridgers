@@ -1222,9 +1222,11 @@ export default function Home() {
   }): Promise<Task[]> => {
     const dueIso =
       input.dueDate instanceof Date
-        ? input.dueDate.toISOString()
+        ? formatDateToLocalISO(input.dueDate)
         : typeof input.dueDate === 'string' && input.dueDate
-          ? input.dueDate
+          ? input.dueDate.includes('T')
+            ? formatDateToLocalISO(new Date(input.dueDate))
+            : input.dueDate.slice(0, 10)
           : undefined;
 
     const res = await fetch('/api/assignments/decompose', {
@@ -1335,15 +1337,24 @@ export default function Home() {
 
     let scheduledEvents = runPass(configuredSegments);
     let unmet = CalendarAIAgent.measureUnmetSchedule(incomplete, scheduledEvents);
-    // Auto-extend past work-end (same day) when needed — don't ask first; cancel used to leave a blank calendar.
-    if (unmet.length > 0) {
+    // Only extend past work-end when in-hours placement produced nothing (e.g. due today after
+    // hours). Do not overflow the earliest day when later weekdays before the due still exist.
+    if (scheduledEvents.length === 0 && unmet.length > 0) {
       scheduledEvents = runPass(
         CalendarAIAgent.extendWorkSegmentsPastEnd(configuredSegments)
       );
       unmet = CalendarAIAgent.measureUnmetSchedule(incomplete, scheduledEvents);
     }
     // Last resort: ignore due-date caps so blocks still appear on the calendar.
-    if (scheduledEvents.length === 0 || unmet.length > 0) {
+    if (scheduledEvents.length === 0) {
+      const relaxed = incomplete.map((t) => ({ ...t, dueDate: undefined }));
+      const relaxedEvents = runPass(configuredSegments, relaxed);
+      if (relaxedEvents.length > scheduledEvents.length) {
+        scheduledEvents = relaxedEvents;
+        unmet = CalendarAIAgent.measureUnmetSchedule(incomplete, scheduledEvents);
+      }
+    }
+    if (scheduledEvents.length === 0) {
       const relaxed = incomplete.map((t) => ({ ...t, dueDate: undefined }));
       const relaxedEvents = runPass(
         CalendarAIAgent.extendWorkSegmentsPastEnd(configuredSegments),
@@ -1437,13 +1448,20 @@ export default function Home() {
 
     let scheduledEvents = runPass(configuredSegments);
     let unmet = CalendarAIAgent.measureUnmetSchedule(unscheduledTasks, scheduledEvents);
-    if (unmet.length > 0) {
+    if (scheduledEvents.length === 0 && unmet.length > 0) {
       scheduledEvents = runPass(
         CalendarAIAgent.extendWorkSegmentsPastEnd(configuredSegments)
       );
       unmet = CalendarAIAgent.measureUnmetSchedule(unscheduledTasks, scheduledEvents);
     }
-    if (scheduledEvents.length === 0 || unmet.length > 0) {
+    if (scheduledEvents.length === 0) {
+      const relaxed = unscheduledTasks.map((t) => ({ ...t, dueDate: undefined }));
+      const relaxedEvents = runPass(configuredSegments, relaxed);
+      if (relaxedEvents.length > scheduledEvents.length) {
+        scheduledEvents = relaxedEvents;
+      }
+    }
+    if (scheduledEvents.length === 0) {
       const relaxed = unscheduledTasks.map((t) => ({ ...t, dueDate: undefined }));
       const relaxedEvents = runPass(
         CalendarAIAgent.extendWorkSegmentsPastEnd(configuredSegments),
@@ -1750,7 +1768,7 @@ export default function Home() {
       const newTasks = await createTasksFromAiBreakdown({
         title: event.title,
         description: event.description,
-        dueDate: event.start,
+        dueDate: formatDateToLocalISO(event.start),
         priority: 'medium',
         maxSteps: effectiveAiMaxSteps,
       });

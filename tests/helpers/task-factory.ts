@@ -16,5 +16,10 @@ export function makeTask(partial: Partial<Task> & Pick<Task, 'title'>): Task {
     createdAt: partial.createdAt ?? new Date('2026-01-01T12:00:00'),
     completedAt: partial.completedAt,
     planStepOrder: partial.planStepOrder,
+    planId: partial.planId,
+    procedureTitle: partial.procedureTitle,
+    procedureDescription: partial.procedureDescription,
+    workAmount: partial.workAmount,
+    workUnit: partial.workUnit,
   };
 }
