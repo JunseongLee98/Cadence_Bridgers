@@ -444,15 +444,6 @@ export class CalendarAIAgent {
     return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
   }
 
-  /** Week starts Sunday 00:00 local (default react-big-calendar week). */
-  private static startOfSundayWeek(day: Date): Date {
-    const x = new Date(day.getFullYear(), day.getMonth(), day.getDate());
-    const dow = x.getDay();
-    x.setDate(x.getDate() - dow);
-    x.setHours(0, 0, 0, 0);
-    return x;
-  }
-
   /** Local calendar weekdays from `a` through `b` (date parts only, inclusive). */
   private static listWeekdayKeysBetweenInclusive(a: Date, b: Date): string[] {
     const out: string[] = [];
