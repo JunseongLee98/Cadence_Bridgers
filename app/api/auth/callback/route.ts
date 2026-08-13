@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const tokens = await getTokensFromCode(code, request.nextUrl.origin);
+    const tokens = await getTokensFromCode(code);
 
     const redirectUrl = new URL('/app', request.url);
     if (tokens.access_token) {
