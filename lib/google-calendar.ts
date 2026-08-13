@@ -52,8 +52,8 @@ export function getAuthClient(accessToken: string) {
   return oauth2Client;
 }
 
-export function getAuthUrl(): string {
-  const oauth2Client = createGoogleOAuth2Client();
+export function getAuthUrl(requestOrigin?: string): string {
+  const oauth2Client = createGoogleOAuth2Client(requestOrigin);
 
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
@@ -62,8 +62,10 @@ export function getAuthUrl(): string {
   });
 }
 
-export async function getTokensFromCode(code: string) {
-  const oauth2Client = createGoogleOAuth2Client();
+export async function getTokensFromCode(code: string, requestOrigin?: string) {
+  // The token exchange must present the same redirect_uri that started the
+  // flow, so it derives from the callback request's own origin too.
+  const oauth2Client = createGoogleOAuth2Client(requestOrigin);
 
   const { tokens } = await oauth2Client.getToken(code);
   return tokens;

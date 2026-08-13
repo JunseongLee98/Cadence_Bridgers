@@ -1,0 +1,54 @@
+---
+description: High-level architecture map of Cadence, generated from static import analysis
+alwaysApply: true
+---
+
+# Cadence architecture
+
+Cadence is a Next.js 14 (App Router) AI-powered calendar/task app, plus a
+separate Chrome extension build in `extension/`. The AI agent learns actual
+task durations and auto-distributes tasks across free calendar slots.
+
+## Layers
+
+- `app/api/**/route.ts` — API routes: assignments (AI decompose), auth
+  (Google OAuth), calendar (events/feed/push/sync), google calendars,
+  ics proxy, learning (calibration/profile), telemetry.
+- `app/**/page.tsx`, `app/layout.tsx` — Next.js pages/routes.
+- `components/*.tsx` — UI: `Calendar`, `TaskManager`, `AIAgentPanel`,
+  `NotificationsBell`, `LegalPageShell`, `ReadableDescription`,
+  `AppProviders`.
+- `lib/*.ts` — business logic (Google Calendar integration, ICS
+  parsing/export, calendar feed sync/store, AI agent, learning/estimate
+  calibration, storage, date/time/schedule utils).
+- `lib/i18n/*` — i18n context + en/ko message catalogs.
+- `extension/src/*` — standalone Chrome extension (panel, background,
+  content script, options) — mostly independent of `app/`.
+- `types/index.ts` — shared type definitions (`Task`, `CalendarEvent`, etc.),
+  imported almost everywhere.
+- `tests/*` — Vitest tests, largely mirror `lib/`.
+
+## Most depended-on modules (highest fan-in — read these first)
+
+1. `types/index.ts` (20 importers) — shared `Task`/`CalendarEvent`/etc. types.
+2. `lib/decompose-assignment.ts` (10) — AI breakdown of an assignment into
+   subtasks/steps.
+3. `lib/calendar-feed-events.ts` (8) — calendar feed event generation.
+4. `lib/estimate-calibration.ts` (7) — learns/calibrates duration estimates.
+5. `lib/date-utils.ts` (7) — date helpers used across lib/components.
+6. `lib/schedule-constants.ts` (6) — work-hours/scheduling constants.
+7. `lib/google-calendar.ts` (5) — Google Calendar client logic.
+8. `lib/storage.ts` (5) — localStorage persistence.
+9. `lib/google-calendar-rest.ts` (4) — raw Google Calendar REST calls.
+10. `lib/ai-agent.ts` (4) — auto-schedules tasks into free calendar slots.
+
+## Conventions
+
+- Path alias `@/*` maps to the repo root (see `tsconfig.json`).
+- API routes are thin; scheduling/AI/calibration logic lives in `lib/`.
+- `extension/` has its own esbuild config and does not share Next.js
+  build tooling with `app/`.
+
+This file is a static snapshot (regenerate after major refactors) — treat it
+as a map to orient in, not a substitute for reading the actual file when
+making changes.

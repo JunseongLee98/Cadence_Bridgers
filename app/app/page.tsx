@@ -15,9 +15,14 @@ import {
   calendarFeedSyncDiffersFromSubscription,
 } from '@/lib/calendar-feed-url';
 import { filterEventsForCalendarFeed, serializeFeedEvents } from '@/lib/calendar-feed-events';
-import { CalendarAIAgent } from '@/lib/ai-agent';
+import { CalendarAIAgent, leadDaysForWorkload } from '@/lib/ai-agent';
 import { SCHEDULE_MAX_HORIZON_DAYS } from '@/lib/schedule-constants';
-import { formatDateToLocalISO, formatLocalDateForDisplay, parseLocalDateInput } from '@/lib/date-utils';
+import {
+  endOfLocalCalendarDay,
+  formatDateToLocalISO,
+  formatLocalDateForDisplay,
+  parseLocalDateInput,
+} from '@/lib/date-utils';
 import {
   AI_DECOMPOSE_STEP_PRESETS,
   clampDecomposeMaxSteps,
@@ -26,10 +31,13 @@ import {
 } from '@/lib/decompose-assignment';
 import Calendar from '@/components/Calendar';
 import NotificationsBell from '@/components/NotificationsBell';
+import SyllabusImportDialog, {
+  type SyllabusAssignmentPlan,
+} from '@/components/SyllabusImportDialog';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Plus, X, Clock, CheckCircle2, ChevronDown, ChevronRight, ChevronLeft, Menu, Calendar as CalendarIcon, LucideCalendarPlus, List, Upload, Link2, Trash2, CheckSquare, Settings, Sparkles } from 'lucide-react';
+import { Plus, X, Clock, CheckCircle2, ChevronDown, ChevronRight, ChevronLeft, Menu, Calendar as CalendarIcon, LucideCalendarPlus, List, Upload, Link2, Trash2, CheckSquare, Settings, Sparkles, GraduationCap } from 'lucide-react';
 import { View } from 'react-big-calendar';
 import { parseICSFileFromFile, parseICSFileFromFileAsTasks, fetchICSFromURL } from '@/lib/ics-parser';
 import { formatMinutesToHoursMinutes } from '@/lib/time-utils';
@@ -141,6 +149,11 @@ export default function Home() {
   });
   const [showWorkHoursDialog, setShowWorkHoursDialog] = useState(false);
   const [showAddTaskDialog, setShowAddTaskDialog] = useState(false);
+  const [showSyllabusDialog, setShowSyllabusDialog] = useState(false);
+  // Days of week Cadence may schedule work on (0=Sun … 6=Sat); weekends are opt-in.
+  const [scheduleDays, setScheduleDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [tempIncludeSaturday, setTempIncludeSaturday] = useState(false);
+  const [tempIncludeSunday, setTempIncludeSunday] = useState(false);
   const [tempWorkHours, setTempWorkHours] = useState<{ segments: { startHour: number; endHour: number }[] }>({
     segments: [{ startHour: 9, endHour: 18 }],
   });
@@ -227,6 +240,7 @@ export default function Home() {
     const skipDuration = storage.getSkipDurationPrompt();
     setSkipDurationPrompt(skipDuration);
     setTempSkipDurationPrompt(skipDuration);
+    setScheduleDays(storage.getScheduleDays());
 
     // Check for Google Calendar connection
     const tokens = storage.getGoogleTokens();
@@ -355,6 +369,14 @@ export default function Home() {
     document.documentElement.classList.toggle('dark', darkMode);
     localStorage.setItem('cadence-theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
+
+  // Seed the weekend checkboxes whenever a work-hours editor opens.
+  useEffect(() => {
+    if (showSettingsDialog || showWorkHoursDialog) {
+      setTempIncludeSaturday(scheduleDays.includes(6));
+      setTempIncludeSunday(scheduleDays.includes(0));
+    }
+  }, [showSettingsDialog, showWorkHoursDialog, scheduleDays]);
 
   // Auto-refresh ICS subscriptions more often so they feel live
   useEffect(() => {
@@ -1332,7 +1354,8 @@ export default function Home() {
         endDate,
         segments,
         breakMinutes,
-        focusMinutes
+        focusMinutes,
+        storage.getScheduleDays()
       );
 
     let scheduledEvents = runPass(configuredSegments);
@@ -1400,6 +1423,110 @@ export default function Home() {
     scheduleTasks([task]);
   };
 
+  /**
+   * Schedule syllabus assignment plans, each inside a work window anchored
+   * BACKWARD from its own due date (lead time scales with estimated workload) —
+   * an empty week months before an assignment is realistically available does
+   * not attract its work. Earlier due dates get first pick of free slots.
+   */
+  const scheduleAssignmentPlans = (plans: SyllabusAssignmentPlan[]): CalendarEvent[] => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const configuredSegments =
+      workHours.segments.length > 0 &&
+      workHours.segments.some((s) => s.startHour < s.endHour)
+        ? workHours.segments
+        : storage.getWorkHours().segments;
+    const breakMinutes = storage.getBreakAfterEvents();
+    const focusMins = storage.getFocusMinutes();
+    const days = storage.getScheduleDays();
+
+    let busy = dedupeCalendarEventsById([
+      ...events,
+      ...googleEventsRef.current,
+      ...icsSubscribedEventsRef.current,
+    ]);
+
+    const ordered = [...plans].sort((a, b) => {
+      if (!a.dueIso && !b.dueIso) return 0;
+      if (!a.dueIso) return 1;
+      if (!b.dueIso) return -1;
+      return a.dueIso.localeCompare(b.dueIso);
+    });
+
+    const allScheduled: CalendarEvent[] = [];
+    for (const plan of ordered) {
+      const incomplete = plan.tasks.filter((t) => !t.completedAt);
+      if (incomplete.length === 0) continue;
+      const totalMinutes = incomplete.reduce(
+        (sum, t) => sum + CalendarAIAgent.coerceEstimatedMinutes(t.estimatedDuration),
+        0
+      );
+
+      let windowStart = today;
+      let windowEnd: Date;
+      if (plan.dueIso) {
+        const dueDay = parseLocalDateInput(plan.dueIso);
+        const start = new Date(dueDay);
+        start.setDate(start.getDate() - leadDaysForWorkload(totalMinutes));
+        windowStart = start.getTime() > today.getTime() ? start : today;
+        windowEnd = endOfLocalCalendarDay(dueDay);
+        if (windowEnd.getTime() < today.getTime()) {
+          // Past-due syllabus item (mid-term import): suggest ASAP this week.
+          windowStart = today;
+          windowEnd = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+        }
+      } else {
+        windowEnd = CalendarAIAgent.computeScheduleEndDate(incomplete, today);
+      }
+
+      const planEvents = CalendarAIAgent.distributeTasks(
+        incomplete,
+        busy,
+        windowStart,
+        windowEnd,
+        configuredSegments,
+        breakMinutes,
+        focusMins,
+        days
+      );
+      busy = [...busy, ...planEvents];
+      allScheduled.push(...planEvents);
+    }
+
+    if (allScheduled.length > 0) {
+      const earliest = allScheduled.reduce((a, b) =>
+        a.start.getTime() <= b.start.getTime() ? a : b
+      );
+      setMainCalendarDate(new Date(earliest.start));
+      setMiniCalendarDate(new Date(earliest.start));
+      enqueueCadenceNotificationsForEvents(allScheduled);
+      setEvents((prevEvents) => {
+        const next = [...prevEvents, ...allScheduled];
+        pushCalendarFeedSync(next);
+        return next;
+      });
+    }
+    return allScheduled;
+  };
+
+  const handleSyllabusPlansReady = (plans: SyllabusAssignmentPlan[]) => {
+    const newTasks = plans.flatMap((p) => p.tasks);
+    if (newTasks.length === 0) return;
+    setTasks((prev) => [...prev, ...newTasks]);
+    const scheduled = scheduleAssignmentPlans(plans);
+    const scheduledIds = new Set(
+      scheduled.map((e) => e.taskId).filter((id): id is string => Boolean(id))
+    );
+    const omitted = newTasks.some((task) => !scheduledIds.has(task.id));
+    const summary = t('syllabus.done', {
+      tasks: newTasks.length,
+      assignments: plans.length,
+    });
+    window.alert(omitted ? `${summary}\n${m.syllabus.partialSlots}` : summary);
+  };
+
   // Auto-distribute tasks function (for manual distribution)
   const autoDistributeTasks = async (tasksToSchedule: Task[] = tasks) => {
     const incompleteTasks = tasksToSchedule.filter((task) => !task.completedAt);
@@ -1443,7 +1570,8 @@ export default function Home() {
         endDate,
         segments,
         breakMinutes,
-        focusMinutes
+        focusMinutes,
+        storage.getScheduleDays()
       );
 
     let scheduledEvents = runPass(configuredSegments);
@@ -2574,6 +2702,7 @@ export default function Home() {
                 <Settings size={18} />
                 {m.nav.settings}
               </button>
+
             </div>
           </div>
         </div>
@@ -2606,16 +2735,26 @@ export default function Home() {
               <div className="bg-background rounded-lg shadow-lg border border-gray-200 p-4 flex flex-col min-h-[520px] md:min-h-[600px] xl:min-h-0 xl:flex-1">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-semibold text-primary">{m.tasks.title}</h2>
-                  <button
-                    onClick={() => {
-                      setTaskDurationMode('preset');
-                      setShowAddTaskDialog(true);
-                      setIsAddingTask(false);
-                    }}
-                    className="h-8 w-8 rounded-lg bg-primary-light text-white flex items-center justify-center hover:bg-primary-light/90"
-                  >
-                    <Plus size={18}  />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowSyllabusDialog(true)}
+                      title={m.syllabus.button}
+                      aria-label={m.syllabus.button}
+                      className="h-8 w-8 rounded-lg bg-primary-light text-white flex items-center justify-center hover:bg-primary-light/90"
+                    >
+                      <GraduationCap size={18} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setTaskDurationMode('preset');
+                        setShowAddTaskDialog(true);
+                        setIsAddingTask(false);
+                      }}
+                      className="h-8 w-8 rounded-lg bg-primary-light text-white flex items-center justify-center hover:bg-primary-light/90"
+                    >
+                      <Plus size={18}  />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mb-3 grid grid-cols-2 rounded-xl bg-white/70 p-1 shadow-sm ring-1 ring-gray-200 dark:bg-white/5 dark:ring-white/10">
@@ -3436,6 +3575,31 @@ export default function Home() {
                   Each segment must have an end hour after its start hour, and at least one segment is required.
                 </p>
               )}
+
+              <div className="pt-2">
+                <h4 className="text-sm font-semibold text-gray-800 mb-1">{m.settings.weekendWork}</h4>
+                <p className="text-xs text-gray-500 mb-2">{m.settings.weekendWorkHint}</p>
+                <div className="flex items-center gap-5">
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={tempIncludeSaturday}
+                      onChange={(e) => setTempIncludeSaturday(e.target.checked)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    {m.settings.saturday}
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={tempIncludeSunday}
+                      onChange={(e) => setTempIncludeSunday(e.target.checked)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    {m.settings.sunday}
+                  </label>
+                </div>
+              </div>
             </div>
             <div className="flex gap-3 mt-6">
               <button
@@ -3443,6 +3607,13 @@ export default function Home() {
                   if (isTempWorkHoursValid) {
                     setWorkHours(tempWorkHours);
                     storage.saveWorkHours(tempWorkHours);
+                    const nextDays = [
+                      1, 2, 3, 4, 5,
+                      ...(tempIncludeSaturday ? [6] : []),
+                      ...(tempIncludeSunday ? [0] : []),
+                    ];
+                    setScheduleDays(nextDays);
+                    storage.saveScheduleDays(nextDays);
                     setShowWorkHoursDialog(false);
                   }
                 }}
@@ -3674,6 +3845,31 @@ export default function Home() {
                     {!isTempWorkHoursValid && (
                       <p className="text-xs text-red-600 mt-1">{m.settings.workHoursInvalid}</p>
                     )}
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800 mb-2">{m.settings.weekendWork}</h4>
+                    <p className="text-xs text-gray-500 mb-2">{m.settings.weekendWorkHint}</p>
+                    <div className="flex items-center gap-5">
+                      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={tempIncludeSaturday}
+                          onChange={(e) => setTempIncludeSaturday(e.target.checked)}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        {m.settings.saturday}
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={tempIncludeSunday}
+                          onChange={(e) => setTempIncludeSunday(e.target.checked)}
+                          className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        {m.settings.sunday}
+                      </label>
+                    </div>
                   </div>
 
                   <div>
@@ -4020,6 +4216,13 @@ export default function Home() {
                     setWorkHours(tempWorkHours);
                     storage.saveWorkHours(tempWorkHours);
                   }
+                  const nextScheduleDays = [
+                    1, 2, 3, 4, 5,
+                    ...(tempIncludeSaturday ? [6] : []),
+                    ...(tempIncludeSunday ? [0] : []),
+                  ];
+                  setScheduleDays(nextScheduleDays);
+                  storage.saveScheduleDays(nextScheduleDays);
                   setBreakAfterEvents(tempBreakAfterEvents);
                   storage.saveBreakAfterEvents(tempBreakAfterEvents);
                   setFocusMinutes(tempFocusMinutes);
@@ -4174,6 +4377,12 @@ export default function Home() {
         </div>
       )}
 
+      <SyllabusImportDialog
+        open={showSyllabusDialog}
+        onClose={() => setShowSyllabusDialog(false)}
+        createTasksForAssignment={createTasksFromAiBreakdown}
+        onPlansReady={handleSyllabusPlansReady}
+      />
     </main>
   );
 }

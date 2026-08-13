@@ -26,6 +26,7 @@ const GOOGLE_IDENTITY_KEY = 'cadence_google_identity';
 const LOCAL_CALIBRATION_KEY = 'cadence_local_calibration';
 const ICS_SUBSCRIPTIONS_KEY = 'cadence_ics_subscriptions';
 const WORK_HOURS_KEY = 'cadence_work_hours';
+const SCHEDULE_DAYS_KEY = 'cadence_schedule_days';
 const BREAK_AFTER_EVENTS_KEY = 'cadence_break_after_events';
 const FOCUS_MINUTES_KEY = 'cadence_focus_minutes';
 const SKIP_DURATION_PROMPT_KEY = 'cadence_skip_duration_prompt';
@@ -502,6 +503,32 @@ export const storage = {
         : { segments: [{ startHour: 9, endHour: 18 }] };
 
     localStorage.setItem(WORK_HOURS_KEY, JSON.stringify(configToSave));
+  },
+
+  // Days of week allowed for scheduling (0=Sun … 6=Sat). Default Mon–Fri;
+  // Saturday/Sunday are opt-in from Settings → Working Hours.
+  getScheduleDays(): number[] {
+    const defaultDays = [1, 2, 3, 4, 5];
+    if (typeof window === 'undefined') return defaultDays;
+    const data = localStorage.getItem(SCHEDULE_DAYS_KEY);
+    if (!data) return defaultDays;
+    try {
+      const parsed = JSON.parse(data);
+      if (!Array.isArray(parsed)) return defaultDays;
+      const days = [...new Set(parsed.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))] as number[];
+      return days.length > 0 ? days.sort((a, b) => a - b) : defaultDays;
+    } catch {
+      return defaultDays;
+    }
+  },
+
+  saveScheduleDays(days: number[]): void {
+    if (typeof window === 'undefined') return;
+    const cleaned = [...new Set(days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))];
+    localStorage.setItem(
+      SCHEDULE_DAYS_KEY,
+      JSON.stringify(cleaned.length > 0 ? cleaned.sort((a, b) => a - b) : [1, 2, 3, 4, 5])
+    );
   },
 
   // Break after events (minutes) - gap before next task can be scheduled
