@@ -2101,6 +2101,18 @@ export default function Home() {
                 disabled={isImportingICS}
               />
 
+              {/* Syllabus → Schedule demo */}
+              <div className="header-control-group hidden lg:flex items-center rounded-lg bg-white/10 border border-white/25 overflow-hidden shrink-0">
+                <Link
+                  href="/demo/syllabus"
+                  className="h-9 px-2.5 xl:px-3 flex items-center justify-center gap-1.5 text-sm xl:text-base font-medium text-white hover:bg-white/15 transition-colors"
+                  title="Try: Syllabus → Schedule"
+                >
+                  <Sparkles size={18} />
+                  <span className="hidden xl:inline">Syllabus Demo</span>
+                </Link>
+              </div>
+
               {/* Subscribe */}
               <div className="header-control-group flex items-center rounded-lg bg-white/10 border border-white/25 overflow-hidden shrink-0">
                 <button
@@ -2574,6 +2586,15 @@ export default function Home() {
                 <Settings size={18} />
                 {m.nav.settings}
               </button>
+
+              <Link
+                href="/demo/syllabus"
+                onClick={() => setMobileMenuOpen(false)}
+                className="mobile-menu-btn w-full flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-white/10 text-white border border-white/25"
+              >
+                <Sparkles size={18} />
+                Syllabus Demo
+              </Link>
             </div>
           </div>
         </div>

@@ -72,6 +72,12 @@ export default function CadenceHomePage() {
             >
               Terms of Service
             </Link>
+            <Link
+              href="/demo/syllabus"
+              className="inline-flex items-center justify-center rounded-lg border border-white/25 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/10"
+            >
+              ✨ Try: Syllabus → Schedule
+            </Link>
           </div>
 
           <div className="space-y-8 text-[15px] leading-relaxed text-white/90">
