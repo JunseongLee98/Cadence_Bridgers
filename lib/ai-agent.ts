@@ -20,6 +20,17 @@ import { SCHEDULE_MAX_HORIZON_DAYS } from '@/lib/schedule-constants';
 /** Days of week that may receive scheduled work (0=Sun … 6=Sat). Default: weekdays only. */
 export const DEFAULT_SCHEDULE_DAYS: number[] = [1, 2, 3, 4, 5];
 
+/**
+ * Lead-time assumption for syllabus assignments: work usually becomes possible about a
+ * week before the due date (typical release window), so suggested sessions anchor
+ * BACKWARD from the due date. Heavier workloads push the start earlier, capped at
+ * three weeks out.
+ */
+export function leadDaysForWorkload(totalMinutes: number): number {
+  const workDaysNeeded = Math.ceil(totalMinutes / 150); // ~2.5 focused h/day per course
+  return Math.min(21, Math.max(7, workDaysNeeded + 4));
+}
+
 export class CalendarAIAgent {
   /** Sanitize a schedule-days list; falls back to weekdays when empty/invalid. */
   private static normalizeScheduleDays(scheduleDays?: number[]): Set<number> {

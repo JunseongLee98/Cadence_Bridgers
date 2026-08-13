@@ -36,6 +36,24 @@ export const ko = {
   calendar: {
     weekdaysShort: ['일', '월', '화', '수', '목', '금', '토'] as const,
   },
+  syllabus: {
+    button: '강의계획서 가져오기',
+    title: '강의계획서 → 학습 계획',
+    subtitle:
+      '강의계획서를 붙여넣으세요. Cadence가 모든 과제를 찾아 단계별로 나누고, 실제 마감일 가까이에 학습 세션을 제안합니다.',
+    placeholder: '강의계획서 내용을 여기에 붙여넣으세요...',
+    generate: '학습 계획 만들기',
+    parsing: '강의계획서 읽는 중…',
+    planning: '단계 계획 중…',
+    scheduling: '세션 제안 중…',
+    due: '마감 {date}',
+    steps: '{count}단계',
+    failedItem: '이 과제를 계획하지 못했습니다',
+    noAssignments: '강의계획서에서 과제를 찾지 못했습니다.',
+    done: '{assignments}개 과제에서 {tasks}개 단계를 할 일에 추가했습니다.',
+    partialSlots:
+      '일부 단계는 마감 전에 빈 시간이 없었습니다 — 할 일 목록에서 확인 후 직접 배치해 주세요.',
+  },
   tasks: {
     title: '할 일',
     active: '진행 중',
@@ -149,6 +167,11 @@ export const ko = {
     addWorkSegment: '+ 근무 구간 추가',
     workHoursInvalid:
       '각 구간의 종료 시각은 시작 시각보다 뒤여야 하며, 최소 한 개의 구간이 필요합니다.',
+    weekendWork: '주말 학습',
+    weekendWorkHint:
+      '주말에도 학습 세션을 제안하도록 허용합니다. 기본은 꺼짐입니다.',
+    saturday: '토요일',
+    sunday: '일요일',
     breakAfter: '일정·할 일 후 휴식',
     breakAfterHint: '일정 또는 할 일 이후 다음 할 일을 배치하기 전 간격(분)',
     focusDuration: '집중 시간',

@@ -36,6 +36,24 @@ export const en = {
   calendar: {
     weekdaysShort: ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const,
   },
+  syllabus: {
+    button: 'Import syllabus',
+    title: 'Syllabus → Study Plan',
+    subtitle:
+      'Paste a course syllabus. Cadence finds every assignment, breaks each into steps, and suggests study sessions near each real due date.',
+    placeholder: 'Paste your course syllabus text here...',
+    generate: 'Build my study plan',
+    parsing: 'Reading syllabus…',
+    planning: 'Planning steps…',
+    scheduling: 'Suggesting sessions…',
+    due: 'Due {date}',
+    steps: '{count} steps',
+    failedItem: 'Could not plan this assignment',
+    noAssignments: 'No assignments found in that syllabus text.',
+    done: 'Added {tasks} steps across {assignments} assignments to your tasks.',
+    partialSlots:
+      'Some steps had no free slot before their deadline — check the task list and schedule them manually.',
+  },
   tasks: {
     title: 'Tasks',
     active: 'Active',
@@ -153,6 +171,11 @@ export const en = {
     addWorkSegment: '+ Add work segment',
     workHoursInvalid:
       'Each segment must have an end hour after its start hour, and at least one segment is required.',
+    weekendWork: 'Weekend work',
+    weekendWorkHint:
+      'Allow Cadence to suggest study sessions on weekend days too. Off by default.',
+    saturday: 'Saturday',
+    sunday: 'Sunday',
     breakAfter: 'Break After Each Event',
     breakAfterHint:
       'Gap (in minutes) before another task can be scheduled after an event or task',

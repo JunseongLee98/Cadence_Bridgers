@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Task, CalendarEvent } from '@/types';
-import { CalendarAIAgent } from '@/lib/ai-agent';
+import { CalendarAIAgent, leadDaysForWorkload } from '@/lib/ai-agent';
 import {
   parseLocalDateInput,
   formatLocalDateForDisplay,
@@ -25,17 +25,6 @@ Course schedule and grading:
 - Final Exam (cumulative) during finals week, Dec 15
 
 Reading chapters are posted weekly on the course site but are not separately graded.`;
-
-/**
- * Demo-only lead-time assumption: an assignment usually becomes workable about a
- * week before it is due (typical release window), so its suggested sessions are
- * anchored BACKWARD from the due date — never spread from "today" across empty
- * months. Heavier workloads push the start earlier, capped at three weeks out.
- */
-function leadDaysForWorkload(totalMinutes: number): number {
-  const workDaysNeeded = Math.ceil(totalMinutes / 150); // ~2.5 focused h/day per course
-  return Math.min(21, Math.max(7, workDaysNeeded + 4));
-}
 
 type Phase = 'idle' | 'parsing' | 'planning' | 'scheduling' | 'done' | 'error';
 
