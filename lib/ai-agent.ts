@@ -17,7 +17,18 @@ import { SCHEDULE_MAX_HORIZON_DAYS } from '@/lib/schedule-constants';
  *   Placement prefers each step's assigned day, then later days if it cannot fit. If a step
  *   cannot be placed at all, remaining steps are skipped.
  */
+/** Days of week that may receive scheduled work (0=Sun … 6=Sat). Default: weekdays only. */
+export const DEFAULT_SCHEDULE_DAYS: number[] = [1, 2, 3, 4, 5];
+
 export class CalendarAIAgent {
+  /** Sanitize a schedule-days list; falls back to weekdays when empty/invalid. */
+  private static normalizeScheduleDays(scheduleDays?: number[]): Set<number> {
+    const valid = (scheduleDays ?? DEFAULT_SCHEDULE_DAYS).filter(
+      (d) => Number.isInteger(d) && d >= 0 && d <= 6
+    );
+    return new Set(valid.length > 0 ? valid : DEFAULT_SCHEDULE_DAYS);
+  }
+
   /**
    * Coerce UI / API duration input to a positive integer minute value (fallback 60).
    */
@@ -122,15 +133,17 @@ export class CalendarAIAgent {
     endDate: Date,
     workStartHour: number = 9,
     workEndHour: number = 18,
-    breakAfterEventsMinutes: number = 0
+    breakAfterEventsMinutes: number = 0,
+    scheduleDays?: number[]
   ): TimeSlot[] {
     const slots: TimeSlot[] = [];
     const currentDate = new Date(startDate);
+    const allowedDays = this.normalizeScheduleDays(scheduleDays);
 
     while (currentDate <= endDate) {
-      // Skip weekends (optional - you can make this configurable)
+      // Skip days the user hasn't opted into (weekends by default)
       const dayOfWeek = currentDate.getDay();
-      if (dayOfWeek === 0 || dayOfWeek === 6) {
+      if (!allowedDays.has(dayOfWeek)) {
         currentDate.setDate(currentDate.getDate() + 1);
         continue;
       }
@@ -415,10 +428,11 @@ export class CalendarAIAgent {
   /** Minutes of work-segment time still left today after `now`. */
   static remainingWorkMinutesToday(
     now: Date,
-    workSegments: WorkSegment[] = [{ startHour: 9, endHour: 18 }]
+    workSegments: WorkSegment[] = [{ startHour: 9, endHour: 18 }],
+    scheduleDays?: number[]
   ): number {
     const dow = now.getDay();
-    if (dow === 0 || dow === 6) return 0;
+    if (!this.normalizeScheduleDays(scheduleDays).has(dow)) return 0;
     const segments = this.normalizeWorkSegments(workSegments);
     const nowMins = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
     let remaining = 0;
@@ -431,10 +445,11 @@ export class CalendarAIAgent {
     return Math.max(0, Math.floor(remaining));
   }
 
-  /** Next local weekday on or after `from` (skips Sat/Sun). */
-  static nextWeekdayOnOrAfter(from: Date): Date {
+  /** Next local schedulable day on or after `from` (skips days outside scheduleDays; default skips Sat/Sun). */
+  static nextWeekdayOnOrAfter(from: Date, scheduleDays?: number[]): Date {
+    const allowedDays = this.normalizeScheduleDays(scheduleDays);
     const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-    while (d.getDay() === 0 || d.getDay() === 6) {
+    while (!allowedDays.has(d.getDay())) {
       d.setDate(d.getDate() + 1);
     }
     return d;
@@ -444,14 +459,18 @@ export class CalendarAIAgent {
     return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
   }
 
-  /** Local calendar weekdays from `a` through `b` (date parts only, inclusive). */
-  private static listWeekdayKeysBetweenInclusive(a: Date, b: Date): string[] {
+  /** Local calendar schedulable days from `a` through `b` (date parts only, inclusive). */
+  private static listWeekdayKeysBetweenInclusive(
+    a: Date,
+    b: Date,
+    scheduleDays?: number[]
+  ): string[] {
+    const allowedDays = this.normalizeScheduleDays(scheduleDays);
     const out: string[] = [];
     const cur = new Date(a.getFullYear(), a.getMonth(), a.getDate());
     const end = new Date(b.getFullYear(), b.getMonth(), b.getDate());
     while (cur.getTime() <= end.getTime()) {
-      const dow = cur.getDay();
-      if (dow !== 0 && dow !== 6) {
+      if (allowedDays.has(cur.getDay())) {
         out.push(this.localDayKey(cur));
       }
       cur.setDate(cur.getDate() + 1);
@@ -460,8 +479,13 @@ export class CalendarAIAgent {
   }
 
   /**
-   * Spread plan steps evenly across remaining weekdays: floor(n/days) each day, with the
-   * remainder given to earlier days so daily task counts stay as similar as possible.
+   * Spread plan steps evenly across remaining schedulable days.
+   *
+   * - More steps than days: floor(n/days) each day, remainder given to earlier days so
+   *   daily task counts stay as similar as possible.
+   * - Fewer steps than days: steps are PACED across the whole window (step i targets day
+   *   floor(i*d/n)) instead of being packed onto the first few days — a plan due months out
+   *   spreads toward its deadline rather than landing entirely in week one.
    */
   static assignPlanStepsEvenlyAcrossDays(
     orderedStepIds: string[],
@@ -474,6 +498,16 @@ export class CalendarAIAgent {
     const days = dayKeys.length > 0 ? dayKeys : ['0-0-1'];
     const n = orderedStepIds.length;
     const d = days.length;
+
+    if (n < d) {
+      // Pace steps across the window; floor(i*d/n) starts today and leaves a
+      // d/n-day buffer before the deadline for the last step.
+      for (let i = 0; i < n; i++) {
+        out.set(orderedStepIds[i], days[Math.floor((i * d) / n)]);
+      }
+      return out;
+    }
+
     const base = Math.floor(n / d);
     const rem = n % d;
     let i = 0;
@@ -521,7 +555,8 @@ export class CalendarAIAgent {
     endDate: Date,
     workSegments: WorkSegment[] = [{ startHour: 9, endHour: 18 }],
     breakAfterEventsMinutes: number = 0,
-    focusMinutes: number = 50
+    focusMinutes: number = 50,
+    scheduleDays?: number[]
   ): CalendarEvent[] {
     const seen = new Set<string>();
     const unique = tasks.filter((t) => {
@@ -589,7 +624,8 @@ export class CalendarAIAgent {
         endDate,
         segment.startHour,
         segment.endHour,
-        breakAfterEventsMinutes
+        breakAfterEventsMinutes,
+        scheduleDays
       );
       emptySlots.push(...segmentSlots);
     }
@@ -634,10 +670,11 @@ export class CalendarAIAgent {
         startDate.getDate()
       );
       let planStart = startMid.getTime() > todayMid.getTime() ? startMid : todayMid;
-      // If today's work window is basically over, start on the next weekday.
-      if (this.remainingWorkMinutesToday(now, normalizedSegments) < 30) {
+      // If today's work window is basically over, start on the next schedulable day.
+      if (this.remainingWorkMinutesToday(now, normalizedSegments, scheduleDays) < 30) {
         const next = this.nextWeekdayOnOrAfter(
-          new Date(todayMid.getFullYear(), todayMid.getMonth(), todayMid.getDate() + 1)
+          new Date(todayMid.getFullYear(), todayMid.getMonth(), todayMid.getDate() + 1),
+          scheduleDays
         );
         if (next.getTime() > planStart.getTime()) {
           planStart = next;
@@ -690,7 +727,7 @@ export class CalendarAIAgent {
         lastInstant.getMonth(),
         lastInstant.getDate()
       );
-      const allWeekdays = this.listWeekdayKeysBetweenInclusive(planStart, planEnd);
+      const allWeekdays = this.listWeekdayKeysBetweenInclusive(planStart, planEnd, scheduleDays);
 
       for (const [, taskIds] of planGroups) {
         const latestPlanDue = latestDueAmong(taskIds);
@@ -707,7 +744,7 @@ export class CalendarAIAgent {
             latestPlanDue.getMonth(),
             latestPlanDue.getDate()
           );
-          groupWeekdays = this.listWeekdayKeysBetweenInclusive(planStart, dueDay);
+          groupWeekdays = this.listWeekdayKeysBetweenInclusive(planStart, dueDay, scheduleDays);
           if (groupWeekdays.length === 0) {
             groupWeekdays = [this.localDayKey(planStart)];
           }
@@ -822,7 +859,7 @@ export class CalendarAIAgent {
             lastInstant.getMonth(),
             lastInstant.getDate()
           );
-          weekdayCycle = this.listWeekdayKeysBetweenInclusive(planStart, planEnd);
+          weekdayCycle = this.listWeekdayKeysBetweenInclusive(planStart, planEnd, scheduleDays);
           if (weekdayCycle.length === 0) {
             weekdayCycle = [this.localDayKey(planStart)];
           }
