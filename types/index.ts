@@ -92,3 +92,14 @@ export interface WorkHoursConfig {
   segments: WorkSegment[];
 }
 
+/** Server-side Slack install, keyed by Google `sub` in `lib/slack-store.ts`. */
+export interface SlackConnection {
+  teamId: string;
+  teamName?: string;
+  accessToken: string; // user token, scoped to users.profile:write
+  slackUserId: string; // whose status we're allowed to set
+  statusSyncEnabled: boolean;
+  digestEnabled: boolean;
+  reminderMinutesBefore?: number; // undefined = reminders off
+}
+

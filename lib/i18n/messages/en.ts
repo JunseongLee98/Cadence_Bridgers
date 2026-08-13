@@ -195,6 +195,29 @@ export const en = {
     tutorial: 'Tutorial',
     tutorialHint: 'Run the first-time setup walkthrough again',
     replayTutorial: 'Replay tutorial',
+    slack: {
+      title: 'Slack',
+      connect: 'Connect Slack',
+      connectHelp:
+        'Push Cadence blocks to Slack: set your status during focus time, and optionally DM a weekly digest or reminders. Cadence never reads channel messages.',
+      connected: 'Connected to {team}',
+      connectedFallback: 'Slack connected',
+      disconnect: 'Disconnect',
+      needsGoogle:
+        'Connect Google Calendar first — Slack sync uses your Google account as the identity key.',
+      statusSync: 'Status sync',
+      statusSyncHint:
+        'Set your Slack status when a Cadence work block starts, and clear it when it ends.',
+      digest: 'Daily digest',
+      digestHint: 'DM a short list of what’s due this week (once a day, after 8am).',
+      reminders: 'Reminders',
+      remindersHint: 'DM before a scheduled block starts.',
+      remindersOff: 'Off',
+      oauthDenied: 'Slack sign-in was cancelled.',
+      oauthFailed: 'Slack sign-in failed. Try connecting again.',
+      connectedOk: 'Slack connected.',
+      saveFailed: 'Could not update Slack settings.',
+    },
   },
   feed: {
     googleAdd: 'Add to Google Calendar',

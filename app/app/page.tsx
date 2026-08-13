@@ -53,6 +53,7 @@ import {
 } from '@/lib/learning-client';
 import { htmlToReadableText } from '@/lib/html-readable';
 import ReadableDescription from '@/components/ReadableDescription';
+import SlackConnectPanel from '@/components/SlackConnectPanel';
 import { sortActiveTasks, sortCompletedTasks } from '@/lib/task-sort';
 
 function dedupeCalendarEventsById(events: CalendarEvent[]): CalendarEvent[] {
@@ -107,6 +108,8 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [stats, setStats] = useState<any[]>([]);
   const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleIdentitySub, setGoogleIdentitySub] = useState<string | null>(null);
+  const [slackNotice, setSlackNotice] = useState<string | null>(null);
   const [googleEvents, setGoogleEvents] = useState<CalendarEvent[]>([]);
   const [isLoadingGoogleEvents, setIsLoadingGoogleEvents] = useState(false);
   const [showGoogleCalendarsDialog, setShowGoogleCalendarsDialog] = useState(false);
@@ -293,11 +296,29 @@ export default function Home() {
         ...(googleEmail ? { email: googleEmail } : {}),
         ...(googleName ? { name: googleName } : {}),
       });
+      setGoogleIdentitySub(googleSub);
       if (googleName || googleEmail) {
         storage.updateUserProfile({
           username: googleName || googleEmail || 'Guest',
         });
       }
+      window.history.replaceState({}, '', window.location.pathname);
+    } else {
+      setGoogleIdentitySub(storage.getGoogleIdentity()?.sub ?? null);
+    }
+
+    const slackError = urlParams.get('slack_error');
+    const slackConnectedFlag = urlParams.get('slack');
+    if (slackError || slackConnectedFlag) {
+      if (slackConnectedFlag === 'connected') {
+        setSlackNotice(m.settings.slack.connectedOk);
+      } else if (slackError === 'access_denied') {
+        setSlackNotice(m.settings.slack.oauthDenied);
+      } else {
+        setSlackNotice(m.settings.slack.oauthFailed);
+      }
+      setSettingsTab('calendar');
+      setShowSettingsDialog(true);
       window.history.replaceState({}, '', window.location.pathname);
     }
 
@@ -556,6 +577,7 @@ export default function Home() {
   const handleDisconnectGoogle = () => {
     storage.clearGoogleTokens();
     setGoogleConnected(false);
+    setGoogleIdentitySub(null);
     setGoogleEvents([]);
     setGooglePushError(null);
     setGooglePushedCount(null);
@@ -1141,6 +1163,14 @@ export default function Home() {
     const url = buildCalendarFeedUrl(getCalendarFeedSubscriptionOrigin(), token);
     setCalendarFeedUrl(url);
     await runCalendarFeedSync(token, events, updated?.username, oldToken);
+    const identity = storage.getGoogleIdentity();
+    if (identity?.sub) {
+      void fetch('/api/slack/connection', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ googleSub: identity.sub, calendarFeedToken: token }),
+      }).catch(() => {});
+    }
   };
 
   const manualSyncCalendarFeed = async () => {
@@ -4076,6 +4106,12 @@ export default function Home() {
                       </div>
                     )}
                   </div>
+
+                  <SlackConnectPanel
+                    googleSub={googleIdentitySub}
+                    calendarFeedToken={userProfile?.calendarFeedToken ?? null}
+                    notice={slackNotice}
+                  />
 
                   <div className="rounded-lg border border-gray-200">
                     <button

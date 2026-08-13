@@ -190,6 +190,28 @@ export const ko = {
     tutorial: '튜토리얼',
     tutorialHint: '처음 설정 안내를 다시 실행합니다',
     replayTutorial: '튜토리얼 다시 보기',
+    slack: {
+      title: 'Slack',
+      connect: 'Slack 연결',
+      connectHelp:
+        'Cadence 작업 블록을 Slack에 보냅니다. 집중 시간에는 상태를 설정하고, 선택적으로 주간 요약이나 알림을 DM으로 받습니다. Cadence는 채널 메시지를 읽지 않습니다.',
+      connected: '{team}에 연결됨',
+      connectedFallback: 'Slack 연결됨',
+      disconnect: '연결 해제',
+      needsGoogle:
+        '먼저 Google 캘린더를 연결하세요. Slack 동기화는 Google 계정을 사용자 식별 키로 사용합니다.',
+      statusSync: '상태 동기화',
+      statusSyncHint: 'Cadence 작업 블록이 시작되면 Slack 상태를 설정하고, 끝나면 지웁니다.',
+      digest: '일일 요약',
+      digestHint: '이번 주 예정된 작업을 짧게 DM으로 보냅니다(하루에 한 번, 오전 8시 이후).',
+      reminders: '알림',
+      remindersHint: '예정된 블록이 시작되기 전에 DM을 보냅니다.',
+      remindersOff: '끄기',
+      oauthDenied: 'Slack 로그인이 취소되었습니다.',
+      oauthFailed: 'Slack 로그인에 실패했습니다. 다시 연결해 보세요.',
+      connectedOk: 'Slack이 연결되었습니다.',
+      saveFailed: 'Slack 설정을 업데이트하지 못했습니다.',
+    },
   },
   feed: {
     googleAdd: 'Google 캘린더에 추가',
