@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Task, CalendarEvent } from '@/types';
 import { CalendarAIAgent, leadDaysForWorkload } from '@/lib/ai-agent';
@@ -11,7 +11,11 @@ import {
 } from '@/lib/date-utils';
 import { formatMinutesToHoursMinutes } from '@/lib/time-utils';
 import Calendar from '@/components/Calendar';
-import { Sparkles, CheckCircle2, Loader2, CalendarDays, ListChecks } from 'lucide-react';
+import {
+  extractSyllabusFileText,
+  SYLLABUS_UPLOAD_ACCEPT,
+} from '@/lib/syllabus-upload-client';
+import { Sparkles, CheckCircle2, Loader2, CalendarDays, ListChecks, Upload } from 'lucide-react';
 
 const SAMPLE_SYLLABUS = `CS 201: Data Structures & Algorithms — Fall Term
 
@@ -61,8 +65,30 @@ export default function SyllabusDemoPage() {
   const [includeSaturday, setIncludeSaturday] = useState(false);
   const [includeSunday, setIncludeSunday] = useState(false);
   const [resultTab, setResultTab] = useState<'plan' | 'calendar'>('plan');
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [uploadedName, setUploadedName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isBusy = phase === 'parsing' || phase === 'planning' || phase === 'scheduling';
+  const isBusy =
+    phase === 'parsing' || phase === 'planning' || phase === 'scheduling' || isExtracting;
+
+  const handleFile = async (file: File | undefined | null) => {
+    if (!file || isBusy) return;
+    setErrorMessage(null);
+    setUploadedName(null);
+    setIsExtracting(true);
+    try {
+      const text = await extractSyllabusFileText(file);
+      setSyllabusText(text);
+      setUploadedName(file.name);
+      if (phase === 'error') setPhase('idle');
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : 'Failed to read the file.');
+    } finally {
+      setIsExtracting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const stats = useMemo(() => {
     if (scheduledEvents.length === 0) return null;
@@ -303,15 +329,48 @@ export default function SyllabusDemoPage() {
         </div>
 
         {phase !== 'done' && (
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div
+            className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              void handleFile(e.dataTransfer.files?.[0]);
+            }}
+          >
             <textarea
               value={syllabusText}
               onChange={(e) => setSyllabusText(e.target.value)}
-              placeholder="Paste your course syllabus text here..."
+              placeholder="Paste your course syllabus text here, or drop a PDF/DOCX file anywhere in this box..."
               rows={10}
               disabled={isBusy}
               className="w-full resize-none rounded-lg border border-gray-300 p-3 text-sm text-gray-800 focus:border-indigo-500 focus:outline-none disabled:bg-gray-100"
             />
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={SYLLABUS_UPLOAD_ACCEPT}
+                onChange={(e) => void handleFile(e.target.files?.[0])}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isBusy}
+                className="flex items-center gap-2 rounded-lg border border-dashed border-gray-400 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              >
+                {isExtracting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Upload className="h-3.5 w-3.5" />
+                )}
+                Upload file (PDF, DOCX, TXT)
+              </button>
+              {uploadedName && !isExtracting && (
+                <span className="text-xs text-green-700">
+                  Loaded from {uploadedName} — review and edit before generating.
+                </span>
+              )}
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <button
                 onClick={runDemo}
@@ -446,6 +505,7 @@ export default function SyllabusDemoPage() {
                     setProgress([]);
                     setScheduledEvents([]);
                     setAssignmentPlans([]);
+                    setUploadedName(null);
                   }}
                   className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
                 >

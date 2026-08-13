@@ -1,10 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Task } from '@/types';
 import { useI18n } from '@/lib/i18n/context';
 import { formatLocalDateForDisplay, parseLocalDateInput } from '@/lib/date-utils';
-import { CheckCircle2, GraduationCap, Loader2, X } from 'lucide-react';
+import {
+  extractSyllabusFileText,
+  SYLLABUS_UPLOAD_ACCEPT,
+} from '@/lib/syllabus-upload-client';
+import { CheckCircle2, GraduationCap, Loader2, Upload, X } from 'lucide-react';
 
 /** One syllabus assignment broken into plan-step tasks, ready to schedule. */
 export interface SyllabusAssignmentPlan {
@@ -52,8 +56,11 @@ export default function SyllabusImportDialog({
   const [phase, setPhase] = useState<Phase>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [progress, setProgress] = useState<AssignmentProgress[]>([]);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [uploadedName, setUploadedName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isBusy = phase === 'parsing' || phase === 'planning';
+  const isBusy = phase === 'parsing' || phase === 'planning' || isExtracting;
 
   if (!open) return null;
 
@@ -67,7 +74,26 @@ export default function SyllabusImportDialog({
     if (isBusy) return;
     reset();
     setSyllabusText('');
+    setUploadedName(null);
     onClose();
+  };
+
+  const handleFile = async (file: File | undefined | null) => {
+    if (!file || isBusy) return;
+    setErrorMessage(null);
+    setUploadedName(null);
+    setIsExtracting(true);
+    try {
+      const text = await extractSyllabusFileText(file);
+      setSyllabusText(text);
+      setUploadedName(file.name);
+      if (phase === 'error') setPhase('idle');
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : 'Failed to read the file.');
+    } finally {
+      setIsExtracting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const runImport = async () => {
@@ -168,14 +194,48 @@ export default function SyllabusImportDialog({
 
         <div className="p-5">
           {phase !== 'planning' && (
-            <textarea
-              value={syllabusText}
-              onChange={(e) => setSyllabusText(e.target.value)}
-              placeholder={m.syllabus.placeholder}
-              rows={9}
-              disabled={isBusy}
-              className="w-full resize-none rounded-lg border border-gray-300 p-3 text-sm text-gray-800 focus:border-primary-light focus:outline-none disabled:bg-gray-100 dark:border-white/15 dark:bg-white/5 dark:text-white"
-            />
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                void handleFile(e.dataTransfer.files?.[0]);
+              }}
+            >
+              <textarea
+                value={syllabusText}
+                onChange={(e) => setSyllabusText(e.target.value)}
+                placeholder={m.syllabus.placeholder}
+                rows={9}
+                disabled={isBusy}
+                className="w-full resize-none rounded-lg border border-gray-300 p-3 text-sm text-gray-800 focus:border-primary-light focus:outline-none disabled:bg-gray-100 dark:border-white/15 dark:bg-white/5 dark:text-white"
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={SYLLABUS_UPLOAD_ACCEPT}
+                  onChange={(e) => void handleFile(e.target.files?.[0])}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isBusy}
+                  className="flex items-center gap-2 rounded-lg border border-dashed border-gray-400 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-white/25 dark:text-white/70 dark:hover:bg-white/5"
+                >
+                  {isExtracting ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="h-3.5 w-3.5" />
+                  )}
+                  {m.syllabus.upload}
+                </button>
+                {uploadedName && !isExtracting && (
+                  <span className="text-xs text-green-700 dark:text-green-400">
+                    {t('syllabus.extractedFrom', { name: uploadedName })}
+                  </span>
+                )}
+              </div>
+            </div>
           )}
 
           {progress.length > 0 && (

@@ -41,7 +41,10 @@ export const ko = {
     title: '강의계획서 → 학습 계획',
     subtitle:
       '강의계획서를 붙여넣으세요. Cadence가 모든 과제를 찾아 단계별로 나누고, 실제 마감일 가까이에 학습 세션을 제안합니다.',
-    placeholder: '강의계획서 내용을 여기에 붙여넣으세요...',
+    placeholder: '강의계획서 내용을 붙여넣거나 아래에 파일을 끌어다 놓으세요...',
+    upload: '파일 업로드 (PDF, DOCX, TXT)',
+    extractingFile: '{name} 읽는 중…',
+    extractedFrom: '{name}에서 불러왔습니다 — 생성 전에 내용을 확인·수정하세요.',
     generate: '학습 계획 만들기',
     parsing: '강의계획서 읽는 중…',
     planning: '단계 계획 중…',

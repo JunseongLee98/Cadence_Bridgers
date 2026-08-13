@@ -41,7 +41,10 @@ export const en = {
     title: 'Syllabus → Study Plan',
     subtitle:
       'Paste a course syllabus. Cadence finds every assignment, breaks each into steps, and suggests study sessions near each real due date.',
-    placeholder: 'Paste your course syllabus text here...',
+    placeholder: 'Paste your course syllabus text here, or drop a file below...',
+    upload: 'Upload file (PDF, DOCX, TXT)',
+    extractingFile: 'Reading {name}…',
+    extractedFrom: 'Loaded from {name} — review and edit before generating.',
     generate: 'Build my study plan',
     parsing: 'Reading syllabus…',
     planning: 'Planning steps…',
