@@ -40,9 +40,6 @@ export default function CadenceHomePage() {
         </header>
 
         <section className="rounded-2xl border border-white/10 bg-[#494262] p-6 shadow-xl sm:p-8">
-          <p className="mb-3 text-sm font-medium uppercase tracking-wide text-white/60">
-            Capstone Bridgers
-          </p>
           <h1 className="mb-2 text-3xl font-bold tracking-tight sm:text-4xl">Cadence</h1>
           <p className="mb-4 text-xl font-semibold text-white/95">
             AI calendar for students
