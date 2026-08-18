@@ -13,7 +13,7 @@ export default function TermsPage() {
       <p>
         These Terms of Service (&quot;Terms&quot;) govern your use of Cadence at{' '}
         <a href="https://www.bridgerscadence.com">www.bridgerscadence.com</a> (the
-        &quot;Service&quot;), a Capstone Bridgers project. By using Cadence, you agree to these
+        &quot;Service&quot;). By using Cadence, you agree to these
         Terms.
       </p>
 
@@ -82,7 +82,7 @@ export default function TermsPage() {
 
       <h2>8. Limitation of liability</h2>
       <p>
-        To the maximum extent permitted by law, the Capstone Bridgers / Cadence maintainers are not
+        To the maximum extent permitted by law, the Cadence maintainers are not
         liable for indirect, incidental, special, consequential, or punitive damages, or for lost
         data, lost profits, or damages arising from your use of (or inability to use) the Service.
       </p>
@@ -96,7 +96,7 @@ export default function TermsPage() {
 
       <h2>10. Contact</h2>
       <p>
-        Questions about these Terms can be directed to the Capstone Bridgers / Cadence maintainers
+        Questions about these Terms can be directed to the Cadence maintainers
         associated with{' '}
         <a href="https://www.bridgerscadence.com">www.bridgerscadence.com</a>, or via the developer
         contact email on the Google Cloud OAuth consent screen for this app.
