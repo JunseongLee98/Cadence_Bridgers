@@ -12,7 +12,7 @@ export default function PrivacyPage() {
     <LegalPageShell title="Privacy Policy">
       <p>
         Cadence (&quot;we&quot;, &quot;our&quot;, or &quot;the app&quot;) is a calendar and task
-        planning web application operated for the Capstone Bridgers project at{' '}
+        planning web application operated at{' '}
         <a href="https://www.bridgerscadence.com">www.bridgerscadence.com</a>. This Privacy Policy
         explains what information we process when you use Cadence, including when you connect a
         Google account.
@@ -150,7 +150,7 @@ export default function PrivacyPage() {
       <h2>9. Contact</h2>
       <p>
         Questions about this Privacy Policy or Cadence&apos;s handling of data can be sent through
-        the Capstone Bridgers / Cadence project maintainers listed with the live site at{' '}
+        the Cadence project maintainers listed with the live site at{' '}
         <a href="https://www.bridgerscadence.com">www.bridgerscadence.com</a>, or via the contact
         email configured on the Google Cloud OAuth consent screen for this app.
       </p>

@@ -138,7 +138,7 @@ export default function CadenceHomePage() {
             <section>
               <h2 className="mb-2 text-xl font-semibold text-white">About</h2>
               <p>
-                Cadence is developed for the Capstone Bridgers project at{' '}
+                Cadence is developed at{' '}
                 <a
                   href="https://www.bridgerscadence.com"
                   className="underline underline-offset-2"
